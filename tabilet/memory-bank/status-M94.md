@@ -1,6 +1,6 @@
 # Status M94 — Catalog discovery and digest-bound source provisioning
 
-**State:** M94.1 complete; M94.2/M94.3 pending. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
+**State:** M94.1 complete; M94.2 selected; M94.3 pending. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
 
 **Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
 
@@ -20,8 +20,8 @@ step discover consumes explicit catalog-root/index configuration and returns API
 | Item | State | Notes |
 | --- | --- | --- |
 | M94.1 — Adopt APItools and expose discovery | `[+]` | Pin the accepted M80 release including M81; require explicit root/index; preserve all five outcomes and producer conformance fixtures. |
-| M94.2 — Provision selected catalog artifacts | `[ ]` | Round-trip stable references through artifact-scoped export, verify digests/native selectors and preserve source confirmation/security-overlay provenance. |
-| M94.3 — Qualify outcomes and provisioning, review and publish | `[ ]` | Test scoped outcomes, index failures, root relocation and provisioning; publish fixtures and exact accepted revision for Kinet W10. |
+| M94.2 — Provision selected catalog artifacts | `[+]` | Native selected export, strict confirmed request, independent selector checks and shared atomic source/manifest/provenance publication; focused race, vet and full offline make fast passed. |
+| M94.3 — Qualify outcomes and provisioning, review and publish | `[~]` | Test scoped outcomes, index failures, root relocation and provisioning; publish fixtures and exact accepted revision for Kinet W10. |
 
 ## Acceptance and verification
 
@@ -227,3 +227,40 @@ passed. Updated product/architecture/stack and operator documentation; old
 current-pin wording preserved in the append-only knowledge journal.
 M94.2 still owns selected artifact export/provisioning and provenance, and
 M94.3 owns final qualification/review/publication. Review remains0/10.
+
+## M94.2 execution selected — 2026-10-01
+
+M94.1 committed at `3e22dd8c6609044dfeb9e3deb6e5ef7a172430be`; full offline
+make fast and focused/native report parity checks passed. Provision selected
+CatalogArtifactReference values through native ExportCatalogArtifacts into
+a disposable private staging directory, validate exact native selectors, then
+reuse the existing source-add atomic transaction for API files, manifest and
+catalog/selected-overlay provenance. Preserve legacy source-add v1 unchanged.
+Catalog/registration/raw-byte drift, wrong selector, confirmation refusal or
+package manifest/collision conflicts must publish no partial package files.
+
+## M94.2 delivered — 2026-10-01
+
+Added the closed additive catalog-source request and embedded schema; all native
+reference fields, explicit confirmation and exact optimistic manifest revision
+are required. APItools exports only selected raw artifacts and applicable
+provider/spec advisory overlays into private disposable staging. OpenUdon
+independently verifies native operation selector/raw identity and final
+package/catalog separation, then reuses the existing single atomic writer for
+raw sources, manifest and all provenance/overlay files. Every selected provider
+link is retained. No ranking, parser, execution or second writer was copied.
+Legacy local source-add requests/results and source-manifest semantics remain.
+Likely credential values are refused rather than silently changing raw bytes.
+
+Real native discovery/export/legacy-candidate round trip passed with unchanged
+raw/catalog/index/registry bytes and scoped/digest-bound overlays. Exact schema
+tests reject casing aliases, nulls, duplicates and request-controlled roots.
+No-write checks passed for confirmation refusal, catalog/raw drift, wrong
+selector, stale manifest, source/provenance collision, root overlap and
+cancellation; staging is cleaned on return. A synthetic credential-like
+advisory is refused without package writes or value disclosure. Focused race
+passed on the final candidate: /tmp/openudon-m94-2-final-race.log. Full offline
+make fast passed: /tmp/openudon-m94-2-fast.log; focused vet, gofmt and diff
+checks passed. Public documentation describes approval, bounds, advisories,
+indeterminate-write inspection and no automatic replay. M94.3 is now the sole
+general in-progress row; closing review still0/10 and not started.

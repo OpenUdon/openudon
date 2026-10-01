@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/OpenUdon/apitools/catalog"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/stepauthoring"
 )
@@ -49,6 +50,18 @@ func runStepSourceCommand(args []string, stdin io.Reader, stdout, stderr io.Writ
 	fs.SetOutput(stderr)
 	example := fs.String("example", "", "Workflow package directory")
 	requestPath := fs.String("request", "", "Versioned JSON request file, or - for stdin")
+	catalogSelection := fs.Bool("catalog", false, "Provision exact confirmed catalog references using the additive catalog source contract")
+	catalogRoot := fs.String("catalog-root", "", "Explicit prepared catalog root")
+	catalogRegistry := fs.String("catalog-registry", "", "Registration path relative to catalog root")
+	catalogIndex := fs.String("catalog-index", "", "Operation index path relative to catalog root")
+	catalogMetadata := fs.String("catalog-metadata", "", "Explicit installation catalog metadata file")
+	fail := func(code, message string) int {
+		outcome := failedStepSourceAdd(code, message)
+		if *catalogSelection {
+			outcome.Result.Version = stepauthoring.CatalogSourceWireVersion
+		}
+		return writeStepSourceAddResult(stdout, outcome)
+	}
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: openudon step source add --example DIR --request FILE|-")
 		fs.PrintDefaults()
@@ -57,14 +70,27 @@ func runStepSourceCommand(args []string, stdin io.Reader, stdout, stderr io.Writ
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "The step-source-add command arguments are invalid."))
+		return fail("request.invalid", "The step-source-add command arguments are invalid.")
 	}
 	if fs.NArg() != 0 || *example == "" || *requestPath == "" {
-		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "The step-source-add command requires a package and request."))
+		return fail("request.invalid", "The step-source-add command requires a package and request.")
 	}
 	data, err := readStepCheckRequest(*requestPath, stdin)
 	if err != nil || !stepauthoring.ValidUTF8Request(data) || !json.Valid(data) {
-		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid_json", "The step-source-add request must be bounded UTF-8 JSON."))
+		return fail("request.invalid_json", "The step-source-add request must be bounded UTF-8 JSON.")
+	}
+	if *catalogSelection {
+		request, err := stepauthoring.DecodeCatalogSourceRequest(data)
+		if err != nil {
+			return fail("request.invalid", "The catalog-source request does not match its strict contract.")
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		installation := stepauthoring.CatalogInstallation{Root: catalog.RootOptions{Directory: *catalogRoot, RegistryPath: *catalogRegistry, IndexPath: *catalogIndex}, MetadataPath: *catalogMetadata}
+		return writeStepSourceAddResult(stdout, stepauthoring.AddCatalogSources(ctx, *example, installation, request))
+	}
+	if *catalogRoot != "" || *catalogRegistry != "" || *catalogIndex != "" || *catalogMetadata != "" {
+		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "Catalog configuration requires explicit catalog source mode."))
 	}
 	var request stepauthoring.SourceAddRequest
 	if err := evidencefile.DecodeStrict(data, &request); err != nil {
@@ -304,7 +330,7 @@ func writeStepSourceAddResult(stdout io.Writer, outcome stepauthoring.SourceAddO
 	encoded, err := json.Marshal(outcome.Result)
 	if err != nil || len(encoded) > stepauthoring.MaxResultBytes {
 		fallback, _ := json.Marshal(stepauthoring.SourceAddWireResult{
-			Version: stepauthoring.WireVersion, Kind: "result", Command: stepauthoring.SourceAddCommand,
+			Version: outcome.Result.Version, Kind: "result", Command: stepauthoring.SourceAddCommand,
 			Status: "failed", Diagnostics: []stepauthoring.Diagnostic{{Code: "result.encoding_failed", Severity: "error", Message: "The step-source-add result could not be encoded within its output bound."}},
 		})
 		_, _ = io.Copy(stdout, bytes.NewReader(append(fallback, '\n')))

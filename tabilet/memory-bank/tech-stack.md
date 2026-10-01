@@ -1226,3 +1226,15 @@ bounded JSON report. Explicit operator indexing remains `apitools catalog
 index`, not an implicit discovery side effect. See docs/catalog-discovery.md
 for outcomes, bounds, exit codes and dual remote opt-in. No new module was
 added; APItools sqlitecache remains the source owner's read-only adapter.
+
+Catalog provisioning uses `step source add --catalog --example DIR --request
+FILE|-` with the same explicit catalog configuration. Its additive closed
+request schema is `docs/schemas/openudon.step-source-catalog.v1.schema.json`,
+embedded/validated with the existing JSON-schema dependency and disabled remote
+schema loading. APItools ExportCatalogArtifacts, BuildOperationCandidates and
+the existing OpenUdon source writer own materialization, selector checks and
+atomic publication respectively. Bounds remain 256KiB request/result, 8MiB
+source and 32MiB combined selected source/overlay bytes; additional provenance
+is at most1MiB, overlays at most64 ×2MiB. Source/manifest paths and legacy
+source-add v1 do not change. See docs/catalog-discovery.md for the separate
+confirmation, conflict, indeterminate-write and no-automatic-replay contract.

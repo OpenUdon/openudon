@@ -74,6 +74,7 @@ type SourceAddData struct {
 	Sources        []SourceAddResultEntry `json:"sources"`
 	ManifestPath   string                 `json:"manifest_path"`
 	ManifestSHA256 string                 `json:"manifest_sha256"`
+	ProvenancePath string                 `json:"provenance_path,omitempty"`
 }
 
 type SourceAddWireResult struct {
@@ -101,6 +102,12 @@ type preparedSource struct {
 // then atomically installs those documents and a package-relative provenance
 // manifest. It never fetches URLs or writes outside the selected package.
 func AddSources(ctx context.Context, exampleDir string, request SourceAddRequest) SourceAddOutcome {
+	return addSources(ctx, exampleDir, request, nil)
+}
+
+// Both local and catalog source provisioning use this one atomic writer.
+// Additional files are prepared only by the reviewed catalog adapter.
+func addSources(ctx context.Context, exampleDir string, request SourceAddRequest, additional []artifactwriter.GeneratedFile) SourceAddOutcome {
 	if err := validateSourceAddRequest(request); err != nil {
 		return sourceAddFailure("failed", "request.invalid", "The step-source-add request is invalid.", 2)
 	}
@@ -240,7 +247,8 @@ func AddSources(ctx context.Context, exampleDir string, request SourceAddRequest
 		manifestFile.ExpectedCurrentSHA256 = request.ManifestRevision.SHA256
 	}
 	files = append(files, manifestFile)
-	if _, err := artifactwriter.CommitChecked(artifactwriter.Prepared{ExampleRoot: root, Files: files}, false, nil); err != nil {
+	files = append(files, additional...)
+	if _, err := artifactwriter.CommitChecked(artifactwriter.Prepared{ExampleRoot: root, Files: files}, false, ctx.Err); err != nil {
 		var transactionErr *artifactwriter.TransactionError
 		if errors.As(err, &transactionErr) {
 			paths := make([]string, 0, len(files))

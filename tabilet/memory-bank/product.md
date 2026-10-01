@@ -465,3 +465,10 @@ indexes or scope never prove a service lacks an API. Evidence grants no
 source/package/browser/execution approval; user confirmation and consumer
 routing remain separate. Optional remote lookup requires both explicit
 installation capability and request opt-in.
+
+Confirmed catalog selections can be provisioned with the additive catalog
+source request. Native references, raw bytes and applicable advisory overlay
+provenance are preserved together with the package's source manifest through
+the existing atomic writer. Discovery never supplies that confirmation;
+catalog identity/selector drift or unsafe/private bytes are refused. Catalog
+security advice does not change runtime authorization or workflow behavior.

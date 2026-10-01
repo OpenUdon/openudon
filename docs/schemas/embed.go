@@ -11,3 +11,8 @@ var SimulationInputResources embed.FS
 //
 //go:embed openudon.browser-capture.v1.schema.json openudon.browser-capture-start.v1.schema.json
 var BrowserCaptureResources embed.FS
+
+// CatalogSourceResources is the exact additive confirmed-source request schema.
+//
+//go:embed openudon.step-source-catalog.v1.schema.json
+var CatalogSourceResources embed.FS

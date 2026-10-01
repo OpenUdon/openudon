@@ -1484,3 +1484,15 @@ All five outcomes/coverage/reference/license facts remain unchanged. Only
 scoped no-qualifying-api can support automatic browser fallback; the adapter
 never performs routing, confirmation or execution. Optional remote retrieval
 requires both installation and request opt-in under native bounds.
+
+`step source add --catalog` consumes the closed additive
+`openudon.step-source-catalog.v1` request. Native APItools artifact-scoped export
+prepares only confirmed references in disposable private staging. OpenUdon
+independently checks selectors against the exact exported raw source and
+disjoint final package/catalog roots, preserves every selected provider link
+and applicable advisory overlays, then shares `step source add`'s one atomic
+writer for raw sources, optimistic manifest and digest-bound
+`openudon.catalog-source-provenance.v1`. No separate writer/ranking/parser or
+implicit registration/index mutation was added. Likely concrete credentials
+are refused without rewriting the raw bytes. Catalog mode results add only a
+provenance path to the source-add result shape; local v1 remains unchanged.

@@ -85,3 +85,68 @@ those sources and compare complete CLI reports with the native APItools call,
 covering all five outcomes, provider constraints, relocation, missing indexes,
 unknown licenses and refusal without widening remote authority. Default checks
 need no model, credential, browser or external service.
+
+## Confirmed source provisioning
+
+After presenting the exact operation and source proposal to the user, a caller
+may submit its confirmed selection to the existing source command:
+
+```sh
+openudon step source add --catalog --example /workflow/package \
+  --catalog-root /prepared/catalog --catalog-registry cache.sqlite \
+  --catalog-index operations.v1.json --request /private/source-selection.json
+```
+
+This additive request uses `openudon.step-source-catalog.v1`; its closed request
+schema is [published here](schemas/openudon.step-source-catalog.v1.schema.json).
+The envelope contains `kind: "request"`, `command: "step.source.add"`,
+`confirmed: true`, the exact current `manifest_revision`, and `sources`.
+Each source has a package-local `source_id` and the **unchanged native
+`CatalogArtifactReference` values** from the selected operation's `references`.
+References bind catalog SHA, provider/spec/artifact IDs, source kind, raw SHA,
+byte count and native selector. Preserve every selected provider link. One
+source's references must identify the same exact raw artifact and operation.
+Catalog/request hashes are lowercase untagged SHA-256; package manifest
+revisions retain the existing `sha256:` prefix. A missing manifest is
+`{"state":"missing"}`; an existing manifest requires its exact current SHA.
+Installation paths and remote capability are not request fields.
+
+Discovery scores and a `match` do not constitute confirmation. The caller owns
+the exact user decision represented by `confirmed`; this command is an
+artifact provisioning boundary, not an authentication or authorization service.
+Ephemeral remote candidates without registered exportable native references
+require separate explicit acquisition/registration before this command.
+
+OpenUdon asks APItools to export only selected artifacts into disposable private
+staging, checks their raw identity and native selector, then reuses its one
+atomic source writer. Raw API bytes, the optimistic-revision-bound
+`expected/api-source-manifest.json`, selected advisory overlay bytes and
+`expected/catalog-sources/<request-sha>/provenance.json` commit together.
+The request SHA binds canonical typed JSON, rather than whitespace in the input
+file. APItools validates catalog/registration/artifact identity and applies
+provider and selected-spec overlay scope. OpenUdon checks the final package and
+catalog roots are disjoint. Likely concrete credentials in selected bytes or
+provenance are refused; bytes are never silently redacted and relabeled.
+
+Provenance uses `openudon.catalog-source-provenance.v1`, records the canonical
+request SHA and catalog SHA, all selected native references with package paths,
+registered kinds and sanitized source URLs, and applicable native security
+overlay metadata with package-relative paths and digests. Overlays remain
+advisory evidence: they do not alter specifications, credential bindings,
+runtime behavior, approval gates or license permissions. The source manifest
+and package digest continue to use their established contracts.
+
+Catalog mode returns a `openudon.step-source-catalog.v1` result with the existing
+source-add status/diagnostic/result fields and an optional
+`result.provenance_path`. Local source-add requests and their v1 output remain
+unchanged. Completed exits 0, invalid input 2, stale manifest/source collisions
+3, unsafe/unavailable/changed catalog identity or cancellation 4, and writer or
+output failure 1. Rejection or validation/conflict failures publish no package
+files. A writer's `write_outcome: "indeterminate"`, process interruption or lost
+result requires inspection of package paths; never automatically replay it.
+
+Bounds are 256 KiB requests/results, 1 MiB provenance, sixteen sources, sixty-four references in
+total, 8 MiB per source, sixty-four advisory overlays of at most 2 MiB each,
+and 32 MiB combined selected raw sources and overlays. Staging is private and
+removed on normal return. This operation performs no network request, browser
+action, workflow run or implicit catalog index update.
