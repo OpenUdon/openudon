@@ -1183,3 +1183,30 @@ Tests cover verification refusal, preview definitions, symbolic canonical
 profile validation, exact current generations, retained outcomes, private
 cleanup ordering and value-free bounded wire. Public CLI/worker embedding,
 independent package import and fresh native/visible qualification remain M93.4/5.
+
+
+## M93.4 command, reviewed start and profile admission
+
+`openudon browser-capture --start FILE --approve-start-sha256 SHA --example DIR
+--private-root DIR [--driver-dir DIR]` uses the exact embedded
+`openudon.browser-capture-start.v1` schema (closed union, same 256 KiB limit).
+Start examples and command/import details live in docs/browser-capture-protocol.md.
+The main CLI's hidden worker reuses browserauthoring.RunWorker; no dependency
+or browser engine was added. Credentials/model settings have no start fields.
+Native configuration validates disjoint prospective package/private roots,
+exact goal/role/context/origin policy and declared finite timeouts.
+
+Import approval uses the existing event/command schema, after joined completion.
+Native candidate conversion/virtual discovery and the shared authoring workspace
+fingerprint stay owner implementations. The retained atomic artifact writer
+commits profiles/reviews plus expected/browser-capture/<transaction-id>.json;
+receipt metadata binds the reviewed start/transaction and exact file digests.
+It grants no package promotion/executor authority. New profile/receipt targets
+are create-only; the retained auth review append uses its exact prior digest.
+Native expiry/drift are rechecked immediately before replace. Uncertain writes
+or terminal delivery never authorize retries. M93.5 qualification remains open.
+
+The confirmed initial noVNC session expired cleanly at 07:58:47 UTC on
+2026-10-01, with owned processes gone and private auth removed. Human desktop
+confirmation is recorded independently. Restore a bounded display only for the
+currently selected, authorized later-reuse row, never by replaying closed M93.0.

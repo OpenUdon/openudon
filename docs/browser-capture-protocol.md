@@ -1,9 +1,11 @@
 # Supervising-product browser capture protocol
 
 M93.1 implements the `openudon.browser-capture.v1` event/decision foundation;
-M93.2 adds the internal authenticated/TOTP transport and M93.3 the registration
-transport over the existing browser controllers. The public command, profile
-import and complete browser qualification remain subsequent M93 work.
+M93.2 adds the authenticated/TOTP transport and M93.3 the registration
+transport over the existing browser controllers. M93.4 adds the public command,
+shared embedded worker and independently reviewed atomic profile import. Fresh
+browser qualification, visible journey evidence, review and publication remain
+M93.5 work.
 
 The public [schema](schemas/openudon.browser-capture.v1.schema.json) is also the
 exact embedded resource used by the decoder. [Wire examples](examples/browser-capture/v1/)
@@ -78,8 +80,7 @@ not treat consent as permission for later observations or external actions.
 `go test ./internal/browsercapture` verifies the exact public schema, duplicate
 and unknown fields, mode isolation, changed-state invalidation, forged IDs,
 wrong digests, refusal, single-use approval, expiry, cancellation and bounded
-records. Native controller/capture fixtures and package transactions are later
-M93 checks. Existing iCoT UI/control/terminal paths remain available during 5A.
+records. Native browser qualification and visible journey checks remain M93.5 work. Existing iCoT UI/control/terminal paths remain available during 5A.
 The authenticated adapter owns closeable input/output pipes or local sockets.
 EOF, cancellation and absolute expiry close transport ends to unblock readers
 and writers; the adapter drains controller events until worker teardown joins.
@@ -125,3 +126,83 @@ late teardown failures. Existing controller tests exercise its real subprocess
 protocol separately. These tests do not replace fresh browser qualification.
 Acceptance/published consumer adoption requires all M93 tasks, both visible
 journeys, the persisted milestone review and exact upstream reconciliation.
+
+## Public command and reviewed start
+
+```sh
+openudon browser-capture --start /private/capture-start.json \
+  --approve-start-sha256 EXACT_FILE_SHA256 \
+  --example /workspace/workflow --private-root /private/capture \
+  --driver-dir /installed/playwright-driver
+```
+
+The [start schema](schemas/openudon.browser-capture-start.v1.schema.json) is the
+exact embedded closed decoder resource. [Start examples](examples/browser-capture/start-v1/)
+are synthetic structural requests, not runtime evidence. Review the entire local
+start file and pass its untagged lowercase SHA-256 before launching the worker.
+The CLI rejects a changed digest, unknown flags/fields, credential/model fields,
+unsafe URLs and overlapping package/private roots before browser startup.
+`--driver-dir` is optional when the native driver cache is configured. The
+existing restrictive private root must be outside the package. Native goal,
+origin, role/context, dashboard, bounds and private-root policy are shared with
+the retained controllers; no new browser engine or arbitrary worker flags exist.
+
+Authenticated start fixes goal URL independently of dashboard URL and preserves
+the reviewed continuation choice. `continue_current_page` rejects the dashboard
+shortcut (`kind: authenticated`); continue with an explicitly approved observe
+command. The other choices permit a separately reviewed dashboard shortcut;
+`ask_after_authentication` requires the supervisor to present that choice. No
+command is silently rewritten after its approval card. Authentication remains
+human-guided and invokes no model. Diagnostic and blocked-script settings are
+closed authenticated options; registration has no such flags.
+
+The main CLI embeds the existing `__browsertools-worker` dispatcher. The native
+parent stabilizes/re-executes its own binary and uses the same sandbox, process
+containment, filtered environment, private input, deadlines and teardown as the
+retained iCoT transport. Signal interruption, EOF and expiry cancel/join the
+controller and close both protocol pipes. iCoT is retained on that implementation
+until M95; old `.icot` packages and frozen fixtures remain intact.
+
+## Separate reviewed import
+
+A successful public-command capture does **not** emit terminal `captured` and
+exit. After the native process/reader/private cleanup joins, it independently
+reconstructs the attested authenticated candidate or uses the reconstructed
+native registration candidate. The native virtual-source validator checks
+canonical source/review digests, provenance, origins, symbolic bindings and
+expiry. Preparing an import writes nothing.
+
+The next event is `type: state`, `view.state: import_review`, with only profile
+ID, exact reviewed native transaction digest and conservative `effect: write`.
+The profile ID is the native transaction ID (registration's separately reviewed
+transaction ID determines its package target). This metadata contains no private
+result locator, raw envelope, attestation or credential value. Propose exactly:
+
+- authenticated: `authentication: {kind: confirm, confirmed: true}`;
+- registration: `registration: {type: finish, confirmed: true}`.
+
+Approve the newly issued card through the ordinary binding/action/digest decision.
+Native browser completion approval cannot serve as import approval. Refusal
+renews import review without writing; cancellation, EOF, invalid/stale input or
+expiry end it without writes. No native worker command is dispatched after join.
+Every approval remains bound to the immutable result and current session event.
+
+On exact approval, the existing atomic authoring writer commits profiles and
+`expected/browser-capture/<transaction-id>.json` together. Authentication uses
+its retained native authentication/capability targets and safe review collection;
+registration uses the native materialization target and its reconstructed review.
+The receipt binds the reviewed start digest, native reviewed transaction, effect,
+and exact relative paths/content digests. Profile/receipt targets are create-only;
+the existing authentication review collection retains its exact prior-digest
+append rule. The shared workspace fingerprint rejects changed brief, intent,
+session or review files, and native expiry is rechecked immediately before
+replacement. Atomic rollback and indeterminate outcomes stay owned by the writer.
+An import error or lost terminal output grants no automatic retry: inspect the
+package/receipt first.
+
+Only a completed commit emits terminal `result`, `view.state: imported` and the
+same three result metadata fields. Login/submission-capable captures are
+conservatively classified as `write`. This local authoring approval is separate
+from later full-package preparation, promotion, trusted run approval and execution;
+it grants none of those permissions. Ordinary jobs/audit persist only their own
+explicit metadata projection, not complete frames or source bytes.

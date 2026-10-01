@@ -35,6 +35,28 @@ type workspaceObservation struct {
 	entries map[string]pathFingerprint
 }
 
+// ObserveWorkspace gives other native authoring transports the same optimistic
+// workspace guard without opening an elicitation session or changing a package.
+// It watches the established brief/intent/review/session paths. Atomic create
+// and expected-digest checks remain the artifact writer's responsibility.
+func ObserveWorkspace(ctx context.Context, root string) (func(context.Context) error, error) {
+	paths := watchedPaths(root, Snapshot{})
+	baseline, err := captureWorkspace(ctx, root, paths)
+	if err != nil {
+		return nil, err
+	}
+	return func(ctx context.Context) error {
+		current, err := captureWorkspace(ctx, root, paths)
+		if err != nil {
+			return err
+		}
+		if current.digest != baseline.digest {
+			return errors.New("authoring workspace changed; restart required")
+		}
+		return nil
+	}, nil
+}
+
 func (e *Engine) WorkspaceStatus(ctx context.Context) (WorkspaceStatus, error) {
 	if e == nil {
 		return WorkspaceStatus{}, operational(errors.New("engine is nil"))

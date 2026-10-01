@@ -77,7 +77,7 @@ type authHarness struct {
 	cancel context.CancelFunc
 }
 
-func newAuthHarness(t *testing.T, absolute time.Duration, lateTeardown bool) *authHarness {
+func newAuthHarness(t *testing.T, absolute time.Duration, lateTeardown bool, options ...authenticationOptions) *authHarness {
 	t.Helper()
 	root := t.TempDir()
 	if err := os.Chmod(root, 0700); err != nil {
@@ -96,11 +96,22 @@ func newAuthHarness(t *testing.T, absolute time.Duration, lateTeardown bool) *au
 			}
 			go worker.run()
 			return worker, nil
-		})
+		}, options...)
 		h.result <- authRunResult{completion, err}
 	}()
 	t.Cleanup(func() { cancel(); _ = client.Close(); _ = output.Close() })
 	return h
+}
+
+func TestContinueCurrentPageRejectsDashboardShortcut(t *testing.T) {
+	h := newAuthHarness(t, 3*time.Second, false, authenticationOptions{continuation: "continue_current_page"})
+	h.update(captureObservation())
+	current := h.read(t)
+	h.send(t, Proposal{Binding: current.Binding, Type: "propose", Command: Command{Authentication: &browserauthor.Response{Kind: "authenticated"}}})
+	if result := h.done(t); result.err == nil {
+		t.Fatal("dashboard shortcut ignored reviewed continuation")
+	}
+	h.noDispatch(t)
 }
 func (h *authHarness) update(event browserauthor.Event) {
 	h.worker.commands <- authInstruction{event: &event}

@@ -1438,7 +1438,7 @@ expiry or output failure. Late teardown failure overrides a nominal cancel.
 A joined capture emits terminal state `captured` with no profile metadata;
 its private result/attestation has no JSON representation and remains input
 to M93.4's independent review/package lifecycle. M93.3 adds registration;
-M93.4 command/worker embedding/import is pending, with M93.5 owning fresh
+M93.4 adds command/worker embedding/import, with M93.5 owning fresh
 browser and human-visible acceptance of both journeys.
 
 The registration adapter consumes an already reviewed fixed initial authority
@@ -1457,3 +1457,17 @@ private cleanup before closing its event stream. A native subprocess check
 holds private cleanup and proves the stream cannot close early. Private
 candidates stay in-process with no wire representation until independent
 M93.4 package admission. iCoT remains on the same native implementation.
+
+
+M93.4 exposes a digest-approved reviewed start file and embeds the shared hidden
+worker in the main CLI. Both capture modes retain the same stream, one-use gate,
+reader and absolute deadline through a separate post-join import phase. Native
+attested reconstruction/adoption, virtual-source validation, workspace fingerprint
+and atomic authoring writer own source identity, drift/expiry, targets and rollback.
+A result binds the held reviewed transaction; approval imports profiles/reviews
+and a metadata-only native transaction/file receipt together. Conservative write
+effects include login/submission recipes. This is local authoring admission,
+not full-package promotion or execution authority. Only a committed import emits
+terminal imported metadata; refusal/cancel/EOF/expiry writes no profiles. A
+failed write or lost terminal delivery requires inspection, never automatic replay.
+M93.5's native/visible qualification and accepted publication are still pending.

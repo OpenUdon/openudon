@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0 private desktop and M93.1–M93.3 protocol/adapters complete; M93.4 command/worker/import selected. M92 is accepted/published; capture command/import/qualification remain incomplete.
+**State:** M93.0–M93.4 complete; M93.5 qualification/review/publication selected. M92 is accepted/published; M93 browser acceptance and publication remain incomplete.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -23,8 +23,8 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 | M93.1 — Freeze capture event/decision protocol | `[+]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
 | M93.2 — Authenticated and TOTP capture | `[+]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
 | M93.3 — Registration and verification capture | `[+]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
-| M93.4 — Embed worker and import reviewed profiles | `[~]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
-| M93.5 — Qualify headless and visible sessions, review and publish | `[ ]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
+| M93.4 — Embed worker and import reviewed profiles | `[+]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
+| M93.5 — Qualify headless and visible sessions, review and publish | `[~]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
 
 ## Acceptance and verification
 
@@ -368,3 +368,56 @@ package admission and submission write classification are next. M93.5 still
 requires fresh headless/visible qualification, bounded review and publication;
 all downstream consumers remain pending. No live target or registration was
 contacted and no native/browser qualification is claimed by these unit checks.
+
+## M93.4 complete; M93.5 selected — 2026-10-01
+
+The public `openudon browser-capture` command consumes a closed, embedded
+`openudon.browser-capture-start.v1` start file only after its exact byte SHA-256
+is approved. Native normalization preserves goal/dashboard/role/context/origins,
+continuation, private-root isolation and bounded deadlines. The main executable
+embeds the retained closed worker dispatcher, not a second worker. iCoT remains
+on the same implementation. Start parsing errors discard raw input/path text;
+credential/model/unknown fields and changed start digests fail before startup.
+
+After native worker/reader/private cleanup joins, independent attested auth
+reconstruction or native registration adoption feeds the existing virtual-source
+validator. A separate import_review event/card is required on the same one-use
+gate and absolute deadline; completion approval is not import approval. The
+approved immutable candidate/target plan uses the existing atomic authoring
+writer, with native profile/review bytes and a reviewed start/transaction/file
+receipt committed together. Conservative write effects cover submission/login
+recipes. The native workspace fingerprint rejects changed brief/intent/session/
+review files; expiry and writer create-only/expected-prior-digest checks run
+again before replacement. Errors/uncertain terminal delivery grant no retry.
+Full-package approval, promotion and execution remain separate downstream gates.
+
+Focused race tests including native controller subprocesses and CLI tests passed
+(`/tmp/openudon-m93-4-final-test.log`). Full Go vet passed
+(`/tmp/openudon-m93-4-vet.log`); routine make fast passed
+(`/tmp/openudon-m93-4-fast.log`). New tests cover no dispatch/write on start
+rejection, separate post-join import approval for both modes, refusal, stale
+binding, expiry, failed commit, changed workspace, target collisions, exact
+receipt file digests and create-only replay refusal. The continuation shortcut
+is rejected for continue_current_page. Initial helper/test corrections included
+renamed goal variables and the native goal path's query-free representation;
+an initial expiry test incorrectly mutated a copied scalar and was corrected
+to let the real bound expire. No failed attempt is acceptance evidence.
+
+The confirmed desktop `/var/tmp/openudon-m93-browser-n5sop97f` expired normally
+at 2026-10-01T07:58:47.686588+00:00. Its supervisor records zero remaining
+owned processes and removal of the private auth directory. The independent
+human-confirmation record remains valid for M93.0. Do not replay that closed
+operation. M93.5 can prepare a fresh bounded session under the already approved
+later-reuse authority, with its own selected operation binding.
+
+Actual built main-dispatch checks also passed: capture help, unknown-flag
+rejection without argument echo, and the shared hidden worker dispatcher
+(/tmp/openudon-m93-4-command-check.json). This is browser-free command wiring,
+not native qualification. Final document-memory and diff/format checks passed.
+
+No native/browser qualification or visible journey is claimed from unit checks.
+M93.5 is now the sole general in-progress row. It still needs both synthetic
+capture modes through the public command, fresh current-stack owner qualification,
+human-visible authenticated/TOTP and registration evidence, persisted review
+(0/10 not started), publication and exact downstream reconciliation. Existing
+fixture/asset/lock bytes and sibling code are unchanged; evolution v47 remains.

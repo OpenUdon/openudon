@@ -43,3 +43,20 @@ func NormalizeLiveConfig(config *LiveConfig) error { return normalizeLiveAuthorC
 func PrepareAttestedImport(config LiveConfig, result ProtocolResult, at time.Time) (PreparedImport, error) {
 	return prepareAttestedAuthenticatedAuthoringImport(config, result, at)
 }
+
+// NormalizeRoots shares the retained prospective-example/private-root policy
+// with registration capture without requiring an authenticated goal.
+func NormalizeRoots(example, private string) (string, string, error) {
+	example, err := canonicalProspectivePath("example", example)
+	if err != nil {
+		return "", "", err
+	}
+	private, err = canonicalPrivateRoot(private)
+	if err != nil {
+		return "", "", err
+	}
+	if err := requireDisjointBrowserRoots(example, private); err != nil {
+		return "", "", err
+	}
+	return example, private, nil
+}

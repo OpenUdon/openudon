@@ -35,7 +35,11 @@ func RunRegistration(ctx context.Context, config browserauthor.RegistrationConfi
 }
 
 func runRegistration(ctx context.Context, config browserauthor.RegistrationConfig, fixedStart browserauthor.RegistrationCommand, in io.ReadCloser, out io.WriteCloser,
-	start func(context.Context, browserauthor.RegistrationConfig) (registrationSession, error)) (RegistrationCompletion, error) {
+	start func(context.Context, browserauthor.RegistrationConfig) (registrationSession, error), complete ...func(context.Context, browserauthor.RegistrationEvent) (*profileImport, error)) (RegistrationCompletion, error) {
+	var admission func(context.Context, browserauthor.RegistrationEvent) (*profileImport, error)
+	if len(complete) > 0 {
+		admission = complete[0]
+	}
 	if config.Protocol != registrationauthorsession.ProtocolV4 {
 		return RegistrationCompletion{}, errors.New("browser capture registration protocol unsupported")
 	}
@@ -89,7 +93,7 @@ func runRegistration(ctx context.Context, config browserauthor.RegistrationConfi
 			}
 			started = true
 			return session.Send(ctx, fixedStart)
-		}, func() (browserauthor.RegistrationEvent, bool) { return session.TerminalEvent() })
+		}, func() (browserauthor.RegistrationEvent, bool) { return session.TerminalEvent() }, admission)
 	if err != nil {
 		return RegistrationCompletion{}, err
 	}

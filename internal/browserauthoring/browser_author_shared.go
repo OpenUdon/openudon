@@ -29,14 +29,9 @@ var startSharedExternalBrowserAuthorSession = func(ctx context.Context, config b
 // typed asynchronous controller used by the browser UI. Bundled and expert
 // external launches differ only in their executable argument specification.
 func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, input liveLineReader, out io.Writer, planner livePlanner, provider, model string) (liveProtocolResult, error) {
-	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
+	controllerConfig, err := ControllerConfig(cfg)
 	if err != nil {
 		return liveProtocolResult{}, err
-	}
-	controllerConfig := browserauthor.Config{
-		PrivateRoot: cfg.PrivateRoot, DriverDir: cfg.DriverDir, InitialURL: cfg.URL, DashboardURL: cfg.DashboardURL,
-		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...), ProfileID: cfg.ProfileID,
-		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
 	}
 	var session sharedBrowserAuthorSession
 	if cfg.BundledWorker {
@@ -64,7 +59,7 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, inp
 			lastObservation = &observation
 			printLiveObservation(out, observation)
 			if event.Checkpoint == nil {
-				goal := liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel}
+				goal := liveGoalPredicate{Origin: controllerConfig.GoalPredicate.Origin, Path: controllerConfig.GoalPredicate.Path, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel}
 				if liveObservationMatchesGoal(observation, goal) {
 					continue
 				}
@@ -201,4 +196,18 @@ func liveObservationFromShared(observation authorsession.Observation) liveObserv
 		Origin: observation.Origin, Path: observation.Path, Context: observation.Context,
 		Contexts: contexts, Candidates: candidates, Diagnostics: append([]string(nil), observation.Diagnostics...),
 	}
+}
+
+// ControllerConfig maps already normalized live authoring authority to the
+// native controller. All frontends share the exact goal-path construction.
+func ControllerConfig(cfg LiveConfig) (browserauthor.Config, error) {
+	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
+	if err != nil {
+		return browserauthor.Config{}, err
+	}
+	return browserauthor.Config{
+		PrivateRoot: cfg.PrivateRoot, DriverDir: cfg.DriverDir, InitialURL: cfg.URL, DashboardURL: cfg.DashboardURL,
+		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...), ProfileID: cfg.ProfileID,
+		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
+	}, nil
 }

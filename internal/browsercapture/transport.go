@@ -23,7 +23,8 @@ var (
 func drive[E any](ctx context.Context, mode string, absolute time.Duration, in io.ReadCloser, out io.WriteCloser,
 	start func(context.Context) (<-chan E, func(), error), reduce func(E) (string, View, bool),
 	validate Validator, respond func(context.Context, Command) error,
-	prepare func(context.Context, E) error, retained func() (E, bool)) (result E, err error) {
+	prepare func(context.Context, E) error, retained func() (E, bool),
+	complete func(context.Context, E) (*profileImport, error)) (result E, err error) {
 	var zero E
 	if ctx == nil || in == nil || out == nil {
 		return zero, errors.New("browser capture transport required")
@@ -35,7 +36,13 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 	stopClose := context.AfterFunc(bounded, closeTransport)
 	defer stopClose()
 	deadline, _ := bounded.Deadline()
-	gate, err := NewGate(mode, deadline, validate, time.Now())
+	var admission *profileImport
+	gate, err := NewGate(mode, deadline, func(view View, command Command) error {
+		if admission != nil {
+			return admission.validate(mode, view, command)
+		}
+		return validate(view, command)
+	}, time.Now())
 	if err != nil {
 		return zero, errors.New("browser capture authority invalid")
 	}
@@ -43,11 +50,12 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 	if err != nil {
 		return zero, errors.New("browser capture worker unavailable")
 	}
+	workerUpdates := updates
 	defer func() {
 		stopWorker()
 		// Drain until the controller has joined its owned process tree.
 		// Late teardown failure must not be mistaken for successful cancel.
-		for update := range updates {
+		for update := range workerUpdates {
 			_, view, _ := reduce(update)
 			if view.Diagnostic == "worker_teardown" {
 				err = errWorker
@@ -112,6 +120,26 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 				}
 				if !finished {
 					return zero, errWorker
+				}
+				if complete != nil && current.Diagnostic == "" && current.State == "captured" {
+					admission, err = complete(bounded, last)
+					if err != nil || admission == nil {
+						return zero, errors.New("browser capture profile review failed")
+					}
+					// The controller has joined. Keep the same transport, gate,
+					// deadline and reader for separate exact import approval.
+					updates = nil
+					currentKind = "state"
+					current = View{State: "import_review", Result: &admission.result}
+					ready, finished = true, false
+					event, observeErr := gate.Observe(currentKind, current, time.Now())
+					if observeErr != nil {
+						return zero, ErrCanceled
+					}
+					if emitErr := emit(event); emitErr != nil {
+						return zero, emitErr
+					}
+					continue
 				}
 				final, observeErr := gate.Observe("result", current, time.Now())
 				if observeErr != nil {
@@ -201,6 +229,19 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 					continue
 				}
 				ready = false
+				if admission != nil {
+					if commitErr := admission.commit(bounded); commitErr != nil {
+						return zero, errors.New("browser capture profile import failed; inspect package before retry")
+					}
+					final, observeErr := gate.Observe("result", View{State: "imported", Result: &admission.result}, time.Now())
+					if observeErr != nil {
+						return zero, ErrCanceled
+					}
+					if emitErr := emit(final); emitErr != nil {
+						return zero, emitErr
+					}
+					return last, nil
+				}
 				if respondErr := respond(bounded, *command); respondErr != nil {
 					return zero, errWorker
 				}

@@ -30,7 +30,11 @@ func RunAuthenticated(ctx context.Context, config browserauthor.Config, in io.Re
 }
 
 func runAuthenticated(ctx context.Context, config browserauthor.Config, in io.ReadCloser, out io.WriteCloser,
-	start func(context.Context, browserauthor.Config) (authenticationSession, error)) (AuthenticatedCompletion, error) {
+	start func(context.Context, browserauthor.Config) (authenticationSession, error), options ...authenticationOptions) (AuthenticatedCompletion, error) {
+	var option authenticationOptions
+	if len(options) > 0 {
+		option = options[0]
+	}
 	config, err := browserauthor.NormalizeConfig(config)
 	if err != nil {
 		return AuthenticatedCompletion{}, errors.New("browser capture configuration invalid")
@@ -49,6 +53,9 @@ func runAuthenticated(ctx context.Context, config browserauthor.Config, in io.Re
 		if command.Authentication == nil {
 			return errInput
 		}
+		if option.continuation == "continue_current_page" && command.Authentication.Kind == "authenticated" {
+			return errInput
+		}
 		auth := view.Authentication
 		return browserauthor.ValidateResponse(config, browserauthor.Event{State: view.State, Phase: view.Phase, Observation: auth.Observation, Approval: auth.Approval, Checkpoint: auth.Checkpoint}, *command.Authentication)
 	}
@@ -63,7 +70,7 @@ func runAuthenticated(ctx context.Context, config browserauthor.Config, in io.Re
 		}, reduceAuthentication,
 		validate, func(ctx context.Context, command Command) error {
 			return session.Respond(ctx, *command.Authentication)
-		}, nil, nil)
+		}, nil, nil, option.complete)
 	if err != nil {
 		return AuthenticatedCompletion{}, err
 	}
