@@ -570,3 +570,25 @@ readiness question is pending; independent native qualification continues.
 Full make check and final document check passed
 (`/tmp/openudon-m93-5-final-check.log`, `/tmp/openudon-m93-5-final-doc.log`).
 Review stays0/10; this operation and these checks do not establish acceptance.
+
+## M93.5 complete native qualification — 2026-10-01
+
+Current v5 native qualification passed all39 stages across three fresh complete
+repeats on exact source `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`.
+Report: `/var/tmp/openudon-m93-qualified-8heukane/evidence/native3-current-loopback.json`;
+SHA-256 `daebc8569e8a7b28cf6d105e993670b44adf4ea8aea9b8cc8bd157831931064e`.
+The make target's independent report verification also passed. Its temporary
+display99 owned process exited, private authentication directory was removed,
+and gate exit code was0; teardown metadata is retained beside the report.
+Earlier native1/native2 failures remain at their original source/attempt
+identities and were not relabeled. All eighteen frozen repositories remained
+clean after this complete qualification; no historical fixture or lock changed.
+Final-source gofmt check is clean.
+
+A separate integration-v6 check is now running on the same exact source and
+frozen dependencies. No integration result is claimed yet. The independently
+prepared M93.5 visible desktop remains ready with the user's readiness reply
+pending; neither visible journey has started. Native39 is automated evidence
+and does not substitute for that human checkpoint. Review remains0/10, not
+started until the remaining automated integration check finishes. M93.5 is
+still in progress; publication and downstream acceptance remain incomplete.
