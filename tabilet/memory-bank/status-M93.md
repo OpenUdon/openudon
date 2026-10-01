@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0–M93.4 complete; M93.5 qualification/review/publication selected. M92 is accepted/published; M93 browser acceptance and publication remain incomplete.
+**State:** M93.0–M93.4 complete; M93.5 all qualification and human acceptance passed; exact source publication and downstream reconciliation are the remaining closure actions.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -712,3 +712,28 @@ added to the ledger. Explicit final human confirmation of BOTH visibly
 observed journeys is now requested and pending; a subprocess pass or local
 button observation does not substitute for that answer. M93.5 remains in
 progress with review1/10 passed. No publication or downstream advancement.
+
+## Final producer qualification and explicit human acceptance — 2026-10-01
+
+The user explicitly answered “I saw and accept both journeys” after the two
+actual visible consumers completed. This satisfies the required human-visible
+checkpoint for authenticated/TOTP and verification-registration capture; it
+authorizes no real account, network target or runtime action.
+
+All qualification is on exact application source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`; CLI SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+Qualification summary: `/var/tmp/openudon-m93-qualified-8heukane/qualification-summary.json`;
+SHA-256 `abdb8490206a3e734f009a6f9430d903017635270327366b4e40bdf95e625da6`.
+Full check, vet, affected race/conformance, exact-schema and built-command
+checks passed. Current native v5 passed39/39 in three fresh complete repeats,
+integration-v6 passed17/0/3 optional unrequested, both independent verifiers
+and bounded native display teardown passed. The private human desktop remains
+under its original one-hour expiry; capture workers have joined and closed.
+Review1/10 passed with no open findings. No application code changed after the
+qualified source, only truthful status/checkpoint metadata. Earlier failed
+attempts and their original identities remain retained above.
+
+Prepare successfully recorded exact-diff source publication before pushing;
+then reconcile every pending consumer to that verified full revision. M93.5
+stays in progress until publication and normal downstream/retirement closure.
