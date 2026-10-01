@@ -19,7 +19,7 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager and x11vnc on the existing host; x11vnc listens on loopback only. The user connects once with Remote Desktop Manager through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions and display bindings. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
 | M93.1 — Freeze capture event/decision protocol | `[ ]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
 | M93.2 — Authenticated and TOTP capture | `[ ]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
 | M93.3 — Registration and verification capture | `[ ]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
@@ -28,7 +28,7 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 
 ## Acceptance and verification
 
-Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
 
 Default checks use fake providers, disposable roots and loopback fixtures. No live target operation or deployment is authorized. Preserve package instructions, one execution owner and exact upstream reconciliation before advancing. Task commits/publication follow only the separately launched goal's explicit policy; this planning approval performs neither.
 
@@ -174,3 +174,77 @@ VNC, host 127.0.0.1, port 15901 and the private VNC password. The display contai
 an OpenUdon M93.0 connection-check message. The user must confirm that message
 is visible before M93.0 can complete. Until then this row remains in progress,
 M93.1–M93.5 remain pending, and the ordered goal waits at its explicit checkpoint.
+
+## M93.0 approved browser transport update — 2026-10-01
+
+The user approved the complete browser-viewer proposal and explicitly resumed
+the existing Stage 5 goal. M93.0 remains the sole in-progress operation; no new
+ID, reordered dependency, reset review count or human acceptance is implied.
+The operator uses noVNC in a normal browser through an SSH-forwarded loopback
+websockify relay. Install the full distro viewer/relay on the named development
+host, preserve private X authentication and password-required VNC, disable
+clipboard exchange and automatically stop owned processes/remove private auth
+when the bounded session expires. No public listener, firewall change, permanent
+service, real target login or model disclosure is authorized by this update.
+
+The earlier desktop at `/var/tmp/openudon-m93-desktop-uyyn13g5` expired at
+2026-10-01T04:00:24.673997+00:00 without human confirmation. Its metadata records
+no remaining children and removal of private auth. Preserve both earlier attempt
+records; their Remote Desktop Manager instructions are historical, not current
+connection instructions. Restore only this currently selected authorized row
+with a new disposable session. Check viewer serving, WebSocket/RFB transport,
+password-only authentication, mapped desktop, exact loopback listeners, secret
+handling and teardown; then obtain the user's visible-message confirmation
+before marking M93.0 complete or starting M93.1. M93.5's two visible journeys
+and later consumer checkpoints remain required.
+
+## M93.0 full browser viewer ready; human confirmation pending — 2026-10-01
+
+Approved distro installation completed successfully under the verified
+`sudo -n` privilege: noVNC `1:1.6.0-2`, websockify and python3-websockify
+`0.13.0+dfsg1-2ubuntu1`. Installation log:
+`/var/tmp/openudon-m93-browser-apt-install.log`. Kinet's untracked root npm
+files and node_modules were preserved and are not product dependencies.
+
+Fresh session `/var/tmp/openudon-m93-browser-n5sop97f` uses X display `:98` with X TCP disabled,
+VNC `127.0.0.1:5901` and browser relay `127.0.0.1:6080`. Created at
+`2026-10-01T06:58:47.310535+00:00`; expires at `2026-10-01T07:58:47.310535+00:00`. Supervisor
+`/var/tmp/openudon-m93-browser-supervisor.py` SHA-256
+`b83e0558cf6c8d460ba1b8bb542fe894c1d75fb9f946d2dca8adc2a14c8f2253` owns the bounded lifecycle. It uses no permanent
+service, disables directory listing/clipboard/remote commands and receives
+no provider credentials. Private directories are 0700 and auth files 0600;
+password values never enter command arguments, environment, logs, audit or
+repository. The exact owned listener PIDs, X TCP refusal and mapped message
+were checked independently. Earlier expired attempts remain untouched.
+
+A separate short-lived test at `/var/tmp/openudon-m93-browser-zoe4eri5`
+expired automatically, removed private auth and left no running owned children
+or desktop/relay listeners. Its session JSON SHA-256 is
+`9f1f5bff911f8cf549054fa36a8ec87a62a67b411f265d0a12ae779c2639e2cf`.
+Fresh sandboxed Chromium/Playwright readiness took 6.230 seconds: full viewer
+loaded, password prompt required, wrong password refused, correct password
+rendered a 1280x800 desktop canvas, and the test client disconnected. It used
+only loopback with external requests blocked, no capture target or model.
+Browser readiness SHA-256 `86706f33de4c17c8cb4d5464c33a91169f6f850aa7eb7976898767ef3058dc6b`;
+security readiness SHA-256 `e8804b0e03734b8aa82761b90c7510302d4d6b819eb7bf738bd406c046c64ac7`.
+These are automated connection checks, not the human checkpoint or M93.5's
+journey qualification. The captured image caught the UI fade after connection;
+it proves rendered pixels, not a separate user-visible acknowledgement.
+
+Planning verification: Kinet `make check` and OpenUdon's tabilet-cwd
+`check-doc-memory` passed; the evolution warning is expected because an
+operator transport change does not meet the direction-change trigger. W8M's
+browser-free structural checker, Go test and Go vet passed. Go operating
+unit tests took 103.670 seconds; no native browser qualification was run.
+Its `make fast` stopped at
+the pre-existing absent exact Node 24.13.0 path; the separate Go test passed (`/tmp/w8m-m93-browser-plan-go-test.log`). No runtime qualification is inferred
+from that partial gate, and no W8M scripts/locks/old records were altered.
+
+Connection instructions: on the user's workstation run
+`ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:16080:127.0.0.1:6080 peter@vps-f7dfc687.vps.ovh.us`,
+then open `http://127.0.0.1:16080/vnc.html?autoconnect=1&resize=scale`.
+Privately retrieve the password with SSH from
+`/var/tmp/openudon-m93-browser-n5sop97f/private/vnc-password` and enter it in noVNC; never put it in a URL
+or chat. The user must confirm seeing "OpenUdon M93.0 connection check".
+M93.0 remains in progress and M93.1–M93.5 remain pending until that evidence
+arrives. Review count remains 0/10. The goal is open, not completed.

@@ -165,7 +165,7 @@ Remaining: OpenUdon M93 → M94
 
 **Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
 
-**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
 
 Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
 
@@ -288,7 +288,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | Approved planning; pending |
+| M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | M93.0 operation in progress; capture pending |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 

@@ -1767,3 +1767,67 @@ Additional superseded tech-stack.md content-trust default:
 `````markdown
   `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
 `````
+
+## 2026-10-01 — M93 operator browser viewer replaces native viewer
+
+Reason: the user selected a browser viewer and approved the complete transport
+proposal and continued goal execution. This is an operator transport change
+within M93.0; it allocates no IDs, changes no product boundary and preserves
+all human acceptance gates and prior attempt outcomes. Replacement: current
+M93/consumer status records and Kinet launch reference; full noVNC/websockify
+remain private, SSH-forwarded and temporary. Earlier retired records remain
+frozen. No evolution version is required for this scope-preserving change.
+
+Source: `tabilet/memory-bank/milestone.md`; original operator wording:
+
+````markdown
+**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
+
+**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
+````
+
+Source: `tabilet/memory-bank/status-M93.md`; original operator wording:
+
+````markdown
+| Item | State | Notes |
+| --- | --- | --- |
+| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager and x11vnc on the existing host; x11vnc listens on loopback only. The user connects once with Remote Desktop Manager through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions and display bindings. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.1 — Freeze capture event/decision protocol | `[ ]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
+| M93.2 — Authenticated and TOTP capture | `[ ]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
+
+## Acceptance and verification
+
+Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Default checks use fake providers, disposable roots and loopback fixtures. No live target operation or deployment is authorized. Preserve package instructions, one execution owner and exact upstream reconciliation before advancing. Task commits/publication follow only the separately launched goal's explicit policy; this planning approval performs neither.
+
+issued-decision/revision/deadline/private-input rules. Native selectors are now
+v5 and integration v6 with separate retained v4/v5 readers. M93.0 must prepare
+its own private desktop and obtain the user's Remote Desktop Manager
+connection confirmation; M92's disposable Xvfb is already torn down and proves
+neither M93.0 nor M93.5 human acceptance. Capture submissions retain write
+
+Preserve private X authentication, private VNC credentials and disposable
+settings. Record exact installed versions and display/session bindings. The
+user must connect once with Remote Desktop Manager and confirm the display
+before this operation completes or M93.1 begins. Synthetic M92 Xvfb evidence
+is already torn down and is not this human checkpoint's acceptance.
+
+
+Human connection instructions: on the user's workstation, forward local
+15901 to this host's 127.0.0.1:5901 with SSH. In Remote Desktop Manager choose
+VNC, host 127.0.0.1, port 15901 and the private VNC password. The display contains
+an OpenUdon M93.0 connection-check message. The user must confirm that message
+````
+
+Source: `tabilet/memory-bank/tech-stack.md`; original operator wording:
+
+````markdown
+and x11vnc 0.9.17-2. Temporary X authentication/private password files are
+owner-only; X listens on no TCP port and VNC listens on 127.0.0.1:5901 only.
+Use an SSH tunnel and Remote Desktop Manager; clipboard exchange and VNC
+remote command/control are disabled. A bounded user process, not a permanent
+system service, owns teardown. Exact session bindings/expiry and the required
+````

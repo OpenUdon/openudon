@@ -1120,10 +1120,20 @@ The approved M93.0 operation prepares the existing development host with
 Xvfb 2:21.1.22-1ubuntu1, xauth 1:1.1.2-1.1build1, Openbox 3.6.1-12ubuntu3
 and x11vnc 0.9.17-2. Temporary X authentication/private password files are
 owner-only; X listens on no TCP port and VNC listens on 127.0.0.1:5901 only.
-Use an SSH tunnel and Remote Desktop Manager; clipboard exchange and VNC
+Use an SSH tunnel and noVNC in a local browser; clipboard exchange and VNC
 remote command/control are disabled. A bounded user process, not a permanent
 system service, owns teardown. Exact session bindings/expiry and the required
 human connection checkpoint live in status-M93.md. Desktop setup grants no
 capture target, model disclosure, credentials, registration or execution
 permission and proves no M93.5 journey. Restoring an expired session requires
 its currently selected authorized operation; never replay closed task rows.
+
+The browser transport extension was approved on 2026-10-01: use the full
+Ubuntu noVNC application and websockify on the same named host, not Kinet's
+user-installed root npm core library. Installation/verification is owned by
+the still-selected M93.0 operation. The old session expired without a human
+connection. Installation completed: noVNC 1:1.6.0-2, websockify and
+python3-websockify 0.13.0+dfsg1-2ubuntu1; `/usr/share/novnc/vnc.html` is
+served by a temporary loopback relay at 127.0.0.1:6080. Exact fresh session
+bindings/expiry and automated readiness/teardown evidence live in status-M93.md. Both listeners must remain loopback-only and SSH-forwarded, with
+password-required VNC, clipboard disabled and bounded automatic teardown.
