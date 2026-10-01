@@ -1270,5 +1270,5 @@ passed. Frozen Go1.26.6 application source eed683f27d448ca96af90e7bc5987967a6cd0
 at /var/tmp/openudon-m96-qualified-yvoho85o passed native39/3fresh repeats,
 integration17/0failed/3unrequested optional plus independent verifiers and all
 three capture/package journeys. Later tests-only failure regression is separately
-qualified; evidence source/time is never relabeled. Review1 passed; publication
-and final acceptance remain pending. Public fixtures: docs/fixtures/browser-author-v1.
+qualified; evidence source/time is never relabeled. Review1 passed; accepted
+source publication is independently verified at `d77f6d51262d0f311910070bc4a43f662260cd7e`. See [retired M96](../docs/history/status-M96.md). Public fixtures: docs/fixtures/browser-author-v1.

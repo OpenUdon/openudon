@@ -1521,7 +1521,7 @@ local content-addressed evidence, not arbitrary replacement attestations.
 Application source eed683f27d448ca96af90e7bc5987967a6cd0335 passed three fresh
 native repeats, integration and both-mode public capture/package journeys;
 review1 passed. Tests-only partial-build coverage has its own full/race/vet
-context. Publication, final acceptance and consumer delivery remain separate.
+context. M96 acceptance/source publication is verified through `d77f6d51262d0f311910070bc4a43f662260cd7e`; [retired evidence](../docs/history/status-M96.md) preserves original application/build identities. Consumer delivery remains separate.
 Kinet M19 owns external single-use delivery/recovery and its own checks; M95
 must retain these commands and legacy public review artifacts after UI removal.
 See [the CLI/wire contract](../../docs/browser-package-handoff.md).

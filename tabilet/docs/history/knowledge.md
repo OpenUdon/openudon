@@ -1940,3 +1940,91 @@ Source: `tabilet/memory-bank/milestone.md`, M96 acceptance. User-approved cross-
 ```markdown
 The user requires a mandatory pause before W8M W28 to verify latest W27 status.
 ```
+
+## 2026-10-01 — M96 accepted source publication and retirement
+
+Sources: current M96 facts at `d77f6d51262d0f311910070bc4a43f662260cd7e`. Reason: qualified source publication, passed review and exact downstream reconciliation now establish M96 acceptance. Replacement: current M96 facts and `tabilet/docs/history/status-M96.md`. Original native source/build/time and separate test-delta verification remain distinct; consumer delivery is still Kinet-owned pending work.
+
+### tabilet/memory-bank/product.md
+
+````markdown
+## Reviewed capture package authoring
+
+`browser-author plan/apply` provides reviewed native capture adoption without iCoT. Read-only catalog/preview and exact ordinary authoring confirmation are separate from capture import, package promotion and runtime execution. Both authenticated/TOTP and inert registration recipes retain native constraints; values stay symbolic. Partial writes or lost output require inspection and a fresh proposal, never automatic replay. Original capture receipt/start identities are required; unsigned local evidence is not new attestation authority. M96 qualification and review1 passed; publication/final acceptance and Kinet M19 delivery remain separate.
+````
+
+### tabilet/memory-bank/architecture.md
+
+````markdown
+## Reviewed capture package authoring (M96)
+
+The public `browser-author plan/apply` adapter in internal/browserpackage consumes
+an exact original approved capture receipt. Closed256KiB requests carry base64
+of exact native start bytes, native transaction/receipt identities, symbolic-only
+inputs and operation choices. Bounded read-only plans bind full owned package
+inventory, exact request/source/review, file actions and generated artifact bytes.
+Native candidate/discovery validation and pure neutral elicitor lowering retain
+both authenticated/TOTP and inert registration recipes. No UI/controller or
+second semantic writer is imported. The existing native writer reports its exact
+own transient paths to the pre-replacement inventory/freshness guard; its legacy
+callbacks keep their behavior. Separate exact authoring confirmation precedes
+native deterministic build. A partial build or lost output preserves authored
+state and requires inspection, never blind replay; cleanup uncertainty is explicit.
+Original start hashes bind registration capture metadata not retained in its
+recipe; native origins/transaction validation remains authoritative. Authentication
+also matches native login, dashboard proof and goal review. Receipts are unsigned
+local content-addressed evidence, not arbitrary replacement attestations.
+
+Application source eed683f27d448ca96af90e7bc5987967a6cd0335 passed three fresh
+native repeats, integration and both-mode public capture/package journeys;
+review1 passed. Tests-only partial-build coverage has its own full/race/vet
+context. Publication, final acceptance and consumer delivery remain separate.
+Kinet M19 owns external single-use delivery/recovery and its own checks; M95
+must retain these commands and legacy public review artifacts after UI removal.
+See [the CLI/wire contract](../../docs/browser-package-handoff.md).
+````
+
+### tabilet/memory-bank/tech-stack.md
+
+````markdown
+## Reviewed capture package CLI (M96)
+
+```
+openudon browser-author plan --example DIR --request FILE|-
+openudon browser-author apply --example DIR --request FILE|- --expected-plan sha256:HEX --confirmed
+```
+
+No new dependency or provider invocation. Version openudon.browser-author.v1:
+request256KiB UTF-8, report2MiB; exact native start bytes are base64 strings.
+Original receipt byte SHA uses lowercase64hex; request/plan/input/transaction
+use tagged SHA256. Package inventory512 files,8MiB each,32MiB total excludes
+.git, refuses symlinks/special files/hardlinks/foreign or writable ownership.
+Existing native semantics, elicitor/artifactwriter and deterministic build own
+materialization. CLI stdout can contain personal previews and stays transient;
+fixed errors/metadata must not disclose payloads. Partial-write outcomes and
+cleanup flags require inspection. Package promotion remains separately confirmed.
+
+Full make check, affected race, Go vet/format/diff and real main conformance
+passed. Frozen Go1.26.6 application source eed683f27d448ca96af90e7bc5987967a6cd0335
+at /var/tmp/openudon-m96-qualified-yvoho85o passed native39/3fresh repeats,
+integration17/0failed/3unrequested optional plus independent verifiers and all
+three capture/package journeys. Later tests-only failure regression is separately
+qualified; evidence source/time is never relabeled. Review1 passed; publication
+and final acceptance remain pending. Public fixtures: docs/fixtures/browser-author-v1.
+````
+
+## 2026-10-01 — M96 current horizon and track consolidation
+
+Source: current milestone dashboard/tracks during M96 closure, original HEAD `d77f6d51262d0f311910070bc4a43f662260cd7e`. Reason: accepted M96 and verified W27 retirement/integrations supersede remaining-work and extra-pause descriptions. Replacement: current milestone horizon/tracks and M96 history. One history-index link remains; evolution v48 target and public contract direction are unchanged.
+
+```markdown
+M91 is an accepted published extraction prerequisite. OpenUdon owns M96 before Kinet M19 delivery and remaining
+M95 target work;
+Completed also: OpenUdon M94; Kinet A10/W08/W09/W10
+Remaining: OpenUdon M96 → Kinet M19 → U07
+→ Gate 5B + user W27-status checkpoint →
+- Remaining approved work: M96 before Kinet M19 delivery, then M95 after Kinet U07, Gate5B and W8M W28.
+- Active: approved Stage 5 M96 and M95.
+- Completed history: use the [history index](../docs/history/index.md) for
+  terminal ID records and the frozen earlier milestone text.
+```

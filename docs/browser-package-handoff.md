@@ -1,6 +1,6 @@
 # Reviewed capture package handoff
 
-OpenUdon M96 implementation is qualified and review1 passed; publication/reconciliation and final acceptance remain pending. [Its package-local status](../tabilet/memory-bank/status-M96.md) owns delivery and acceptance.
+OpenUdon M96 is accepted and published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335` through verified source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`. Review1 passed; [its retired package-local evidence](../tabilet/docs/history/status-M96.md) preserves qualification and acceptance. Kinet M19 still owns pending consumer delivery.
 
 The published M93 capture contract imports canonical profiles and a receipt. Existing package preparation requires a fully reviewed/built package. At that published baseline, ordinary virtual-source adoption required retained iCoT. The new browser-author commands now bridge capture and ordinary package authoring with separate approval.
 

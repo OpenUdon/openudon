@@ -1,6 +1,39 @@
+# Retired milestone M96 - Reviewed capture package authoring
+
+**Milestone.** M96
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M96.md
+**Source specification.** tabilet/memory-bank/milestone.md#m96--reviewed-capture-package-authoring
+**Evidence.** d77f6d51262d0f311910070bc4a43f662260cd7e
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Full offline checks, affected race/vet/real-main conformance, actual native39 in three fresh repeats and independent verifier, integration17/0failed/3optional and independent verifier, three real capture/author/package journeys including TOTP/registration, display teardown and53 protected unchanged fixtures passed at application eed683f27d448ca96af90e7bc5987967a6cd0335. Separate test-only build-failure regression full/race/vet passed; later metadata never relabeled native evidence. Review1/10 passed, DOC1 resolved. Source publication d77f6d51262d0f311910070bc4a43f662260cd7e independently verified with exact prepush record. W27 integrations and all six current consumers reconciled with appropriate browser-free/docs/diff checks. Qualification summary SHA256 b9dd479ed50bb9efd356b77b604a57df400a93ecff82b8e533182616859b3871.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, knowledge journal and docs/browser-package-handoff.md; exact producer reconciled to M95, Kinet M19/U07/M20 and W8M W28/W29. Approved evolution v48 direction remains unchanged.
+
+## Milestone specification
+
+````markdown
+## M96 — Reviewed capture package authoring
+
+**Goal and scope.** Add a bounded public non-iCoT capture adoption/source/step/package authoring command using neutral engine/elicitor/artifactwriter. Capture import, ordinary authoring approval and package promotion remain separate. Exact receipt/input/revision/operation/policy identities and both modes/TOTP are retained; no browser replay or execution authority.
+
+**Dependencies.** Accepted published M91–M94, current baseline `04dacce77a29f5e6db427dc47e3ed9ef766b2c32`.
+
+**Downstream.** Kinet M19.3/M19.4, U07/W28, and retention in M95 followed by M20/W29.
+
+**Acceptance.** Owner checks, affected race/real CLI conformance, refusal/uncertainty/legacy fixtures; exact-source native loopback package pipeline qualification, required integration and three fresh native repeats; bounded review, verified publication and exact downstream reconciliation. The separately approved remote-integration reconciliation cancels the additional W27-status pause only after OpenUdon and W8M integrations are verified and recorded; Kinet U07 human acceptance and explicit Gate5B remain required.
+
+Four task commit units, approved scope and persisted review: [status-M96.md](status-M96.md). Planned contract: [browser-package-handoff.md](../../docs/browser-package-handoff.md). No implementation is established by planning.
+````
+
+## Status record
+
+````markdown
 # Status M96 — Reviewed capture package authoring
 
-**State:** M96.1–M96.3 verified; M96.4 qualified and review1 passed, 2026-10-01. User authorized remote integration and normal scoped publication; M96.4 resumes for publication, downstream reconciliation and final acceptance.
+**State:** Completed and accepted, 2026-10-01. All tasks, qualification, review1/10, verified source publication and exact downstream reconciliation passed. Normal retirement/closure publication follows.
 
 **Goal.** Make a reviewed native capture usable for ordinary browser source/step/package authoring without iCoT.
 
@@ -25,7 +58,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 | M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[+]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
 | M96.3 — Verify conformance and refusal behavior | `[+]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
-| M96.4 — Qualify, review and publish replacement | `[~]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
+| M96.4 — Qualify, review and publish replacement | `[+]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
 
 ## Acceptance and verification
 
@@ -118,3 +151,8 @@ Source/review checkpoint committed at `2c5c3e1f43ffe459041a22fae6ce80eae6a39504`
 ### Authorized upstream integration — 2026-10-01
 
 User approved the complete remote-integration reconciliation, both repository merges, scoped normal publication and resumption of the existing task-policy goal. Revalidated local `7bf93e17683269e2997006b75e0414f11d8a3bc7` and fetched OpenUdon main `ca4baa941c4d278b62d87892bdc42dccbd9bcfb5`; no relevant uncommitted source existed. Incoming handoff `595cf907b6a22b82127360d7dae1bd77b956c96c` adds only three documentation files. Both append-only lessons/stack contributions are preserved exactly; integration tree matched the reviewed proposal before these authorized policy/status amendments. M96.4 resumes as the sole in-progress row; review remains passed1/10, qualified application remains `eed683f27d448ca96af90e7bc5987967a6cd0335`. No application/dependency/contract/runtime change and no new browser qualification is claimed. The extra W27 pause is removed only after both integrations are verified; U07 human acceptance and Gate5B remain. Earlier blocking observations remain chronological evidence.
+
+### M96 accepted publication and downstream closure
+
+Qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335` and separately qualified test-only delta are published through independently verified `d77f6d51262d0f311910070bc4a43f662260cd7e`. Exact prepush remote/range/diff digest and scope were recorded; normal fast-forward publication preserved W27 handoff and all M96 commits. W8M integration `2fe93fe2de746dd4bef5ef7d6df188f2e5ac0d0e` and producer reconciliation `eb49d767acd9e54dd8bd4b2c7583c497102e788c` are independently verified published; Kinet planning/producer reconciliation `fcd82f0ae241452cf9c47dff6508b7c18ae5b46f` is independently verified published. M95 retains the exact contract in this closure change. All six current consumers retain pending acceptance and unchanged counters; M19 delivery owns the next implementation. Both integrations passed appropriate browser-free/doc/conflict/diff checks without relabeling or rerunning valid native evidence. The additional W27-status pause is cancelled as approved; U07.4 human acceptance and explicit Gate5B remain. All four task outcomes are complete, persisted milestone review1/10 passed, no open P1/P2, DOC1 resolved; normal literal retirement is now authorized by the existing goal.
+````
