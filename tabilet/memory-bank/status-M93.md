@@ -42,7 +42,7 @@ Lineage: Preserve accepted browser-authoring/transaction gates and M91 inventory
 
 ## Closing review
 
-Persisted iteration count: 1/10. Iteration 1 started on 2026-10-01 after final-source automated qualification passed; findings not yet recorded. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration 1 passed on 2026-10-01 with no open P1/P2 or higher findings; human-visible qualification and acceptance remain pending. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
 
 ## M91 exact producer reconciliation — 2026-10-01
 
@@ -614,3 +614,41 @@ No human-visible journey is implied by these results. The readiness reply and
 both visible journeys remain pending. Do not publish/accept or advance a
 consumer until the missing human evidence and normal closure are complete.
 Resume this interrupted review at iteration1, not a new number.
+
+## Closing review iteration1 result — 2026-10-01
+
+Result: passed, no P1/P2 or higher findings and no carried findings. Reviewed
+the complete58-file M93 source/doc/test change, including bounded closed
+schemas and issued-reference forgery/replay/refusal checks; pure native
+validation and immutable review cards; authenticated continuation and current
+output/MFA choices; retained registration protocol/version gates; disclosure
+consent; filtered environment and private credential/code input; reader/worker
+join and retained late teardown failures; independent attested/virtual-source
+reconstruction; create-only profiles/receipt and expected-digest review append;
+workspace drift, expiry and atomic rollback; cancellation/lost output with no
+automatic retry; built main dispatch, shared worker and iCoT compatibility.
+Checked documented CLI/profile authority against the actual final-source
+probes, native39 and integration17 reports; all historical fixture/UI/lock and
+dependency files remain unchanged. All eighteen frozen checkouts remained
+clean after integration. Source and dependency identities remain exact f1273b6
+and its recorded closure; subsequent repository commits change status only.
+No runtime fix or additional test repetition is required by this review.
+
+Integration v6 report SHA-256:
+`bb22138402e89088e654146fe09a97bbfdd148bb504c56762a89b74b7c1f5cea`;
+seventeen passed, zero failed, three optional unrequested, independent verify
+passed. Native39 report SHA-256 remains
+`daebc8569e8a7b28cf6d105e993670b44adf4ea8aea9b8cc8bd157831931064e`.
+Evolution v47 remains appropriate: implementation preserves the approved
+retained-capability/public-protocol direction; no direction change was made.
+
+The explicit human-visible checkpoint is still incomplete: readiness reply
+is pending and neither prepared visible journey has run. M93.5 stays selected
+and in progress under its bounded desktop later-reuse authority. Do not infer
+a human answer from elapsed time or automated passes. Resume the prepared
+visible authenticated/TOTP and verification-registration consumers after the
+user is ready, then obtain explicit confirmation of both journeys. If the
+desktop expires, retain its teardown and restore a new bounded session under
+M93.5; never reopen M93.0 or reset the review counter. Acceptance, publication,
+retirement and exact downstream reconciliation remain pending; no consumer
+may advance yet.
