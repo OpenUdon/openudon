@@ -1,6 +1,42 @@
+# Retired milestone M94 - Catalog discovery and digest-bound source provisioning
+
+**Milestone.** M94
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M94.md
+**Source specification.** tabilet/memory-bank/milestone.md#m94---catalog-discovery-and-digest-bound-source-provisioning
+**Evidence.** 5a2a2643ff71831ae72cdeca57baf197c1afbf16
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Full offline make check/vet, affected race, native five-outcome/index-failure tests, legacy compatibility, real-main-dispatch public conformance, clean-source CLI/help, documents/format/diff passed. Qualified application/test ee49fe433a4d476f8d28d3d888352293c490dfc6; CLI SHA256 2586eccc26088abd08a5448d88c821e50ed05e6b71f2ceab2eeb12c0f3faac1a. Source publication independently verified at 5a2a2643ff71831ae72cdeca57baf197c1afbf16 with successful prepush diff/range/digest/scope record. Qualification-summary SHA256 36445e7dec47d757656dab0eee0db23265112423cfabdff01f4f72fde8f8dc4b. All536 preexisting protected fixture/example/UI/lock files unchanged,13 new source-backed conformance fixtures; no browser/runtime evidence relabeled, no real target operation.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md and docs/catalog-discovery.md; exact producer reconciled to OpenUdon M95, Kinet A10/W08/W10/M19/U07 and W8M W28. Evolution v47 direction unchanged.
+
+## Milestone specification
+
+````markdown
+### M94 — Catalog discovery and digest-bound source provisioning
+
+**Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
+
+**Scope and compatibility.** step discover consumes explicit catalog-root/index configuration and returns APItools' five outcomes: match, ambiguous, no qualifying API within checked scope, insufficient evidence, blocked. Preserve coverage, exclusions, digest/staleness evidence, exact multiword provider keys, authority/license unknowns and bounded rank evidence. Missing roots/documents or unexamined scope are not definitive no-match. No implicit sibling root and no per-call reimplementation of APItools indexing/ranking. Catalog step source add uses M81 artifact-scoped export/materialization with stable native selectors and digest checks; confirmation and package rules remain OpenUdon-owned. Default offline; remote lookup only explicitly enabled, using APItools bounds and provenance.
+
+**Dependencies.** M93 accepted/published; APItools existing M81 then M80 accepted/published. Consume the exact approved M81.1 contract and M80 release; never edit their plan.
+
+**Downstream.** Kinet W10; M95 removal precondition; W8M W28.
+
+**Acceptance.** Conformance tests cover all five outcomes, missing/stale index, root relocation, unknown licenses, provider constraints, cancellation and matching discovery-to-export digest/selector identity. Only scoped no-match signals automatic browser fallback; ambiguity asks for intent, missing evidence requests configuration, blockers explain refusal. make check, owner compatibility checks, bounded review and publication; do not make APItools publication depend on this future implementation.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M94.md](status-M94.md).
+
+````
+
+## Status record
+
+````markdown
 # Status M94 — Catalog discovery and digest-bound source provisioning
 
-**State:** M94.1–M94.2 complete; M94.3 selected. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
+**State:** Completed and accepted; qualified source publication verified, all pending consumers reconciled. Normal retirement/publication of closure remains.
 
 **Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
 
@@ -21,7 +57,7 @@ step discover consumes explicit catalog-root/index configuration and returns API
 | --- | --- | --- |
 | M94.1 — Adopt APItools and expose discovery | `[+]` | Pin the accepted M80 release including M81; require explicit root/index; preserve all five outcomes and producer conformance fixtures. |
 | M94.2 — Provision selected catalog artifacts | `[+]` | Native selected export, strict confirmed request, independent selector checks and shared atomic source/manifest/provenance publication; focused race, vet and full offline make fast passed. |
-| M94.3 — Qualify outcomes and provisioning, review and publish | `[~]` | Test scoped outcomes, index failures, root relocation and provisioning; publish fixtures and exact accepted revision for Kinet W10. |
+| M94.3 — Qualify outcomes and provisioning, review and publish | `[+]` | Test scoped outcomes, index failures, root relocation and provisioning; publish fixtures and exact accepted revision for Kinet W10. |
 
 ## Acceptance and verification
 
@@ -323,3 +359,23 @@ as a later source. Clean-source binary additionally passed exact native
 incomplete-report comparison from a disjoint cwd and both public command help
 surfaces. Source publication is next under the already approved exact-diff
 fast-forward policy; no consumer may assume it is published before verification.
+
+## Acceptance and exact downstream reconciliation — 2026-10-01
+
+Application/test source `ee49fe433a4d476f8d28d3d888352293c490dfc6` is published through
+`5a2a2643ff71831ae72cdeca57baf197c1afbf16`. Successful prepush range/diff/digest/scope record:
+`/var/tmp/openudon-m94-qualified-k0khdqy5/publication-source-5a2a2643ff71/publication.json`;
+patch SHA-256 `7434d566ee2779d3451552367f42e1672b99f471c11d272dafb4eeff4790a7e2`.
+Normal fast-forward push and independent remote verification succeeded.
+Review1/10 and every required check passed; all three task rows are complete.
+
+Reconciled OpenUdon M95, Kinet A10/W08/W10/M19/U07 and W8M W28 against
+the exact published producer and public fixtures. Pending consumers remain
+pending; latest additive CLI includes M92/M93 contracts and grants no source,
+browser, runtime or external-delivery authority implicitly. No sibling source
+was modified. Product/architecture/stack and applicable lessons describe the
+actual implementation; stale M93 architecture wording preserved in knowledge
+journal before correction. Evolution v47 direction unchanged. Remaining order
+is Kinet A10/W08/W09/W10/M19/U07, Gate5B, W8M W28, OpenUdon M95, Kinet
+M20 and W8M W29. Normal validated retirement is next.
+````

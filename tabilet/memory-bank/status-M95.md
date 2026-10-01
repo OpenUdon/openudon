@@ -165,3 +165,47 @@ in this downstream consumer remain pending until its own acceptance checks.
 Preserve the new public capture command and shared embedded worker when removing
 iCoT; never remove native validation, private input, canonical reconstruction or
 profile import. Inventory, Kinet U07, Gate5B and W8M W28 remain unsatisfied.
+
+## M94 exact producer reconciliation — 2026-10-01
+
+Qualified application/test source `ee49fe433a4d476f8d28d3d888352293c490dfc6`; source/qualification
+publication independently verified at `5a2a2643ff71831ae72cdeca57baf197c1afbf16`.
+CLI SHA-256 `2586eccc26088abd08a5448d88c821e50ed05e6b71f2ceab2eeb12c0f3faac1a`. Frozen summary:
+`/var/tmp/openudon-m94-qualified-k0khdqy5/qualification-summary.json`, SHA-256 `36445e7dec47d757656dab0eee0db23265112423cfabdff01f4f72fde8f8dc4b`.
+Full offline make check/vet, affected race, real-main-dispatch conformance,
+legacy compatibility and document/format/diff passed; review1/10 passed with
+no open P1/P2. APItools pin is its published M81/M80 source
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`. Old fixture/UI/lock bytes unchanged.
+Resolve the complete M94 record through OpenUdon's history index; never merge
+its ledger or infer this consumer's acceptance from the producer checks.
+
+`openudon step discover` retains native `apitools.catalog-discovery/v1` with
+all five outcomes, scope/coverage/license unknowns, exact native references and
+explicit root/registry/index/optional metadata flags. No implicit indexing,
+root or remote authority. Native discovery request is64KiB, report2MiB,
+installation metadata2MiB. Optional remote requires both CLI installation and
+request opt-in; native limits/provenance remain, and remote leads are not
+exportable registered artifacts without separate explicit acquisition.
+
+Confirmed provisioning is `step source add --catalog --example DIR --request
+FILE|-` plus the explicit installation flags. Closed additive request version
+is `openudon.step-source-catalog.v1`, command `step.source.add`, kind request,
+confirmed true, exact manifest revision, and source IDs with unchanged selected
+native references. It privately stages native selected export, independently
+checks native selector/raw identity and disjoint final roots, then atomically
+publishes raw API bytes, existing source manifest, all provider-link provenance
+and applicable advisory overlay files with the one existing writer. Result
+retains source-add fields under the additive version and adds provenance_path.
+No-confirmation/drift/collision/cancel failures publish no package files;
+indeterminate/lost output requires inspection, never automatic replay. Advice
+grants no runtime authority. Legacy local source-add v1 remains unchanged.
+
+Public request/report/source/provenance fixtures and full hash manifest are at
+`docs/fixtures/catalog-discovery-v1` in the exact producer. References/URLs and
+full reports may contain personal data: audit only an allowlisted bounded
+projection of producer-declared metadata/digests/outcomes, never full payloads,
+private catalog roots, raw source or reconstructed request/body summaries.
+
+Retain both new catalog commands, all native conformance fixtures and shared
+source writer/provenance when removing iCoT. U07, Gate5B and W28 still gate
+removal; accepted M94 does not authorize early retirement.

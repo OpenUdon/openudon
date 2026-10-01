@@ -160,3 +160,13 @@ total, 8 MiB per source, sixty-four advisory overlays of at most 2 MiB each,
 and 32 MiB combined selected raw sources and overlays. Staging is private and
 removed on normal return. This operation performs no network request, browser
 action, workflow run or implicit catalog index update.
+
+## Accepted producer
+
+M94 is accepted and published at application/test source
+`ee49fe433a4d476f8d28d3d888352293c490dfc6`, through source/qualification
+publication `5a2a2643ff71831ae72cdeca57baf197c1afbf16`. Full owner checks,
+native conformance and review1 passed. Complete source/build, checks, public
+fixture and downstream evidence are in [M94 history](../tabilet/docs/history/status-M94.md).
+Consumer adoption retains its own checks and ledger; discovery or source
+provisioning grants no browser, workflow execution or external delivery approval.

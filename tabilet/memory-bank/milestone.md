@@ -14,7 +14,11 @@ passed, final integration and exact earlier native39 context independently
 verified. M93 is also qualified, human-accepted and published at application
 `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` through
 `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; native39, integration17 and both
-visible journeys passed, review1 passed. M94/M95 remain catalog/removal work.
+visible journeys passed, review1 passed. M94 catalog discovery/provisioning is
+also accepted/published at application/test source
+`ee49fe433a4d476f8d28d3d888352293c490dfc6`, through
+`5a2a2643ff71831ae72cdeca57baf197c1afbf16`; full owner/native conformance and
+review1 passed. M95 removal remains gated by Kinet U07, Gate5B and W8M W28.
 Resolve completed prerequisites through the [history index](../docs/history/index.md).
 
 E24 completed [actual namespace binding](../docs/history/status-E24.md).
@@ -137,7 +141,8 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 ### Stage 5 coordination (approved planning, 2026-09-30)
 
 M91 is an accepted published extraction prerequisite. OpenUdon owns remaining
-M94/M95 target work; M92 pending/simulation and M93 supervised capture are accepted. The
+M95 target work; M92 pending/simulation, M93 supervised capture and M94
+catalog discovery/provisioning are accepted. The
 canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
 publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 `docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's
@@ -157,20 +162,6 @@ Remaining: OpenUdon M94
   named authorization.
 - Before consuming an upstream revision, record its actual accepted source,
   publication and qualification evidence. Never invent a future hash.
-
-### M94 — Catalog discovery and digest-bound source provisioning
-
-**Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
-
-**Scope and compatibility.** step discover consumes explicit catalog-root/index configuration and returns APItools' five outcomes: match, ambiguous, no qualifying API within checked scope, insufficient evidence, blocked. Preserve coverage, exclusions, digest/staleness evidence, exact multiword provider keys, authority/license unknowns and bounded rank evidence. Missing roots/documents or unexamined scope are not definitive no-match. No implicit sibling root and no per-call reimplementation of APItools indexing/ranking. Catalog step source add uses M81 artifact-scoped export/materialization with stable native selectors and digest checks; confirmation and package rules remain OpenUdon-owned. Default offline; remote lookup only explicitly enabled, using APItools bounds and provenance.
-
-**Dependencies.** M93 accepted/published; APItools existing M81 then M80 accepted/published. Consume the exact approved M81.1 contract and M80 release; never edit their plan.
-
-**Downstream.** Kinet W10; M95 removal precondition; W8M W28.
-
-**Acceptance.** Conformance tests cover all five outcomes, missing/stale index, root relocation, unknown licenses, provider constraints, cancellation and matching discovery-to-export digest/selector identity. Only scoped no-match signals automatic browser fallback; ambiguity asks for intent, missing evidence requests configuration, blockers explain refusal. make check, owner compatibility checks, bounded review and publication; do not make APItools publication depend on this future implementation.
-
-Status, task-sized commit units, review provenance and persisted review counter: [status-M94.md](status-M94.md).
 
 ### M95 — Remove iCoT after consumer migration
 
@@ -243,7 +234,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- Remaining approved work: M94, then M95 after Kinet U07 and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
+- Remaining approved work: M95 after Kinet U07, Gate5B and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
 
 - Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
   evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
@@ -258,7 +249,7 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: approved Stage 5 M94/M95. M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
+- Active: approved Stage 5 M95. M94 supplies accepted catalog discovery/provisioning; M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
   shared implementation; no capability removal is claimed. E21/P07/P08
   completed normal history retirement before M91, preserving all original
   task outcomes, qualification evidence and review counts. W8M owns its later
@@ -277,7 +268,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 
 ## Requested Changes After Initialization
