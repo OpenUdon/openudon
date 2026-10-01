@@ -421,3 +421,26 @@ capture modes through the public command, fresh current-stack owner qualificatio
 human-visible authenticated/TOTP and registration evidence, persisted review
 (0/10 not started), publication and exact downstream reconciliation. Existing
 fixture/asset/lock bytes and sibling code are unchanged; evolution v47 remains.
+
+## M93.5 qualification preflight — 2026-10-01
+
+M93.4 implementation source is frozen at
+`589a13658cde776c5cb0764bf886972a95b0061f` in the clean disposable bundle
+`/var/tmp/openudon-m93-qualified-hvccxp50`. Eighteen exact repository checkouts
+were copied from the current v5 compatibility/build-input closure plus the
+published Authoring source; no sibling worktree was changed. The M91 exact
+read-only installed Node dependencies are reused as bytes only; no execution
+report or development result is reused. The frozen source's offline make check
+passed (`offline.log`). Source/build metadata and all fresh gate outputs remain
+outside repositories; this is qualification in progress, not acceptance.
+
+Planned native operation: fresh current v5 loopback owner qualification,
+three complete repeats (39 stages), followed by independent report verification.
+Purpose: qualify the retained native UI/controller/profile/runtime stack after
+the M93 adapters/worker/import changes. Estimated duration: 20–40 minutes
+(estimate, not observed timing); no result-reuse speedup is claimed. Native
+owner context remains bounded at two hours. Use an installed temporary Xvfb
+with TCP disabled and private X authentication under M93.5's already approved
+later-reuse authority; verify its owned display/auth cleanup after the run.
+Do not restore/replay closed M93.0. Additional actual public-command checks and
+both human-visible journeys remain necessary. Review count stays 0/10.
