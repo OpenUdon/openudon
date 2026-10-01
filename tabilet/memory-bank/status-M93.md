@@ -517,3 +517,32 @@ source, not qualification of the corrected source. Both actual registration
 modes, a complete fresh native suite on final source, human-visible journeys,
 review/publication and downstream acceptance remain pending. Review count is
 still 0/10. M93.5 is the sole general in-progress row.
+
+## M93.5 final-source public command checks — 2026-10-01
+
+All three actual public-command checks passed on frozen source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, CLI SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+Bundle: `/var/tmp/openudon-m93-qualified-8heukane`; metadata-only summaries
+and exact helper snapshots are retained in separate disposable check roots.
+Authenticated/TOTP: 35 events, 4.609 seconds, separate native POST approvals,
+identifier/password/TOTP kinds, independent goal URL, explicit empty outputs,
+post-join import approval; receipt SHA-256
+`b5ac17b3e2bd1bef5c795d7785d9a43d5fc10605dea63a66127624d3172bcf39`.
+Simple registration v2: 10 events, 3.572 seconds, no submission, reviewed
+profile and independent import; receipt SHA-256
+`84140520b51bb814127ced536bd8e9fb6f1ad2a3abc0010dfcc243e3850af7d0`.
+Typed verification registration v4: 14 events, 3.494 seconds, exact verification
+refusal followed by a fresh approved card, no submission, independent reviewed
+profile import; receipt SHA-256
+`bbd43efd392b57e3720c0f5ed617b399e1c82ff0248226aef0e976821e7291ad`.
+All used disposable credential-free loopback fixtures and private temporary
+Xvfb displays. These are automated authoring checks, not human-visible
+acceptance or workflow runtime execution.
+
+Full Go vet passed (`/tmp/openudon-m93-5-final-vet.log`). The native3 operation
+is running the current v5 suite on all eighteen clean frozen checkouts at this
+exact application source, with three fresh repeats and private TCP-disabled
+X authentication. Its invocation, log and display metadata are retained;
+no pass is claimed before completion and independent report verification.
+M93.5 remains the sole general in-progress row. Closing review stays0/10.
