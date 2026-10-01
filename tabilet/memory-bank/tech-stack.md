@@ -119,9 +119,10 @@ manifest ID and path-derived candidate ID. Kinet owns the preceding
 user-confirmation gate.
 Candidates scans the eight supported local source families, including the
 legacy `discovery/` directory as a Google Discovery alias, and calls published
-APItools M79 operation-candidate metadata at
-`v0.0.0-20260928033144-e3625f6ef52e` (commit
-`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs. It preserves
+APItools operation-candidate metadata at adopted M81/M80
+`v0.0.0-20260930205753-fb132631c982` (commit
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`); the legacy candidates path still
+does not fetch URLs. It preserves
 consumer summaries, compatibility evidence, source-backed effect classes,
 authentication alternatives, and source capabilities while omitting paths
 from results. Check and bind match the exact APItools source kind, ID, digest,
@@ -1211,3 +1212,17 @@ The confirmed initial noVNC session expired cleanly at 07:58:47 UTC on
 2026-10-01, with owned processes gone and private auth removed. Human desktop
 confirmation is recorded independently. Restore a bounded display only for the
 currently selected, authorized later-reuse row, never by replaying closed M93.0.
+
+## M94.1 published APItools and explicit discovery
+
+Current APItools pin: `v0.0.0-20260930205753-fb132631c982`, exact source
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`; module sum
+`h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=`. No replacement or sibling
+checkout is used. M79 remains a rollback/historical reference, not the current
+pin. `openudon step discover --request FILE|- [--catalog-root DIR]
+[--catalog-registry REL] [--catalog-index REL] [--catalog-metadata FILE]
+[--enable-remote]` uses the native APItools request/report; stdout is one
+bounded JSON report. Explicit operator indexing remains `apitools catalog
+index`, not an implicit discovery side effect. See docs/catalog-discovery.md
+for outcomes, bounds, exit codes and dual remote opt-in. No new module was
+added; APItools sqlitecache remains the source owner's read-only adapter.

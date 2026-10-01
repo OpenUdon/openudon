@@ -1,6 +1,6 @@
 # Status M94 — Catalog discovery and digest-bound source provisioning
 
-**State:** Approved planning, 2026-09-30; every task pending. No implementation or publication is established by this record.
+**State:** M94.1 complete; M94.2/M94.3 pending. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
 
 **Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
 
@@ -19,7 +19,7 @@ step discover consumes explicit catalog-root/index configuration and returns API
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M94.1 — Adopt APItools and expose discovery | `[ ]` | Pin the accepted M80 release including M81; require explicit root/index; preserve all five outcomes and producer conformance fixtures. |
+| M94.1 — Adopt APItools and expose discovery | `[+]` | Pin the accepted M80 release including M81; require explicit root/index; preserve all five outcomes and producer conformance fixtures. |
 | M94.2 — Provision selected catalog artifacts | `[ ]` | Round-trip stable references through artifact-scoped export, verify digests/native selectors and preserve source confirmation/security-overlay provenance. |
 | M94.3 — Qualify outcomes and provisioning, review and publish | `[ ]` | Test scoped outcomes, index failures, root relocation and provisioning; publish fixtures and exact accepted revision for Kinet W10. |
 
@@ -182,3 +182,48 @@ in this downstream consumer remain pending until its own acceptance checks.
 M93 now satisfies the serial producer prerequisite. Catalog implementation still
 uses the separately accepted APItools contract; never copy browser or catalog
 semantics. M94.1 is next only after M93 normal retirement/publication closure.
+
+## M94.1 execution selected — 2026-10-01
+
+M93 closure was independently verified on origin/main at
+`ca3b805456a459d83431cbc6ef3126015a575772`; its qualified source and protocol
+remain the exact producer recorded above. APItools source
+`fb132631c9827eae5f2ec4503d03f21eabfb4113` and closure
+`8a52c3f602988b945a4b5c1960bce8c04170c63d` remain published and unchanged.
+No sibling plan/source edit is needed. Implement the adapter over native
+DiscoverCatalogOperations and DecodeCatalogDiscoveryRequest, explicit
+installation catalog root/registry/index and read-only registration access.
+Missing installation configuration is incomplete evidence; never infer global
+absence or build an index implicitly. Optional remote lookup remains dual
+opt-in and bounded by APItools. Retain the five native outcomes unchanged.
+
+## M94.1 delivered — 2026-10-01
+
+Adopted published APItools module `v0.0.0-20260930205753-fb132631c982`,
+Origin.Hash `fb132631c9827eae5f2ec4503d03f21eabfb4113`, module sum
+`h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=`. The first offline download
+found only metadata cached; explicit retrieval of this published revision
+succeeded, after which checks ran offline with GOWORK off. No sibling changed.
+
+`step discover` consumes/returns native APItools catalog-discovery/v1;
+explicit CLI root/registry/index and optional installation metadata use native
+read-only sqlitecache/index validation. Missing configuration/index remains
+insufficient evidence; all five outcomes, multiword/empty provider scope,
+coverage, relocation, license unknowns and references are preserved. Default
+is offline; optional remote requires both installation and request opt-in.
+No index build, copied ranking, source write or API/browser execution.
+Shared strict JSON preflight additionally refuses duplicate request keys;
+initial conformance failure exposed native acceptance of duplicate fields,
+then the affected check passed without relaxing semantic validation.
+
+Source-backed conformance copies three exact upstream synthetic fixture files
+with full-source/hash provenance and builds native indexes freshly. Complete
+CLI/native reports match for all five outcomes and relocated roots. Malformed
+requests/flags are refused without echo, and request-only remote opt-in fails.
+Focused command/candidate/source tests passed. Full make fast passed with
+actual published module and offline environment:
+`/tmp/openudon-m94-1-fast.log`; focused vet, document, gofmt and diff checks
+passed. Updated product/architecture/stack and operator documentation; old
+current-pin wording preserved in the append-only knowledge journal.
+M94.2 still owns selected artifact export/provisioning and provenance, and
+M94.3 owns final qualification/review/publication. Review remains0/10.

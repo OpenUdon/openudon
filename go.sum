@@ -6,6 +6,8 @@ github.com/OpenUdon/apitools v0.0.0-20260927133930-26bb05247d6c h1:umVhSt1RSuarb
 github.com/OpenUdon/apitools v0.0.0-20260927133930-26bb05247d6c/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
 github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e h1:mfzAV16/OKg/rWI1DCKJvZAx/AzeRdmxKe2m5Kd5HVo=
 github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
+github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982 h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=
+github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
 github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4=
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
 github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583 h1:NjQ6S2XEk9iiK72rqWxuayd7zBBkIsVed3bVnMkCFkI=

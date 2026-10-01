@@ -455,3 +455,13 @@ profiles do not grant workflow execution. M93 is qualified and user-accepted
 at application `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, with source publication
 `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; see its permanent history record.
 iCoT remains available during 5A. Kinet and W8M independently qualify adoption.
+
+## Scoped catalog discovery
+
+`step discover` presents native APItools match, ambiguity, scoped no-qualifying
+API, insufficient evidence and blocked outcomes with coverage and source
+provenance. Configuration is explicit and offline by default. Missing roots,
+indexes or scope never prove a service lacks an API. Evidence grants no
+source/package/browser/execution approval; user confirmation and consumer
+routing remain separate. Optional remote lookup requires both explicit
+installation capability and request opt-in.

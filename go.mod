@@ -3,7 +3,7 @@ module github.com/OpenUdon/openudon
 go 1.26.6
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e
+	github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260930234600-18056cb6b0c1
 	github.com/OpenUdon/browsertools v0.0.0-20260925161530-3abe70efc03d

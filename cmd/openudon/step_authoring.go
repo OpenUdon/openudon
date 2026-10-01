@@ -18,10 +18,12 @@ import (
 
 func runStepCommand(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|pending|bind|check|source add} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {discover|candidates|pending|bind|check|source add} --request FILE|- [--example DIR]")
 		return 2
 	}
 	switch args[0] {
+	case "discover":
+		return runStepDiscoverCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "candidates":
 		return runStepCandidatesCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "check":
@@ -33,7 +35,7 @@ func runStepCommand(args []string) int {
 	case "source":
 		return runStepSourceCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|pending|bind|check|source add} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {discover|candidates|pending|bind|check|source add} --request FILE|- [--example DIR]")
 		return 2
 	}
 }

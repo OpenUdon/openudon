@@ -106,8 +106,8 @@ self-digest clears its own field before canonical JSON hashing.
   AsyncAPI maps to `asyncapi`, GraphQL maps to `graphql`, OpenRPC maps to `openrpc`,
   gRPC/protobuf maps to `grpc-protobuf`, and OData maps to `odata`.
 - OpenUdon's non-interactive step-authoring CLI consumes APItools' published operation-candidate
-  contract, currently APItools M79 revision
-  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`. `step candidates` scans bounded local family directories and returns path-free exact
+  contract, now adopted at published APItools M81/M80 revision
+  `fb132631c9827eae5f2ec4503d03f21eabfb4113`. `step candidates` scans bounded local family directories and returns path-free exact
   source/digest references, consumer summaries, match evidence, auth alternatives, effects, and
   capability gaps. `step check` revalidates that exact operation and effect against current local
   bytes, including source request locations, colliding unqualified names,
@@ -1471,3 +1471,16 @@ not full-package promotion or execution authority. Only a committed import emits
 terminal imported metadata; refusal/cancel/EOF/expiry writes no profiles. A
 failed write or lost terminal delivery requires inspection, never automatic replay.
 M93.5's native/visible qualification and accepted publication are still pending.
+
+## M94 catalog discovery adapter
+
+`step discover` returns the native APItools catalog-discovery/v1 report from
+its indexed discovery/ranking implementation. Root/registry/index, optional
+installation catalog metadata and remote capability are selected only through
+trusted CLI configuration; requests retain the native bounded decoder plus
+OpenUdon's shared duplicate-key check. Read-only registration access uses
+APItools sqlitecache; no implicit roots, index writes or copied ranking.
+All five outcomes/coverage/reference/license facts remain unchanged. Only
+scoped no-qualifying-api can support automatic browser fallback; the adapter
+never performs routing, confirmation or execution. Optional remote retrieval
+requires both installation and request opt-in under native bounds.

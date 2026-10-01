@@ -1852,3 +1852,19 @@ Default remains v4. Native v4 requires verification/input BRP 1.2; older native
 protocols retain simpler existing profiles and their own native query/profile/
 preview/verification rules. No automatic fallback, new worker or relaxed gate
 was introduced. M93.5 qualification remains open; this is no acceptance claim.
+
+## 2026-10-01 — M94 adopts published APItools catalog producer
+
+- Original sources: architecture.md step-authoring APItools pin and tech-stack.md candidates pin.
+- Reason: M94.1 adopts published M81/M80 source fb132631c9827eae5f2ec4503d03f21eabfb4113 while retaining the legacy candidate/source contracts.
+- Evidence: exact module Origin.Hash and producer history; M94.1 source-backed native/CLI conformance and existing candidate/source checks.
+- Replacement: current architecture/tech-stack catalog discovery sections; M79 remains rollback and historical context.
+
+```markdown
+contract, currently APItools M79 revision
+  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`.
+
+APItools M79 operation-candidate metadata at
+`v0.0.0-20260928033144-e3625f6ef52e` (commit
+`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs.
+```
