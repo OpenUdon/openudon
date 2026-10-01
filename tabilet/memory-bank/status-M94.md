@@ -309,3 +309,17 @@ no direction/boundary change beyond its already approved M94 target.
 This source/fixture qualification commit precedes the required fast-forward
 publication; M94.3 stays in progress until publication and normal closure are
 observed. No downstream implementation/acceptance is implied by these checks.
+
+## Exact qualified source — 2026-10-01
+
+Clean application/test source `ee49fe433a4d476f8d28d3d888352293c490dfc6`.
+Frozen qualification: /var/tmp/openudon-m94-qualified-k0khdqy5/qualification-summary.json,
+SHA-256 `36445e7dec47d757656dab0eee0db23265112423cfabdff01f4f72fde8f8dc4b`.
+CLI SHA-256 `2586eccc26088abd08a5448d88c821e50ed05e6b71f2ceab2eeb12c0f3faac1a`;
+dependency manifest and successful check/vet/race/doc/real-dispatch logs are
+digest-bound in that bundle. Checks ran against the reviewed worktree's exact
+application/test bytes, unchanged in this source commit; no checks are relabeled
+as a later source. Clean-source binary additionally passed exact native
+incomplete-report comparison from a disjoint cwd and both public command help
+surfaces. Source publication is next under the already approved exact-diff
+fast-forward policy; no consumer may assume it is published before verification.
