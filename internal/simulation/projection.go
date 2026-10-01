@@ -40,6 +40,7 @@ func project(document *uws1.Document, options Options) (projection, error) {
 				return result, errors.New("unsupported operation identity")
 			}
 			occupied[op.OperationID] = true
+			occupied[op.ParallelGroup] = true
 		}
 	}
 	for _, wf := range document.Workflows {
@@ -61,6 +62,7 @@ func project(document *uws1.Document, options Options) (projection, error) {
 			return errors.New("simulation step inventory exceeds bound")
 		}
 		occupied[step.StepID] = true
+		occupied[step.ParallelGroup] = true
 		return nil
 	})
 	if err != nil {

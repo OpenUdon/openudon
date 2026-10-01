@@ -210,6 +210,17 @@ func TestSimulationRefusesAmbiguousPendingResponseIdentity(t *testing.T) {
 	}
 }
 
+func TestPendingProjectionAvoidsParallelGroupNames(t *testing.T) {
+	doc := pendingDocument()
+	doc.Operations = []*uws1.Operation{{OperationID: "read", Effect: "read", Extensions: map[string]any{uws1.ExtensionOperationProfile: "test.mock.1"}, OperationExecutionFields: uws1.OperationExecutionFields{ParallelGroup: "__openudon_pending_0"}}}
+	doc.Workflows[0].Steps = append(doc.Workflows[0].Steps, &uws1.Step{StepID: "read", OperationRef: "read", StepExecutionFields: uws1.StepExecutionFields{ParallelGroup: "__openudon_pending_1"}})
+	repo, root := writePackage(t, doc)
+	report := Run(context.Background(), Options{RepoRoot: repo, ExampleDir: root, Responses: map[string]ResponseDefinition{"read": {Example: json.RawMessage(`{"body":{}}`)}}})
+	if report.Status != "completed" || !report.PackageUnchanged || len(report.WouldBeRequests) != 2 {
+		t.Fatalf("synthetic identity collided with declared group: %+v", report)
+	}
+}
+
 func TestSimulationRefusesUnsafeInconsistentAndUnsupportedPackages(t *testing.T) {
 	for _, kind := range []string{"mismatch", "symlink", "invalid-schema", "unsupported-schema", "missing-response", "cancelled", "outside-root"} {
 		t.Run(kind, func(t *testing.T) {

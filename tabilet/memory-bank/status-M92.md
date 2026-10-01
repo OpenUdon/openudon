@@ -1,6 +1,6 @@
 # Status M92 — UWS 1.12, pending packages and pure simulation
 
-**State:** M92.1–M92.3 implemented and checked; producer conformance, runtime qualification and milestone acceptance remain pending.
+**State:** Fresh native qualification passed at its exact source; R4 is fixed with affected checks passed. Closing review iteration 4 is in progress; final producer qualification, publication, reconciliation and acceptance remain pending.
 
 **Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
 
@@ -40,7 +40,7 @@ Lineage: Promotes tier-1/pending parts of S2b over M87/M89, preserving M90 evide
 
 ## Closing review
 
-Persisted iteration count: 1/10. Iteration 1 started on 2026-10-01 after owner checks and the required integration gates passed. Fresh native qualification is running against the immutable source checkpoint; acceptance remains pending. Resume this interrupted pass at iteration 1. Exact source/build revisions, publication and downstream reconciliation must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 4/10. Iteration 3 concluded with R4 below; its fix passed affected verification. Iteration 4 passed on 2026-10-01 with no open findings. Final qualification, publication, downstream reconciliation and milestone acceptance remain pending. Exact source/build revisions, publication and downstream reconciliation must be recorded from observed evidence before normal package retirement.
 
 ## Udon M45 producer reconciliation — 2026-09-30
 
@@ -328,3 +328,133 @@ checks); separate vet passed (`/tmp/openudon-m92-review-1-vet.log`). After R3,
 verification passed (`/tmp/openudon-m92-review-1-final-race.log`), including
 all CLI tests. Fresh native qualification and review iteration 2 remain
 pending; no milestone acceptance yet.
+
+## Closing review iteration 2 — started 2026-10-01
+
+Review the full M92 application range from published M91 closure, with
+particular attention to the exact offline input-schema adapter, retained
+numeric identity, v4/v5 count evidence acceptance/refusal, fixed named gate
+selectors and preserved old source/fixture/lock bytes. R1/R2/R3 affected checks
+passed before this iteration. Source checkpoint is
+`7efb58678954a037a54e5d5874020258ce98cdca`; no later worktree change may be
+attributed to its fresh immutable qualification. Publication and acceptance
+remain pending.
+
+## Closing review iteration 2 — passed 2026-10-01
+
+Re-reviewed the complete range `50553d40de065048906ee5dcfd2ed46b1150abf8`
+through `7efb58678954a037a54e5d5874020258ce98cdca`, including all behavioral,
+versioned-context, fixture/schema and current-truth changes. R1 now validates
+the embedded exact input envelope with an empty external loader, strict JSON
+and unchanged numeric data; R2's replaced declarations are preserved in the
+knowledge journal and retained contexts clearly labeled; R3 now carries the
+count phase/assertion vocabulary into v5 while keeping both v4/v5 missing
+evidence and non-count refusals. Added tests passed, as did complete affected
+race tests and owner full checks. Pending/bound-name collisions still refuse
+through the public executable validator before any mock call.
+
+Checked no network/credential/executor implementation enters simulation;
+fixture matching/projection stays in memory, public orchestration owns
+execution, bounded fixed diagnostics/redaction expose no raw values, and
+final capture invalidates changed packages. Rechecked version retention,
+all-branch pending admission, stale/unsafe/cancelled authoring, exact contract
+resolution and old report dispatch/lock/fixture preservation. No P1/P2 or
+higher finding remains, and no lower finding is carried. This passes the
+code review gate only: fresh native evidence, exact source publication,
+downstream reconciliation and normal retirement remain incomplete.
+
+## Fixed-source qualification underway — 2026-10-01
+
+New immutable bundle: `/var/tmp/openudon-m92-review-qualified-o8mcc8my`,
+application source `7efb58678954a037a54e5d5874020258ce98cdca`, eighteen exact
+clean repositories and the unchanged read-only M91 Node installation. No
+test evidence is reused. Frozen `make check` passed (`offline.log`); its only
+ignored generated artifact was an empty `.openudon-run/`, inspected and
+removed with `rmdir` before qualification, with provenance recorded in
+`offline-generated-artifact.json`. All eighteen checkouts were then clean,
+including ignored paths.
+
+Fresh integration v6 passed all seventeen required gates, with three optional
+gates unrequested; its independent verifier passed (`evidence/integration3-v6.json`,
+`integration3.log`). The producer gate now requires thirteen named tests,
+including input conformance and ambiguity refusal. UWS, Browsertools and
+Authoring module download Origin.Hash values independently match their exact
+published sources without replacements (`module-origins.json`). The frozen
+trimpath CLI build records VCS source and `vcs.modified=false`, SHA-256
+`5de2294fab8f4d27965c291b2af550f3bff7c6021da74bbd7ffab5c00a3f62ba`
+(`tools/openudon-build.json`). That CLI independently verified M91's actual
+retained native v4 report (`retained-native-v4-verify.log`). Fresh native v5
+three-repeat qualification is still running (`native2.log`); no native pass,
+publication or acceptance is inferred from these other checks.
+
+## Closing review iteration 3 — started; R4 recorded 2026-10-01
+
+R4 (P2, confirmed): synthetic pending-operation identity selection reserved
+operation/workflow/step IDs but omitted operation/step parallel-group names.
+A valid mixed public document with group `__openudon_pending_0` therefore
+blocked after projection instead of previewing. The regression reproduced it
+(`/tmp/openudon-m92-names-before.log`). Reserve the group identifiers during
+the existing inventory and prove mixed preview completion/immutability. This
+is a pure simulation fix; no execution, browser, qualification-selector or
+dependency code changes. Review the full milestone at iteration 3 and rerun
+affected producer/race/full/integration checks. Native evidence still binds
+exact source `7efb58678954a037a54e5d5874020258ce98cdca`; never attribute
+this later fix to that source.
+
+## Closing review iteration 3 — concluded; fix verified 2026-10-01
+
+R4 is the single blocking P2 finding from this pass. The two-line inventory
+fix reserves operation and step parallel-group names; the valid mixed fixture
+now completes without changing the package. The current integration producer
+gate requires this regression by name (fourteen producer markers total).
+Simulation race checks, full standalone `make check`, separate vet and the
+owner document-memory check passed (`/tmp/openudon-m92-review-3-*` logs).
+No browser/runtime/authoring/dependency implementation changed. Iteration 4
+must review the whole milestone before acceptance; this fix is not attributed
+to earlier immutable qualification.
+
+## Fixed-source native qualification completed — 2026-10-01
+
+The immutable `7efb58678954a037a54e5d5874020258ce98cdca` bundle above
+completed native v5 three fresh repeats, thirteen stages each (39/39).
+Each repeat passed all 23 loopback cases and 14 journeys plus transactions
+and supervised packages. The built CLI independently verifies the report.
+Native report SHA-256:
+`0c2171a1578fd295e9212191b98ed28c0c7a72890e445b228da95b583139e206`.
+The temporary display wrapper exited 0 and verified no Xvfb PID, TCP listener
+or authentication directory remained; teardown record SHA-256:
+`936426699085e2b44c53023728252d7ccf97e077e8fda45f4224d4103fcb1bc8`.
+R4 is a later pure simulation change. Final producer qualification will bind
+its own exact revision and prove the native code/pin context unchanged. Do not
+claim these browser runs executed the R4 fix, reuse them as a new runtime
+identity, or rerun the unchanged native suite for every simulation edit.
+
+## Closing review iteration 4 — started 2026-10-01
+
+Review the complete M92 range from published M91 closure, all prior fixes,
+producer/version/privacy/admission contracts and current/retained contexts.
+Pay particular attention to synthetic identity selection across public
+operation, workflow, step and parallel-group namespaces. Earlier native checks
+bind their actual immutable source. Final affected producer integration and
+publication are still required; no acceptance is recorded by starting review.
+
+## Closing review iteration 4 — passed 2026-10-01
+
+Re-reviewed the whole milestone range and all R1–R4 fixes. Public version
+validation, pending publication/resolution and all-artifact admission preserve
+legacy declarations and refuse pending execution before any dispatch. Pure
+simulation remains bounded captured-data adaptation over the public
+orchestrator/mockruntime, with no credential resolver or network/executor.
+Synthetic names now reserve operation/workflow/step and parallel-group
+identifiers; ambiguity remains public validation's responsibility. Exact
+schema enforcement, numeric identity, fixture precedence, expression-only
+adaptation and conservative value/key redaction preserve the published
+contracts. Revision-checked writes, cancellation and final package recapture
+retain their refusal behavior. Old readers, locks and fixtures are unchanged;
+new contexts independently identify effective and declared module edges.
+
+Full owner checks, separate vet, affected race and document checks passed.
+Native three-repeat evidence at its exact checkpoint is independently verified.
+No P1/P2-or-higher or lower carried finding remains. This passes review 4/10;
+final producer integration/source qualification, publication, reconciliation
+and normal retirement still have to complete before acceptance.
