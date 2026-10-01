@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1–M91.5 complete; M91.6 blocked on temporary headed-test display authority. The 23-capability inventory is approved; milestone acceptance remains incomplete.
+**State:** M91.1–M91.5 complete; M91.6 resumed with explicit temporary test-display authority. Native qualification/review/acceptance remain incomplete.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -24,7 +24,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[+]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
-| M91.6 — Prove equivalence, review and publish | `[!]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
+| M91.6 — Prove equivalence, review and publish | `[~]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
 ## Acceptance and verification
 
@@ -355,3 +355,14 @@ and automatic teardown; then start review at its retained 0/10 counter.
 No M91 publication/acceptance/retirement or downstream implementation has
 started; M93.0 and the visible human checkpoints remain pending. One execution
 owner retains the run, with no general row in progress and no second audit run.
+
+## Temporary M91 display approved — 2026-10-01
+
+The user explicitly approved already installed Xvfb on
+`vps-f7dfc687.vps.ovh.us` for M91 disposable loopback qualification, with TCP
+disabled, temporary X authentication and automatic teardown. The coordinator
+launcher records that exact exception separately from M93.0's later desktop
+setup and human-visible checkpoints. M91.6 resumes as the single general row
+in progress; review remains 0/10. No package installation or live-target
+authority is added. Fresh current native qualification uses verified candidate
+`3fd40d3f874bdcf668a018550112a02cd0d02409` and exact frozen dependencies.
