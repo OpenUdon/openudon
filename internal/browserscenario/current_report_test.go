@@ -209,40 +209,47 @@ func TestCurrentScenarioReportRequiresExactLockAndCompleteSuite(t *testing.T) {
 }
 
 func TestBrowser110CurrentReportRequiresVersionedCountEvidence(t *testing.T) {
-	lock, err := LoadCurrentCompatibilityLockV4()
-	if err != nil {
-		t.Fatal(err)
-	}
-	commits, versions := map[string]string{}, map[string]string{}
-	for _, component := range lock.Components {
-		commits[component.Name], versions[component.Name] = component.Commit, component.Version
-	}
-	repositories := []RepositoryRevision{
-		{Name: "openudon", Commit: strings.Repeat("a", 40)},
-		{Name: "browsertools", Commit: commits["browsertools"]},
-		{Name: "uws", Commit: commits["uws"]},
-		{Name: "udon", Commit: commits["udon"]},
-		{Name: "browserdriver", Commit: commits["browserdriver"]},
-	}
-	result := ScenarioResult{ID: "campaign-count-browser110-multiple", Status: StatusPass, Attempts: 1, Detail: "ok",
-		Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}},
-		Assertions: []string{"author_session_v2"}}
-	report := NewReportForStack(SuiteJourney, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), repositories, []DependencyRevision{
-		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
-		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
-	}, []ScenarioResult{result})
-	report.Version = CurrentV4JourneyVersion
-	if err := ValidateReport(report); err == nil {
-		t.Fatal("Browser 1.10 count report without v11 evidence was accepted")
-	}
-	report.Scenarios[0].Assertions = append(report.Scenarios[0].Assertions, "browser110_count", "udon_v11_replay")
-	report.Scenarios[0].Phases = append(report.Scenarios[0].Phases, PhaseResult{ID: "udon_v11", Status: StatusPass, Detail: "ok"})
-	if err := ValidateReport(report); err != nil {
-		t.Fatalf("Browser 1.10 count evidence rejected: %v", err)
-	}
-	report.Scenarios[0].ID = "template-browser19"
-	if err := ValidateReport(report); err == nil {
-		t.Fatal("non-count Browser 1.9 scenario accepted Browser 1.10 count evidence")
+	for _, version := range []string{CurrentV4JourneyVersion, CurrentJourneyReportVersion} {
+		t.Run(version, func(t *testing.T) {
+			lock, err := LoadCurrentCompatibilityLockV4()
+			if version == CurrentJourneyReportVersion {
+				lock, err = LoadCurrentCompatibilityLockV5()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			commits, versions := map[string]string{}, map[string]string{}
+			for _, component := range lock.Components {
+				commits[component.Name], versions[component.Name] = component.Commit, component.Version
+			}
+			repositories := []RepositoryRevision{
+				{Name: "openudon", Commit: strings.Repeat("a", 40)},
+				{Name: "browsertools", Commit: commits["browsertools"]},
+				{Name: "uws", Commit: commits["uws"]},
+				{Name: "udon", Commit: commits["udon"]},
+				{Name: "browserdriver", Commit: commits["browserdriver"]},
+			}
+			result := ScenarioResult{ID: "campaign-count-browser110-multiple", Status: StatusPass, Attempts: 1, Detail: "ok",
+				Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}},
+				Assertions: []string{"author_session_v2"}}
+			report := NewReportForStack(SuiteJourney, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), repositories, []DependencyRevision{
+				{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+				{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+			}, []ScenarioResult{result})
+			report.Version = version
+			if err := ValidateReport(report); err == nil {
+				t.Fatal("Browser 1.10 count report without v11 evidence was accepted")
+			}
+			report.Scenarios[0].Assertions = append(report.Scenarios[0].Assertions, "browser110_count", "udon_v11_replay")
+			report.Scenarios[0].Phases = append(report.Scenarios[0].Phases, PhaseResult{ID: "udon_v11", Status: StatusPass, Detail: "ok"})
+			if err := ValidateReport(report); err != nil {
+				t.Fatalf("Browser 1.10 count evidence rejected: %v", err)
+			}
+			report.Scenarios[0].ID = "template-browser19"
+			if err := ValidateReport(report); err == nil {
+				t.Fatal("non-count Browser 1.9 scenario accepted Browser 1.10 count evidence")
+			}
+		})
 	}
 }
 

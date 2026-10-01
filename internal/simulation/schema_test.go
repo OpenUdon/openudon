@@ -102,6 +102,20 @@ func TestPublishedSimulationFixturesAndRuntimeConform(t *testing.T) {
 	}
 }
 
+func TestSimulationInputValidationPreservesNumbersAndOfflineReferences(t *testing.T) {
+	data := []byte(`{"version":"openudon.simulate-input.v1","inputs":{"precise":9007199254740993},"responses":{"read":{"schema":{"$ref":"https://unavailable.invalid/schema","x-owner":"retained"}}}}`)
+	input, err := DecodeInput(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Inputs["precise"] != json.Number("9007199254740993") || input.Responses["read"].Schema.Ref != "https://unavailable.invalid/schema" {
+		t.Fatalf("input identity changed: %+v", input)
+	}
+	if _, err := DecodeInput([]byte(`{"version":"openudon.simulate-input.v1","inputs":{"duplicate":1,"duplicate":2}}`)); err == nil {
+		t.Fatal("duplicate input key accepted")
+	}
+}
+
 func TestSimulationSchemaRejectsAuthorityAndPendingEndpointDrift(t *testing.T) {
 	schema := simulationSchema(t, Version)
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "examples", "simulation", "v1", "results", "pending.json"))

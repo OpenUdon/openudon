@@ -31,6 +31,14 @@ before advancing current-stack support; the original integration and two
 scenario v2 reports continue to verify. See [status-E21](../docs/history/status-E21.md) and
 [M86](../docs/history/status-M86.md).
 
+Advancing a report version must carry its supported phase/assertion vocabulary
+as well as its pins and required markers. Test both retained and new versions
+with positive count evidence and negative non-count evidence. M92 review R3
+found that all fourteen native journeys ran successfully while the outer v5
+verifier still rejected the retained `udon_v11` phase through a v4-only branch.
+Evidence: `TestBrowser110CurrentReportRequiresVersionedCountEvidence` and
+M92's status record, resolved through the milestone/history index.
+
 ## Bind advertised coverage to versioned qualification selectors
 
 When release guidance claims a feature is covered, its versioned gate must

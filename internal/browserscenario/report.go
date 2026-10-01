@@ -226,6 +226,7 @@ func ValidateReport(report *Report) error {
 		}
 	}
 	seen := map[string]bool{}
+	supportsBrowser110 := isCurrentV4ReportVersion(report.Version) || isCurrentV5ReportVersion(report.Version)
 	for _, result := range report.Scenarios {
 		if !validIDs[result.ID] || seen[result.ID] || !allowedScenarioStatuses[result.Status] || result.Attempts < 0 || result.Attempts > 1 || !allowedDetails[result.Detail] {
 			return fmt.Errorf("browser scenario result %q is invalid", result.ID)
@@ -242,7 +243,7 @@ func ValidateReport(report *Report) error {
 		for _, phase := range result.Phases {
 			allowedPhase := allowedPhaseIDs[report.Suite][phase.ID] ||
 				(stack == StackCurrent && report.Suite == SuiteJourney && currentPhaseIDs[phase.ID]) ||
-				(isCurrentV4ReportVersion(report.Version) && report.Suite == SuiteJourney && currentV4PhaseIDs[phase.ID])
+				(supportsBrowser110 && report.Suite == SuiteJourney && currentV4PhaseIDs[phase.ID])
 			if !allowedPhase || phaseSeen[phase.ID] || !allowedPhaseStatuses[phase.Status] || !allowedDetails[phase.Detail] {
 				return fmt.Errorf("browser scenario phase %q is invalid", phase.ID)
 			}
@@ -251,12 +252,12 @@ func ValidateReport(report *Report) error {
 		assertionSeen := map[string]bool{}
 		for _, assertion := range result.Assertions {
 			if (!allowedAssertions[assertion] && (stack != StackCurrent || !currentAssertions[assertion] &&
-				(!isCurrentV4ReportVersion(report.Version) || !currentV4Assertions[assertion]))) || assertionSeen[assertion] {
+				(!supportsBrowser110 || !currentV4Assertions[assertion]))) || assertionSeen[assertion] {
 				return fmt.Errorf("browser scenario assertion %q is invalid", assertion)
 			}
 			assertionSeen[assertion] = true
 		}
-		if isCurrentV4ReportVersion(report.Version) && !isBrowser110ManifestID(result.ID) &&
+		if supportsBrowser110 && !isBrowser110ManifestID(result.ID) &&
 			(assertionSeen["browser110_count"] || assertionSeen["udon_v11_replay"] || phaseSeen["udon_v11"]) {
 			return fmt.Errorf("non-count browser scenario %q has Browser 1.10 evidence", result.ID)
 		}
@@ -267,7 +268,7 @@ func ValidateReport(report *Report) error {
 			if required := currentCaseAssertion[result.ID]; required != "" && (!assertionSeen[required] || !assertionSeen["udon_v10_replay"] || !phaseSeen["udon_v10"]) {
 				return fmt.Errorf("current browser scenario %q has no v10/template evidence", result.ID)
 			}
-			if (isCurrentV4ReportVersion(report.Version) || isCurrentV5ReportVersion(report.Version)) && isBrowser110ManifestID(result.ID) &&
+			if supportsBrowser110 && isBrowser110ManifestID(result.ID) &&
 				(!assertionSeen["browser110_count"] || !assertionSeen["udon_v11_replay"] || !phaseSeen["udon_v11"]) {
 				return fmt.Errorf("current Browser 1.10 scenario %q has no v11 count evidence", result.ID)
 			}

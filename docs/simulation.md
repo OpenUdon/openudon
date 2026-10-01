@@ -19,6 +19,11 @@ a versioned `blocked` result and a nonzero exit code.
 
 The optional input uses `openudon.simulate-input.v1`:
 
+The CLI validates the exact embedded published schema before package capture,
+without external schema loading. Response keys must be portable identifiers;
+at most 256 definitions are allowed, each with an example or schema. Optional
+object fields cannot be null. JSON number identity is preserved for matching.
+
 ```json
 {
   "version": "openudon.simulate-input.v1",

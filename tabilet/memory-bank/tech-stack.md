@@ -1,8 +1,8 @@
 # Tech Stack
 
-## Current Browser 1.10 qualification stack
+## Retained Browser 1.10 qualification stack (E22/M91)
 
-OpenUdon's Go module pins published UWS M05
+This retained context pinned published UWS M05
 `80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
 `3abe70efc03d9ccb97b8b30e5e86328f60a70c64`. The exact Browserdriver M15 and
 Udon M43 source pins, module versions, and separate 14-repository Udon build
@@ -11,8 +11,8 @@ closure are recorded in
 `58363021e44961527468bc686df114ce69770709345eb39702fbf38e84da6d2a`) and
 `current-qualification-build-inputs-v4.json` (SHA-256
 `10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
-scenario, integration and native current selectors now emit v4 reports; the
-current journey suite has 14 cases, including the three Browser 1.10 count
+E22 scenario, integration and native selectors emitted v4 reports; its
+journey suite has 14 cases, including the three Browser 1.10 count
 journeys through Udon v11. Its v4 integration matrix requires named count
 profile, producer, schema, Udon v11 consumer, and Browserdriver extraction
 tests; v2/v3 reports retain their original gate inventory. Fresh full E22
@@ -47,10 +47,13 @@ locks and meaning. All three retained M86 reports pass with their original
 digests; E21 evidence is recorded in [status-E21.md](../docs/history/status-E21.md).
 
 Native `openudon browser-system-eval --stack current --suite loopback` selects
-the v4 compatibility and 14-source build-input locks, requires all primary
+M92 v5 compatibility and 14-source build-input locks, requires all primary
 and auxiliary worktrees to be clean, and emits
-`openudon.browser-system-qualification.v4`. Its v3 reader retains the E21
-snapshots. The default remains historical native v2.
+`openudon.browser-system-qualification.v5`. Scenario/journey use v5 and
+integration uses v6. The retained v4 reader uses E22/M91 snapshots; v3 uses E21.
+The effective UWS pin is published 1.12 `a7688f54c68f5a75c7cc95aa2b31cea98b31af41`;
+Browsertools retains its declared 1.11 dependency edge, separately recorded
+in the new lock. Accepted Udon M45 supplies the exact executor closure. The default remains historical native v2.
 `make browser-system-current-check` runs the explicit current path
 and verifies its report; the verifier dispatches from the saved report version.
 Current evaluation can take `--browserdriver-node-modules` for a separate
@@ -232,7 +235,7 @@ under `docs/step-authoring-contract-v1.md` and
   remains a backward-compatible alias. OpenUdon infers source type from catalog metadata,
   directory convention, or parser behavior rather than adding a separate intent `source_type`.
 - The optional operator-authored `content_trust` intent block lowers to UWS
-  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
+  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.12.0;
   existing packages retain their declared versions. Source labels remain package-relative paths until
   synthesis resolves generated source-description IDs; operation labels use
   the same stable lowering as leaf steps. Empty/no-op or unresolved objects
@@ -276,7 +279,7 @@ under `docs/step-authoring-contract-v1.md` and
   `browser-authentication/`, records safe review metadata in
   `.icot/browser-authentication.json`, and lowers explicit authentication and
   named-session intent fields to the matching public supplements. New workflows
-  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  declare UWS 1.12.0. Browsertools owns local validation; Udon and its persistent
   Browserdriver own credential resolution, MFA challenge interaction, session
   state, and execution. Active Browser 1.8/1.9 actions select private
   browser-driver v10, which carries older actions as inner v2. Browser 1.10
@@ -445,15 +448,15 @@ under `docs/step-authoring-contract-v1.md` and
 - `openudon browser-integration-eval` and `make browser-integration-check`
   run the provider-free A03/P01/A04/A06/E02/E03 release matrix across sibling OpenUdon,
   Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
-  `openudon.browser-integration-eval.v2` JSON report and `.sha256` sidecar live
+  `openudon.browser-integration-eval.v6` JSON report and `.sha256` sidecar live
   under ignored `eval/runs/`, record all five commit/dirty states, fixed named
   evidence and closed diagnostics, and retain no subprocess output. Browsertools
   doctor checks Chromium, Firefox, and WebKit without installation or browser
   launch. Required named gates cover a real Browsertools envelope through
   OpenUdon, Browsertools author-session/result freshness and synthesis,
   UWS 1.8 context, UWS 1.9 scalar and UWS 1.11 typed contracts, Browser
-  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.11
-  output. V1 reports continue to use the unchanged historical scenario lock
+  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.12
+  output, plus pending/simulation producer conformance. V1 reports continue to use the unchanged historical scenario lock
   and gate inventory. `--installed-engines` and
   `--headed-auth` enable only the existing engine, authentication, and
   same-context authoring loopback fixtures and remain skipped when pinned

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,35 @@ func TestSimulateTopLevelDispatchRefusalAndHelp(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil || !strings.Contains(string(output), "example") || !strings.Contains(string(output), "fixtures") {
 		t.Fatalf("simulation help unavailable: %v %s", err, output)
+	}
+}
+
+func TestSimulateCLIRefusesSchemaInvalidInputs(t *testing.T) {
+	cases := []string{
+		`{"version":"openudon.simulate-input.v1","inputs":null}`,
+		`{"version":"openudon.simulate-input.v1","responses":null}`,
+		`{"version":"openudon.simulate-input.v1","responses":{"bad/key":{"example":{}}}}`,
+		`{"version":"openudon.simulate-input.v1","responses":{"unused":{}}}`,
+		`{"version":"openudon.simulate-input.v1","responses":{"unused":{"schema":null}}}`,
+	}
+	responses := map[string]any{}
+	for i := 0; i < 257; i++ {
+		responses[fmt.Sprintf("response_%d", i)] = map[string]any{"example": nil}
+	}
+	oversized, err := json.Marshal(map[string]any{"version": simulation.InputVersion, "responses": responses})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, string(oversized))
+	for _, input := range cases {
+		file := filepath.Join(t.TempDir(), "input.json")
+		mustWriteCLIFile(t, file, []byte(input))
+		var stdout, stderr bytes.Buffer
+		exit := runSimulateCommand([]string{"--example", "missing", "--input", file}, &stdout, &stderr)
+		var report simulation.Report
+		if exit != 1 || json.Unmarshal(stdout.Bytes(), &report) != nil || len(report.Diagnostics) != 1 || report.Diagnostics[0].Code != "input.invalid" || stderr.Len() != 0 {
+			t.Fatalf("invalid input not refused before capture: %d %s %s", exit, stdout.Bytes(), stderr.Bytes())
+		}
 	}
 }
 

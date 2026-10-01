@@ -7,7 +7,7 @@ observed query values remain undisclosed. Registration foreground and private
 checkpoint countdowns do not grant live registration authority. Authoring and
 package review likewise do not grant live browser or target authority.
 [E20](../docs/history/status-E20.md) records the authenticated-authoring qualification lineage,
-while [M86](../docs/history/status-M86.md) records the current UWS 1.11 real-browser
+while [M86](../docs/history/status-M86.md) records the retained UWS 1.11 real-browser
 qualification. Historical publication and failed-attempt details are preserved
 in the [history index](../docs/history/index.md).
 
@@ -121,7 +121,7 @@ experimental before v1.
 - **Content-trust intent** is the optional operator-authored provenance portion
   of intent. It names reviewed source paths, leaf-operation outputs, triggers,
   and external `main` workflow inputs using UWS levels `unknown`, `trusted`, or
-  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.11.0.
+  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.12.0.
   It does not authorize execution, clear
   attacker control, or replace package approval and runtime policy.
 - **Content-trust analysis** is an explicit assessment-only UWS pass for
@@ -239,8 +239,9 @@ experimental before v1.
 
 The current local release suites retain all 23 loopback cases and run 14
 reviewed journey cases, including Browser 1.8/1.9 and v10 cases plus three
-Browser 1.10 count cases through Udon v11. Current v4 evidence binds the
-published dependency revisions and complete clean local build closure.
+Browser 1.10 count cases through Udon v11. Retained E22/M91 v4 evidence binds its original published dependency revisions
+and clean local build closure. New current evidence uses M92 scenario/journey
+v5 with UWS 1.12 and accepted Udon M45; previous reports retain their meanings.
 Historical reports and M86 v2 evidence remain verifiable under their original
 lock contracts.
 - **Quality report** is the deterministic release gate for current generated artifacts.

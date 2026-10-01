@@ -53,12 +53,12 @@ func runSimulateCommand(args []string, stdout, stderr io.Writer) int {
 	}
 	options := simulation.Options{RepoRoot: repo, ExampleDir: *example, AllowGeneratedFallback: *fallback}
 	if *inputPath != "" {
-		data, _, err := evidencefile.ReadRegular(*inputPath, 256<<10)
+		data, _, err := evidencefile.ReadRegular(*inputPath, simulation.MaxInputBytes)
 		if err != nil {
 			return emit(simulation.Failed("input.invalid", "The bounded simulation input is unavailable or unsafe."))
 		}
-		var input simulation.Input
-		if evidencefile.DecodeStrictNumbers(data, &input) != nil || input.Version != simulation.InputVersion {
+		input, err := simulation.DecodeInput(data)
+		if err != nil {
 			return emit(simulation.Failed("input.invalid", "The simulation input does not match its versioned contract."))
 		}
 		options.Inputs = input.Inputs

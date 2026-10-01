@@ -5,14 +5,16 @@
 Scenario, integration and native qualification readers dispatch from each
 report's version. Historical v1 and M86 v2 retain their original meanings;
 E21 current v3 readers use frozen Udon `6d32d49` compatibility and 14-source
-build-input snapshots. E22 advances the explicit current selector to Browser
+build-input snapshots. E22 advanced the explicit current selector to Browser
 1.10 report v4, with the published UWS M05, Browsertools M32, Browserdriver
 M15 and Udon M43 pins plus their separate 14-source build closure. Its three
 count scenarios stay outside the v3 manifest inventory. All selected sibling
 worktrees must match exact commits and be clean before browser work. Native
-qualification remains historical by default; `--stack current` emits v4 and
-routes scenario, build-input, BAP and BRP stages through the same v4 lock and
-closure. The v4 integration selector adds named count-profile, producer,
+qualification remains historical by default. The retained E22/M91 context
+used v4 locks and closure. New `--stack current` evidence uses M92 native v5,
+scenario/journey v5 and the exact UWS 1.12/M45 v5 input locks; integration
+emits v6. Its declared Browsertools UWS edge remains 1.11, with effective UWS
+1.12 selected separately. Earlier versioned readers retain their original pins. The v4 integration selector adds named count-profile, producer,
 schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
 and v3 integration readers keep their frozen gate inventory. Full E22
 qualification and bounded review passed on clean OpenUdon
@@ -190,7 +192,7 @@ Transitional debt:
 OpenUdon must not teach prompts to emit workflow semantics that lack a public UWS contract. UWS 1.4
 adds GraphQL, OpenRPC, gRPC/protobuf, and OData source description types on top of UWS 1.3 AsyncAPI
 and the UWS 1.2 first-class API source description types. OpenUdon emits those source
-families in new UWS 1.11.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
+families in new UWS 1.12.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
 trusted executors still own protocol execution compatibility. UWS 1.1 defines portable timeout fields and workflow-level
 idempotency metadata; OpenUdon may preserve those only when project policy or intent explicitly
 requests them. Switches, loops, structural results, failure branches, retries, and runtime profiles
@@ -231,7 +233,7 @@ Current generation policy:
 | Timeouts | Allowed only when explicit `openudon-policy` or intent metadata requests them. |
 | Idempotency | Allowed for explicit workflow-level UWS 1.1 metadata; OpenUdon does not inject API keys. |
 | Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
-| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.11.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
+| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.12.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
 
 The public UWS runtime supplement is a slim non-HTTP invocation selector for extension-owned
 execution only. Public `x-uws-runtime` carries only `type`, `command`, `workingDir`, `function`,
@@ -660,7 +662,8 @@ the attacker also updates a digest.
 iCoT runtime path. It runs version-selected named tests and boundary checks in
 OpenUdon, Browsertools, UWS, Udon, and Browserdriver, observes all three
 pinned browser component inventories without installing or launching them,
-and emits strict v1–v4 reports with digest sidecars. The v4 selector requires
+and emits strict v6 reports with digest sidecars; v1–v5 readers remain. The
+retained v4 selector requires
 named Browser 1.10 count-profile, producer, schema, Udon v11 consumer, and
 Browserdriver extraction markers. The v2 and v3 readers retain their fixed
 locks and gate inventories; v1 retains its historical inventory. The
@@ -788,7 +791,7 @@ same session. OpenUdon lowers these steps to the public
 `uws.browser-authentication-call.1.0` and named-session supplements in UWS 1.7
 for old main-page sources. Authentication 1.1 requires authentication-call 1.1;
 old profile meanings remain unchanged. Newly generated workflows declare UWS
-1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+1.12.0. Browser 1.7 retains its scalar conversion under the legacy inner
 action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
 local validation and review with their exact discriminator. Active Browser
 1.8/1.9 actions select trusted browser-driver v10; active Browser 1.10 actions

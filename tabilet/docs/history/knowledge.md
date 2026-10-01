@@ -1640,3 +1640,130 @@ compatibility/build-input locks stay unchanged. v5 engine/UI dependency scans
 also reject either iCoT package. Current native browser selectors use shared
 UI/controller locations, with the same build tags, assertions and stage names.
 ````
+
+## M92 current-truth qualification and default consolidation — 2026-10-01
+
+Source: current product, architecture and tech-stack sections below. Review R2
+found historical default/pin/selector claims still phrased as current. M92
+selects UWS 1.12, accepted Udon M45, scenario/journey/native v5 and integration
+v6, preserving earlier immutable readers and lock bytes. Replacement: each
+current document, particularly its M92 applied-contract sections. This journal
+preserves superseded wording; it does not rewrite historical evidence.
+
+### product.md superseded excerpts
+
+Source: `tabilet/memory-bank/product.md`.
+
+`````markdown
+[E20](../docs/history/status-E20.md) records the authenticated-authoring qualification lineage,
+while [M86](../docs/history/status-M86.md) records the current UWS 1.11 real-browser
+qualification. Historical publication and failed-attempt details are preserved
+`````
+
+`````markdown
+  and external `main` workflow inputs using UWS levels `unknown`, `trusted`, or
+  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.11.0.
+  It does not authorize execution, clear
+`````
+
+`````markdown
+reviewed journey cases, including Browser 1.8/1.9 and v10 cases plus three
+Browser 1.10 count cases through Udon v11. Current v4 evidence binds the
+published dependency revisions and complete clean local build closure.
+Historical reports and M86 v2 evidence remain verifiable under their original
+`````
+
+### architecture.md superseded excerpts
+
+Source: `tabilet/memory-bank/architecture.md`.
+
+`````markdown
+E21 current v3 readers use frozen Udon `6d32d49` compatibility and 14-source
+build-input snapshots. E22 advances the explicit current selector to Browser
+1.10 report v4, with the published UWS M05, Browsertools M32, Browserdriver
+`````
+
+`````markdown
+worktrees must match exact commits and be clean before browser work. Native
+qualification remains historical by default; `--stack current` emits v4 and
+routes scenario, build-input, BAP and BRP stages through the same v4 lock and
+closure. The v4 integration selector adds named count-profile, producer,
+schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
+`````
+
+`````markdown
+and the UWS 1.2 first-class API source description types. OpenUdon emits those source
+families in new UWS 1.11.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
+trusted executors still own protocol execution compatibility. UWS 1.1 defines portable timeout fields and workflow-level
+`````
+
+`````markdown
+| Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
+| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.11.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
+
+`````
+
+`````markdown
+pinned browser component inventories without installing or launching them,
+and emits strict v1–v4 reports with digest sidecars. The v4 selector requires
+named Browser 1.10 count-profile, producer, schema, Udon v11 consumer, and
+`````
+
+`````markdown
+old profile meanings remain unchanged. Newly generated workflows declare UWS
+1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
+`````
+
+### tech-stack.md superseded excerpts
+
+Source: `tabilet/memory-bank/tech-stack.md`.
+
+`````markdown
+
+## Current Browser 1.10 qualification stack
+
+OpenUdon's Go module pins published UWS M05
+`80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
+`````
+
+`````markdown
+`10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
+scenario, integration and native current selectors now emit v4 reports; the
+current journey suite has 14 cases, including the three Browser 1.10 count
+journeys through Udon v11. Its v4 integration matrix requires named count
+`````
+
+`````markdown
+Native `openudon browser-system-eval --stack current --suite loopback` selects
+the v4 compatibility and 14-source build-input locks, requires all primary
+and auxiliary worktrees to be clean, and emits
+`openudon.browser-system-qualification.v4`. Its v3 reader retains the E21
+snapshots. The default remains historical native v2.
+`make browser-system-current-check` runs the explicit current path
+`````
+
+`````markdown
+  named-session intent fields to the matching public supplements. New workflows
+  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  Browserdriver own credential resolution, MFA challenge interaction, session
+`````
+
+`````markdown
+  Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
+  `openudon.browser-integration-eval.v2` JSON report and `.sha256` sidecar live
+  under ignored `eval/runs/`, record all five commit/dirty states, fixed named
+`````
+
+`````markdown
+  UWS 1.8 context, UWS 1.9 scalar and UWS 1.11 typed contracts, Browser
+  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.11
+  output. V1 reports continue to use the unchanged historical scenario lock
+  and gate inventory. `--installed-engines` and
+`````
+
+Additional superseded tech-stack.md content-trust default:
+
+`````markdown
+  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
+`````

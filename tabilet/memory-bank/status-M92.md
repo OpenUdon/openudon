@@ -40,7 +40,7 @@ Lineage: Promotes tier-1/pending parts of S2b over M87/M89, preserving M90 evide
 
 ## Closing review
 
-Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration 1 started on 2026-10-01 after owner checks and the required integration gates passed. Fresh native qualification is running against the immutable source checkpoint; acceptance remains pending. Resume this interrupted pass at iteration 1. Exact source/build revisions, publication and downstream reconciliation must be recorded from observed evidence before normal package retirement.
 
 ## Udon M45 producer reconciliation — 2026-09-30
 
@@ -127,8 +127,7 @@ M92.4 still owns new browser qualification contexts/selectors and final checks.
 No simulation, pending authoring, milestone acceptance or publication is
 claimed by this row.
 
-Task verification additionally passed standalone `make fast` (including full
-Go tests, vet, build, repository/boundary/document gates) and `git diff --check`;
+Task verification additionally passed standalone `make fast` (full Go tests and document checks) and `git diff --check`;
 log `/tmp/openudon-m92-1-fast.log`. The separate version-refusal pipeline
 test passed, proving refusal occurs before any refinement artifact is created.
 
@@ -157,8 +156,7 @@ in either artifact alone, an unselected branch and an unused workflow.
 
 Focused pending/resolve/effect tests passed
 (`/tmp/openudon-m92-2-pending3.log`), race checks passed
-(`/tmp/openudon-m92-2-race.log`), and standalone `make fast` passed full
-Go tests/vet/build plus repository, boundary and document gates
+(`/tmp/openudon-m92-2-race.log`), and standalone `make fast` passed full Go tests and document checks
 (`/tmp/openudon-m92-2-fast.log`). The synthetic trusted-runner fixture now
 uses inert public UWS version declarations, so admission can decode it; no
 tracked external fixture or historical record changed. Old step-authoring
@@ -201,8 +199,7 @@ bounds, changed package invalidation, private value/field-name redaction and
 top-level CLI refusal/help. A loopback server and executor canary prove zero
 HTTP/executor calls. JSON numeric inputs retain their exact number identity.
 
-Standalone `make fast` passed full Go tests/vet/build and repository/boundary/
-document checks (`/tmp/openudon-m92-3-final-fast.log`). Relevant owner and CLI
+Standalone `make fast` passed full Go tests and document checks (`/tmp/openudon-m92-3-final-fast.log`). Relevant owner and CLI
 race checks passed (`/tmp/openudon-m92-3-final-owner-race.log`).
 `docs/simulation.md` states supported inputs, conservative preview redaction,
 all bounds and the explicit bound-response requirement. M92.4 owns versioned
@@ -240,3 +237,94 @@ acceptance or publication. Integration v6 has the nineteen retained gates plus
 a new required pending/simulation producer gate. Runtime qualification and
 persisted whole-milestone review remain outstanding. Evolution v47 was checked;
 this implements its approved contract direction, so no new version is needed.
+
+## Task-check scope correction — 2026-10-01
+
+Earlier M92.1–M92.3 notes overstated `make fast`: its actual target runs Go
+tests and document-memory checks, not vet/build/boundary checks. Those task
+logs are retained and their descriptions corrected above. M92.4 separately
+ran `make check` (standalone legacy-adapter build, full tests, sibling and
+repository-boundary checks); separate `go vet ./...` passed with exit 0
+(`/tmp/openudon-m92-4-vet.log`). This corrects reporting, not earlier execution.
+
+## Closing review iteration 1 — started 2026-10-01
+
+Review the whole M92 range from published M91 closure
+`50553d40de065048906ee5dcfd2ed46b1150abf8`, including package versions,
+pending authoring/resolution/admission, pure simulation, producer schemas and
+new qualification contexts. Owner build/tests/boundary, separate vet and
+17 required integration gates passed. Native qualification is still running
+and cannot establish acceptance until independently verified. No review
+conclusion is recorded yet.
+
+## Closing review iteration 1 — findings recorded 2026-10-01
+
+- R1 (P2, confirmed): `simulate --input` only checked Go decoding/version;
+  it accepted schema-invalid response keys, excess definitions, empty response
+  definitions and null object fields when unused. The published
+  `openudon.simulate-input.v1` schema is the producer contract. Enforce that
+  exact local schema before simulation and test refusal at the CLI boundary.
+- R2 (P2, confirmed): earlier current-truth sections still claim effective UWS
+  1.11 and current v4 qualification despite the implemented 1.12/v5/v6
+  selectors. Consolidate those facts, preserving superseded wording in the
+  knowledge journal. Historical locks/readers and their original meanings stay
+  unchanged.
+- The pending/bound response-name ambiguity hypothesis is disproved: public
+  UWS executable validation rejects the projected collision before any mock
+  call. Added end-to-end fixture/example regression cases; no runtime change
+  or duplicate validation is needed for that hypothesis.
+
+Iteration 1 remains open for full-range review; fixes below belong to M92.4.
+
+## Closing review iteration 1 — concluded 2026-10-01
+
+Reviewed the complete milestone range: version-preserving synthesis and early
+refusal, pending contract validation/revision-checked authoring/resolution,
+both-artifact admission across every branch/workflow, public-only mock
+orchestration and bounded redaction/provenance, producer schema/fixture
+identity, old report readers/immutable locks, and current qualification
+source/module closure. R1 and R2 above are the two blocking P2 findings; no
+other P1/P2 finding was established. They are fixed in the candidate worktree:
+R1 validates the exact embedded input schema with no external loader, retains
+JSON numbers and has CLI/schema/refusal regression tests; R2 consolidates
+current declarations and preserves old excerpts in the knowledge journal.
+The new integration pending/simulation gate now requires those regression
+markers. Affected owner/race and full checks must pass before iteration 2.
+The running frozen native candidate remains source `54059aee837eb0cefa6489fb9a904f6497b7a359`;
+these later fixes must not be attributed to that source or its old integration
+report. No acceptance or publication is claimed.
+
+## Native candidate interruption and review R3 — 2026-10-01
+
+Frozen native1 at source `54059aee837eb0cefa6489fb9a904f6497b7a359` failed
+at pass 1 `journey_scenarios`. The captured child report actually passed all
+fourteen cases, but its validation rejected the `udon_v11` phase. R3 (P1,
+confirmed) is a new-context verifier defect: three Browser 1.10 phase/assertion
+allowlist branches remained v4-only despite the v5 selector. Extend those
+branches to v5 while retaining the non-count rejection and exact evidence
+requirements; qualify both versions in tests and rerun fresh native evidence.
+This is additional observed evidence in review iteration 1, not a new review
+iteration or a reset. The failed report/diagnostic/timing are retained under
+`/var/tmp/openudon-m92-qualified-h_qfd56c/evidence/`. Display teardown passed:
+no Xvfb PID remained and the private authentication directory was removed
+(`display-teardown-native1.json`). Native acceptance is not established.
+
+## Review iteration 1 fixes and affected verification — 2026-10-01
+
+R1 CLI/schema cases reproduced refusal-contract drift before the fix
+(`/tmp/openudon-m92-review-1-input-before.log`); the fixed input/CLI/simulation
+race checks passed (`/tmp/openudon-m92-review-1-fixed-race.log`). R3's new
+v4/v5 count test reproduced the exact native verifier failure before the fix
+(`/tmp/openudon-m92-review-1-report-before.log`). The fixed CLI independently
+verified the actual captured fourteen-case journey report; the extracted
+private diagnostic bytes/digest stay separate from qualification evidence
+(`/tmp/openudon-m92-review-1-actual-journey-verify.log`). This does not turn
+the failed native parent run into a pass.
+
+Standalone `make check` passed after R1 (build, full tests, sibling and boundary
+checks); separate vet passed (`/tmp/openudon-m92-review-1-vet.log`). After R3,
+`make fast` passed full tests and document-memory checks
+(`/tmp/openudon-m92-review-1-fast.log`). Final affected five-package race
+verification passed (`/tmp/openudon-m92-review-1-final-race.log`), including
+all CLI tests. Fresh native qualification and review iteration 2 remain
+pending; no milestone acceptance yet.

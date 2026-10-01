@@ -183,6 +183,33 @@ func TestFixturesExamplesSynthesisAndRefusalRemainDeterministic(t *testing.T) {
 	}
 }
 
+func TestSimulationRefusesAmbiguousPendingResponseIdentity(t *testing.T) {
+	for _, fixture := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fixture=%v", fixture), func(t *testing.T) {
+			doc := pendingDocument()
+			// Declarative UWS permits these names, but public executable
+			// validation rejects the ambiguous projection before dispatch.
+			doc.Operations = []*uws1.Operation{{OperationID: "report", Effect: "read", Extensions: map[string]any{uws1.ExtensionOperationProfile: "test.mock.1"}}}
+			doc.Workflows[0].Steps = append(doc.Workflows[0].Steps, &uws1.Step{StepID: "bound_report", OperationRef: "report"})
+			repo, root := writePackage(t, doc)
+			options := Options{RepoRoot: repo, ExampleDir: root, Responses: map[string]ResponseDefinition{"report": {Example: json.RawMessage(`{"body":{"count":1,"text":"example"}}`)}}}
+			if fixture {
+				digest, err := mockruntime.RequestDigest(map[string]any{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				options.Responses = nil
+				options.AllowGeneratedFallback = true
+				options.Fixtures = &mockruntime.FixtureSet{Format: mockruntime.FixtureFormatV1, Fixtures: []mockruntime.Fixture{{OperationID: "report", RequestDigest: digest, Provenance: mockruntime.FixtureProvenance{Kind: "example"}, Response: json.RawMessage(`{"body":{"count":7,"text":"fixture"}}`)}}}
+			}
+			report := Run(context.Background(), options)
+			if report.Status != "blocked" || !report.PackageUnchanged || len(report.WouldBeRequests) != 0 || len(report.Diagnostics) != 1 || report.Diagnostics[0].Code != "simulation.incomplete" {
+				t.Fatalf("ambiguous response dispatched or accepted: %+v", report)
+			}
+		})
+	}
+}
+
 func TestSimulationRefusesUnsafeInconsistentAndUnsupportedPackages(t *testing.T) {
 	for _, kind := range []string{"mismatch", "symlink", "invalid-schema", "unsupported-schema", "missing-response", "cancelled", "outside-root"} {
 		t.Run(kind, func(t *testing.T) {
