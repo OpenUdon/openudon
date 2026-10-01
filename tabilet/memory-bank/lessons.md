@@ -99,3 +99,35 @@ interpreting report outcomes; reject timestamp precision the consumer cannot
 compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
 presence, identity and timestamp mutation tests; M90 review finding R90-3 in
 [M90 history](../docs/history/status-M90.md). Keep legacy wire behavior under its own version.
+
+
+## Separate setup seeds, current codes and recovery codes
+
+For TOTP authentication, capture a value-free challenge while the person
+enters a current code; resolve the setup seed only at the trusted runtime.
+A list of recovery codes is a different credential type. Make the human
+prompt identify which input is needed, and verify that clipboard/display
+isolation permits the selected entry method. Issuer-specific shape rules
+belong to the consumer, not the portable profile schema. The
+[received consumer handoff](../../docs/consumer-totp-qualification-handoff.md)
+records existing coverage and owner dispositions without secret values.
+
+## Inspect declared bindings before consuming an attempt
+
+Credential-section prose can accidentally declare a quoted kind token as
+a binding. Compare the actual declared/expected inventory against the exact
+workflow and profile, then run native preparation with appropriate transient
+inputs before execution. Keep any diagnostic reproduction separate from
+the original error: discarded child stderr cannot be reconstructed by a
+later offline probe. See the [synthetic before/after reproduction](../../docs/consumer-totp-qualification-handoff.md#inspect-the-actual-declared-credential-inventory-before-execution).
+
+## Check native reuse against the actual host and report roles
+
+Freeze and recheck the admitted source/dependency/tool/display/environment
+and workstation inputs across long qualification stages. A package update
+can invalidate reuse while sources stay unchanged; an empty ignored runtime
+directory can fail native cleanliness. Cache misses stop without implicit
+full-suite fallback. Compare full producer execution evidence for freshness,
+not a reduced output digest that can repeat across runs. The
+[received handoff](../../docs/consumer-totp-qualification-handoff.md) links
+the integrated E23/E24 guard regressions and qualified consumer evidence.

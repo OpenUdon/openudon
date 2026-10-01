@@ -1021,3 +1021,13 @@ set `OPENUDON_M44_EXECUTOR` and `OPENUDON_M44_CLOSURE` to the accepted frozen
 M44 artifact pair. Default checks skip that real executor. Qualification binds
 source, exact closure and binary digests and executes a private binary copy;
 see [per-step run evidence](../../docs/per-step-run-evidence.md).
+
+
+## Received consumer TOTP/qualification guidance
+
+The [consumer handoff](../../docs/consumer-totp-qualification-handoff.md)
+records credential-kind/binding separation, exact inventory preparation,
+current native input identity and production-parser evidence. E23/E24 code
+is already integrated and qualified by the consumer; optional generic UX
+and reduced diagnostic improvements remain unpromoted. Receiving these
+lessons changes no source/dependency pin or runtime-adoption authority.
