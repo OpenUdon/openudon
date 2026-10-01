@@ -1,6 +1,6 @@
 # Status M96 — Reviewed capture package authoring
 
-**State:** M96.1–M96.3 verified; M96.4 qualified and review1 passed, 2026-10-01. Publication is blocked on authorization to integrate the advanced remote; downstream reconciliation and final acceptance remain pending.
+**State:** M96.1–M96.3 verified; M96.4 qualified and review1 passed, 2026-10-01. User authorized remote integration and normal scoped publication; M96.4 resumes for publication, downstream reconciliation and final acceptance.
 
 **Goal.** Make a reviewed native capture usable for ordinary browser source/step/package authoring without iCoT.
 
@@ -25,7 +25,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 | M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[+]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
 | M96.3 — Verify conformance and refusal behavior | `[+]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
-| M96.4 — Qualify, review and publish replacement | `[!]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
+| M96.4 — Qualify, review and publish replacement | `[~]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
 
 ## Acceptance and verification
 
@@ -114,3 +114,7 @@ M96-DOC1 is resolved in current product/architecture/stack/operator contract and
 ## Publication preflight pause — advanced remote
 
 Source/review checkpoint committed at `2c5c3e1f43ffe459041a22fae6ce80eae6a39504`. Read-only ls-remote/fetch found origin/main advanced from the recorded `04dacce77a29f5e6db427dc47e3ed9ef766b2c32` to `ca4baa941c4d278b62d87892bdc42dccbd9bcfb5`, containing consumer handoff `595cf907b6a22b82127360d7dae1bd77b956c96c` and its merge. The upstream delta is only docs/consumer-totp-qualification-handoff.md plus additions in lessons.md and tech-stack.md; no application/source/dependency change. M96 local commits diverge from that remote. The confirmed GOAL policy allows scoped normal fast-forward publication, but tabilet/GOAL.md explicitly requires authorization for a merge. No push, merge or rewrite occurred. Prepare an isolated exact preview retaining both sets of documentation, then request the missing local merge authority; retain all qualified source identities. M19 stays blocked and the mandatory user W27-status pause before W28 remains independent of this received historical handoff.
+
+### Authorized upstream integration — 2026-10-01
+
+User approved the complete remote-integration reconciliation, both repository merges, scoped normal publication and resumption of the existing task-policy goal. Revalidated local `7bf93e17683269e2997006b75e0414f11d8a3bc7` and fetched OpenUdon main `ca4baa941c4d278b62d87892bdc42dccbd9bcfb5`; no relevant uncommitted source existed. Incoming handoff `595cf907b6a22b82127360d7dae1bd77b956c96c` adds only three documentation files. Both append-only lessons/stack contributions are preserved exactly; integration tree matched the reviewed proposal before these authorized policy/status amendments. M96.4 resumes as the sole in-progress row; review remains passed1/10, qualified application remains `eed683f27d448ca96af90e7bc5987967a6cd0335`. No application/dependency/contract/runtime change and no new browser qualification is claimed. The extra W27 pause is removed only after both integrations are verified; U07 human acceptance and Gate5B remain. Earlier blocking observations remain chronological evidence.

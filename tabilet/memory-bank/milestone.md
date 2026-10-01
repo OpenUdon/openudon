@@ -526,6 +526,6 @@ fresh scope and dependency review promotes them.
 
 **Downstream.** Kinet M19.3/M19.4, U07/W28, and retention in M95 followed by M20/W29.
 
-**Acceptance.** Owner checks, affected race/real CLI conformance, refusal/uncertainty/legacy fixtures; exact-source native loopback package pipeline qualification, required integration and three fresh native repeats; bounded review, verified publication and exact downstream reconciliation. The user requires a mandatory pause before W8M W28 to verify latest W27 status.
+**Acceptance.** Owner checks, affected race/real CLI conformance, refusal/uncertainty/legacy fixtures; exact-source native loopback package pipeline qualification, required integration and three fresh native repeats; bounded review, verified publication and exact downstream reconciliation. The separately approved remote-integration reconciliation cancels the additional W27-status pause only after OpenUdon and W8M integrations are verified and recorded; Kinet U07 human acceptance and explicit Gate5B remain required.
 
 Four task commit units, approved scope and persisted review: [status-M96.md](status-M96.md). Planned contract: [browser-package-handoff.md](../../docs/browser-package-handoff.md). No implementation is established by planning.

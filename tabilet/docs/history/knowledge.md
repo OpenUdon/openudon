@@ -1932,3 +1932,11 @@ M96.1 offline wire checks: GOWORK=off go test ./internal/browserpackage and affe
 
 Public browser-author plan/apply dispatch uses the same native source/candidate/profile/review validators and artifact writer. Starts are base64 exact UTF-8 bytes, not reserialized embedded objects; no new dependency or Kinet external v1 change. Native package build is offline; actual browser/integration qualification remains M96.4.
 ````
+
+## 2026-10-01 — W27 checkpoint superseded by verified integration policy
+
+Source: `tabilet/memory-bank/milestone.md`, M96 acceptance. User-approved cross-package remote integration reconciliation supersedes the additional W27-status pause only after both repository integrations are verified. Kinet U07 human acceptance and explicit Gate5B remain required; W27 retired records stay frozen. Replacement: M96 acceptance and Kinet coordination/launch reference.
+
+```markdown
+The user requires a mandatory pause before W8M W28 to verify latest W27 status.
+```

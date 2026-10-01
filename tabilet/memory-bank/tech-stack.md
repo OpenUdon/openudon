@@ -1239,6 +1239,15 @@ is at most1MiB, overlays at most64 ×2MiB. Source/manifest paths and legacy
 source-add v1 do not change. See docs/catalog-discovery.md for the separate
 confirmation, conflict, indeterminate-write and no-automatic-replay contract.
 
+## Received consumer TOTP/qualification guidance
+
+The [consumer handoff](../../docs/consumer-totp-qualification-handoff.md)
+records credential-kind/binding separation, exact inventory preparation,
+current native input identity and production-parser evidence. E23/E24 code
+is already integrated and qualified by the consumer; optional generic UX
+and reduced diagnostic improvements remain unpromoted. Receiving these
+lessons changes no source/dependency pin or runtime-adoption authority.
+
 ## Reviewed capture package CLI (M96)
 
 ```

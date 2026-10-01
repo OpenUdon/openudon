@@ -161,6 +161,37 @@ public fixtures in docs/fixtures/catalog-discovery-v1. Read-only native SQLite
 may maintain transient WAL/shared-memory files; assert unchanged registration
 data/index/raw bytes rather than confusing those locks with application writes.
 
+## Separate setup seeds, current codes and recovery codes
+
+For TOTP authentication, capture a value-free challenge while the person
+enters a current code; resolve the setup seed only at the trusted runtime.
+A list of recovery codes is a different credential type. Make the human
+prompt identify which input is needed, and verify that clipboard/display
+isolation permits the selected entry method. Issuer-specific shape rules
+belong to the consumer, not the portable profile schema. The
+[received consumer handoff](../../docs/consumer-totp-qualification-handoff.md)
+records existing coverage and owner dispositions without secret values.
+
+## Inspect declared bindings before consuming an attempt
+
+Credential-section prose can accidentally declare a quoted kind token as
+a binding. Compare the actual declared/expected inventory against the exact
+workflow and profile, then run native preparation with appropriate transient
+inputs before execution. Keep any diagnostic reproduction separate from
+the original error: discarded child stderr cannot be reconstructed by a
+later offline probe. See the [synthetic before/after reproduction](../../docs/consumer-totp-qualification-handoff.md#inspect-the-actual-declared-credential-inventory-before-execution).
+
+## Check native reuse against the actual host and report roles
+
+Freeze and recheck the admitted source/dependency/tool/display/environment
+and workstation inputs across long qualification stages. A package update
+can invalidate reuse while sources stay unchanged; an empty ignored runtime
+directory can fail native cleanliness. Cache misses stop without implicit
+full-suite fallback. Compare full producer execution evidence for freshness,
+not a reduced output digest that can repeat across runs. The
+[received handoff](../../docs/consumer-totp-qualification-handoff.md) links
+the integrated E23/E24 guard regressions and qualified consumer evidence.
+
 ## Carry exact native bytes and original capture identity across adapters
 
 Nested raw JSON compaction/re-indentation can invalidate a receipt hash even
