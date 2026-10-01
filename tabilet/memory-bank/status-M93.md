@@ -444,3 +444,37 @@ with TCP disabled and private X authentication under M93.5's already approved
 later-reuse authority; verify its owned display/auth cleanup after the run.
 Do not restore/replay closed M93.0. Additional actual public-command checks and
 both human-visible journeys remain necessary. Review count stays 0/10.
+
+## M93.5 fresh checks and empty-output correction — 2026-10-01
+
+The initial native1 preflight refused an ignored empty .openudon-run directory
+created by frozen offline make check. Preserved that test-created directory
+outside all source roots; all eighteen frozen repositories again had clean
+tracked/untracked/ignored status. No tracked source or lock was changed. Native1
+ran no browser stages and its temporary display/auth cleanup was verified.
+Native2 began the required fresh current suite, then was deliberately interrupted
+by SIGINT to its uniquely identified evaluator after an independent public CLI
+probe found a native completion serialization bug. Neither attempt qualifies
+M93. Their distinct invocation/log/report/teardown records remain in the frozen
+bundle; no failed output was overwritten or relabeled as success.
+
+The actual public capture command traversed fixture sign-in, separate issued
+POST/action approvals, password/identifier checkpoint kinds, selected TOTP and
+the separate typed goal URL. Its completion with no selected outputs failed:
+checkpointResponse cloned an empty slice into nil, so the required reviewed
+native output choice became JSON null and the worker rejected it as absent.
+Fixed the shared controller serializer to keep an explicit zero-length array.
+A JSON round-trip regression proves the native worker receives non-nil empty
+Outputs for both nil and empty supervising selections; all semantic/confirmation
+gates remain in the existing worker. Focused controller/capture race tests and
+routine make fast passed (/tmp/openudon-m93-5-empty-outputs-test.log and
+/tmp/openudon-m93-5-empty-outputs-fast.log). Fresh actual-command success and
+complete qualification of the revised source remain pending.
+
+The first disposable probe also exposed its own checkpoint-key mistake: native
+checkpoint records use camelCase, not the supervising command's snake_case.
+Corrected only the temporary consumer helper before its fresh run; kept both
+failed summaries and helper snapshots. No frame content, credential values,
+worker-result paths or private diagnostics were placed in ordinary goal/audit
+records. Fixture authoring uses no real credential/code or target account.
+M93.5 remains in progress; persisted closing review remains 0/10, not started.

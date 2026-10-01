@@ -1163,7 +1163,10 @@ func checkpointResponse(response Response, checkpoint authorsession.Checkpoint) 
 		if response.Kind != "confirm" || !response.Confirmed || len(response.Outputs) > authorsession.DefaultMaxOutputs {
 			return authorsession.ClientMessage{}, errors.New("completion response is invalid")
 		}
-		outputs := append([]authorsession.OutputRequest(nil), response.Outputs...)
+		// Empty selection is an explicit reviewed choice. A pointer to a nil
+		// slice encodes as null and decodes as an absent pointer in the worker,
+		// which correctly refuses completion without an output selection.
+		outputs := append(make([]authorsession.OutputRequest, 0, len(response.Outputs)), response.Outputs...)
 		return authorsession.ClientMessage{Type: "human_complete", Confirmed: true, Outputs: &outputs}, nil
 	default:
 		return authorsession.ClientMessage{}, errors.New("checkpoint kind is invalid")

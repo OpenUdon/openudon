@@ -134,3 +134,15 @@ quality, credentials or executor dispatch. Evidence: M92 pending refusal,
 public orchestration and namespace regression tests, resolved through its
 milestone/history record. Export provenance and labels without private values;
 preview success grants no execution authority.
+
+
+## Preserve an explicit empty choice at a native JSON boundary
+
+A reviewed empty selection is distinct from absent authority. A pointer to a
+nil Go slice marshals as JSON null and decodes as an absent pointer; cloning a
+reviewed selection must retain a non-nil zero-length slice when empty is valid.
+Test the native worker JSON round trip as well as adapter method calls. Evidence:
+M93.5 actual public authenticated/TOTP capture with no outputs; shared
+browserauthor.checkpointResponse and
+TestCompletionRetainsExplicitEmptySelectionAcrossWorkerJSON. This retains the
+worker's refusal of missing/unconfirmed authority instead of relaxing it.

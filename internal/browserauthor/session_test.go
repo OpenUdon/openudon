@@ -3,6 +3,7 @@ package browserauthor
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,26 @@ import (
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
 )
+
+func TestCompletionRetainsExplicitEmptySelectionAcrossWorkerJSON(t *testing.T) {
+	for _, selection := range [][]authorsession.OutputRequest{nil, {}} {
+		message, err := checkpointResponse(Response{Kind: "confirm", Confirmed: true, Outputs: selection}, authorsession.Checkpoint{Kind: "completion"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(message)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var workerMessage authorsession.ClientMessage
+		if err := json.Unmarshal(data, &workerMessage); err != nil {
+			t.Fatal(err)
+		}
+		if workerMessage.Type != "human_complete" || !workerMessage.Confirmed || workerMessage.Outputs == nil || len(*workerMessage.Outputs) != 0 {
+			t.Fatalf("explicit empty selection lost at native worker boundary: %s", data)
+		}
+	}
+}
 
 func TestNormalizeConfigFixesFiniteAuthority(t *testing.T) {
 	privateRoot := t.TempDir()
