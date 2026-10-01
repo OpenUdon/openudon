@@ -1239,10 +1239,27 @@ is at most1MiB, overlays at most64 ×2MiB. Source/manifest paths and legacy
 source-add v1 do not change. See docs/catalog-discovery.md for the separate
 confirmation, conflict, indeterminate-write and no-automatic-replay contract.
 
-## M96.1 wire foundation — 2026-10-01
+## Reviewed capture package CLI (M96)
 
-M96.1 offline wire checks: GOWORK=off go test ./internal/browserpackage and affected race. Public synthetic authenticated/registration request/plan/partial-write-result examples are docs/fixtures/browser-author-v1. Command dispatch/native package qualification remain M96.2–M96.4 work.
+```
+openudon browser-author plan --example DIR --request FILE|-
+openudon browser-author apply --example DIR --request FILE|- --expected-plan sha256:HEX --confirmed
+```
 
-## M96.2 adapter implementation — acceptance pending
+No new dependency or provider invocation. Version openudon.browser-author.v1:
+request256KiB UTF-8, report2MiB; exact native start bytes are base64 strings.
+Original receipt byte SHA uses lowercase64hex; request/plan/input/transaction
+use tagged SHA256. Package inventory512 files,8MiB each,32MiB total excludes
+.git, refuses symlinks/special files/hardlinks/foreign or writable ownership.
+Existing native semantics, elicitor/artifactwriter and deterministic build own
+materialization. CLI stdout can contain personal previews and stays transient;
+fixed errors/metadata must not disclose payloads. Partial-write outcomes and
+cleanup flags require inspection. Package promotion remains separately confirmed.
 
-Public browser-author plan/apply dispatch uses the same native source/candidate/profile/review validators and artifact writer. Starts are base64 exact UTF-8 bytes, not reserialized embedded objects; no new dependency or Kinet external v1 change. Native package build is offline; actual browser/integration qualification remains M96.4.
+Full make check, affected race, Go vet/format/diff and real main conformance
+passed. Frozen Go1.26.6 application source eed683f27d448ca96af90e7bc5987967a6cd0335
+at /var/tmp/openudon-m96-qualified-yvoho85o passed native39/3fresh repeats,
+integration17/0failed/3unrequested optional plus independent verifiers and all
+three capture/package journeys. Later tests-only failure regression is separately
+qualified; evidence source/time is never relabeled. Review1 passed; publication
+and final acceptance remain pending. Public fixtures: docs/fixtures/browser-author-v1.

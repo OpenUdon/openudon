@@ -160,3 +160,26 @@ wrong-selector/drift/collision/cancellation/schema tests and source-backed
 public fixtures in docs/fixtures/catalog-discovery-v1. Read-only native SQLite
 may maintain transient WAL/shared-memory files; assert unchanged registration
 data/index/raw bytes rather than confusing those locks with application writes.
+
+## Carry exact native bytes and original capture identity across adapters
+
+Nested raw JSON compaction/re-indentation can invalidate a receipt hash even
+when the parsed object is unchanged. Encode exact native start bytes as base64,
+then reuse native schema/candidate validation after decoding. Treat receipt
+hashes as bindings to original approved capture evidence, not signatures over
+replacement records. Match available native login/dashboard/goal/origin facts;
+do not invent missing registration profile-ID/initial-URL constraints. Evidence:
+M96 exact-byte/case/numeric-array/start-substitution conformance and both native
+modes/TOTP in the source-bound capture/package journeys.
+
+## Bind native writer transients and preserve qualification execution identity
+
+A full inventory guard must exclude only exact temporary/backup paths reported
+by the existing writer, never filename suffixes. Keep the writer's legacy
+callback semantics and rollback/cleanup; inspect partial build/output loss before
+a new proposal. Serialize native and integration gates on supplied snapshots;
+record/remove only known owned empty generated directories before strict source
+checks. Preserve failed and superseded execution identities and independently
+verify process/display teardown. Tests-only deltas get their own checks and do
+not relabel native source/time. Evidence: M96 guard/refusal/partial-build/replay
+regressions, frozen native39/integration17, failed preflight and superseded bundles.

@@ -472,3 +472,7 @@ provenance are preserved together with the package's source manifest through
 the existing atomic writer. Discovery never supplies that confirmation;
 catalog identity/selector drift or unsafe/private bytes are refused. Catalog
 security advice does not change runtime authorization or workflow behavior.
+
+## Reviewed capture package authoring
+
+`browser-author plan/apply` provides reviewed native capture adoption without iCoT. Read-only catalog/preview and exact ordinary authoring confirmation are separate from capture import, package promotion and runtime execution. Both authenticated/TOTP and inert registration recipes retain native constraints; values stay symbolic. Partial writes or lost output require inspection and a fresh proposal, never automatic replay. Original capture receipt/start identities are required; unsigned local evidence is not new attestation authority. M96 qualification and review1 passed; publication/final acceptance and Kinet M19 delivery remain separate.

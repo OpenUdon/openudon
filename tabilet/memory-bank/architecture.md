@@ -1499,10 +1499,29 @@ implicit registration/index mutation was added. Likely concrete credentials
 are refused without rewriting the raw bytes. Catalog mode results add only a
 provenance path to the source-add result shape; local v1 remains unchanged.
 
-## M96.1 wire foundation — 2026-10-01
+## Reviewed capture package authoring (M96)
 
-M96.1 freezes the additive browser-author v1 request/plan/result types and strict decoder in internal/browserpackage. Native capture start remains reused; this commit implements no CLI adoption, writer or delivery. Ordinary authoring and package promotion are separate boundaries.
+The public `browser-author plan/apply` adapter in internal/browserpackage consumes
+an exact original approved capture receipt. Closed256KiB requests carry base64
+of exact native start bytes, native transaction/receipt identities, symbolic-only
+inputs and operation choices. Bounded read-only plans bind full owned package
+inventory, exact request/source/review, file actions and generated artifact bytes.
+Native candidate/discovery validation and pure neutral elicitor lowering retain
+both authenticated/TOTP and inert registration recipes. No UI/controller or
+second semantic writer is imported. The existing native writer reports its exact
+own transient paths to the pre-replacement inventory/freshness guard; its legacy
+callbacks keep their behavior. Separate exact authoring confirmation precedes
+native deterministic build. A partial build or lost output preserves authored
+state and requires inspection, never blind replay; cleanup uncertainty is explicit.
+Original start hashes bind registration capture metadata not retained in its
+recipe; native origins/transaction validation remains authoritative. Authentication
+also matches native login, dashboard proof and goal review. Receipts are unsigned
+local content-addressed evidence, not arbitrary replacement attestations.
 
-## M96.2 adapter implementation — acceptance pending
-
-M96.2 implements browser-author plan/apply over validated imported native receipts, pure neutral elicitor lowering and the existing artifact writer. Read-only plans bind package inventory/request/source identities and exact file actions; apply revalidates exact confirmed plan and inventory before writing, then deterministic native build. Writer observation callback identifies only its own staging/backup paths. Output loss/build failure never implies no authoring commit. No capture rerun or runtime/promotion occurs.
+Application source eed683f27d448ca96af90e7bc5987967a6cd0335 passed three fresh
+native repeats, integration and both-mode public capture/package journeys;
+review1 passed. Tests-only partial-build coverage has its own full/race/vet
+context. Publication, final acceptance and consumer delivery remain separate.
+Kinet M19 owns external single-use delivery/recovery and its own checks; M95
+must retain these commands and legacy public review artifacts after UI removal.
+See [the CLI/wire contract](../../docs/browser-package-handoff.md).

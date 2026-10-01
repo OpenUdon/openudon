@@ -1885,3 +1885,50 @@ M93.5's native/visible qualification and accepted publication are still pending.
 ## 2026-10-01 — M96 unpublished exact start transport correction
 
 Original M96.1 contract at `5dfd12625b309dc08c3620c65d0b7d72b1731f3d`, docs/browser-package-handoff.md: “start: Unchanged closed native capture start; exact serialized bytes bind the receipt start hash” and “starts retain native raw member order and whitespace for receipt matching.” Nested JSON serialization compacts/re-indents raw bytes, making that receipt binding unreliable. M96.2 corrects the still-unpublished wire to base64 of exact native file bytes (Go []byte), reusing native schema validation after decoding. No accepted legacy contract or Kinet external v1 is changed. Replacement: [native handoff contract](../../../docs/browser-package-handoff.md#m961-frozen-command-and-wire). The M96.1 qualification keeps its original byte hashes and does not claim to test the correction.
+
+## 2026-10-01 — M96 complete literal transport correction excerpt
+
+Completes the earlier unpublished transport note with verbatim fenced source wording. Source: docs/browser-package-handoff.md, M96.1 frozen command and wire, at `5dfd12625b309dc08c3620c65d0b7d72b1731f3d`. Outer JSON rewrites raw start formatting; exact decoded native bytes now use base64. Replacement: [current native handoff](../../../docs/browser-package-handoff.md#m961-frozen-command-and-wire). Existing accepted capture and Kinet external v1 remain unchanged.
+
+````markdown
+| `start` | Unchanged closed native capture start; exact serialized bytes bind the receipt start hash |
+
+Plan version above, kind `plan`: request ID, tagged exact request-byte digest,
+tagged current input digest, receipt and transaction digests, native candidates,
+operation catalog, readiness, blocker codes, optional native preview, native
+write conflicts and `plan_sha256`. Arrays retain native deterministic order.
+The plan digest hashes encoding/json's compact typed struct serialization with
+its own field empty. Exact request hashes include whitespace; starts retain
+native raw member order and whitespace for receipt matching. A missing initial
+input digest permits catalog inspection only; use the returned digest to form
+a bound request, re-plan, then confirm that exact plan.
+
+````
+
+## 2026-10-01 — M96 architecture.md qualified boundary consolidation
+
+Source: tabilet/memory-bank/architecture.md, M96.1 wire foundation and M96.2 adapter implementation at `eed683f27d448ca96af90e7bc5987967a6cd0335`. The intermediate pending foundation/adapter notes are superseded by the qualified reviewed capture boundary. Restored original source notes before preserving this literal excerpt and applying the final consolidation. Replacement: current architecture.md reviewed capture package section; actual native evidence remains source eed and final acceptance/publication is separate.
+
+````markdown
+## M96.1 wire foundation — 2026-10-01
+
+M96.1 freezes the additive browser-author v1 request/plan/result types and strict decoder in internal/browserpackage. Native capture start remains reused; this commit implements no CLI adoption, writer or delivery. Ordinary authoring and package promotion are separate boundaries.
+
+## M96.2 adapter implementation — acceptance pending
+
+M96.2 implements browser-author plan/apply over validated imported native receipts, pure neutral elicitor lowering and the existing artifact writer. Read-only plans bind package inventory/request/source identities and exact file actions; apply revalidates exact confirmed plan and inventory before writing, then deterministic native build. Writer observation callback identifies only its own staging/backup paths. Output loss/build failure never implies no authoring commit. No capture rerun or runtime/promotion occurs.
+````
+
+## 2026-10-01 — M96 tech-stack.md qualified boundary consolidation
+
+Source: tabilet/memory-bank/tech-stack.md, M96.1 wire foundation and M96.2 adapter implementation at `eed683f27d448ca96af90e7bc5987967a6cd0335`. The intermediate pending foundation/adapter notes are superseded by the qualified reviewed capture boundary. Restored original source notes before preserving this literal excerpt and applying the final consolidation. Replacement: current tech-stack.md reviewed capture package section; actual native evidence remains source eed and final acceptance/publication is separate.
+
+````markdown
+## M96.1 wire foundation — 2026-10-01
+
+M96.1 offline wire checks: GOWORK=off go test ./internal/browserpackage and affected race. Public synthetic authenticated/registration request/plan/partial-write-result examples are docs/fixtures/browser-author-v1. Command dispatch/native package qualification remain M96.2–M96.4 work.
+
+## M96.2 adapter implementation — acceptance pending
+
+Public browser-author plan/apply dispatch uses the same native source/candidate/profile/review validators and artifact writer. Starts are base64 exact UTF-8 bytes, not reserialized embedded objects; no new dependency or Kinet external v1 change. Native package build is offline; actual browser/integration qualification remains M96.4.
+````

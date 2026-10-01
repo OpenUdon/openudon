@@ -1,8 +1,8 @@
-# Reviewed capture package handoff (approved target)
+# Reviewed capture package handoff
 
-OpenUdon M96 is active work: v1 wire and command implementation exist; native qualification, review and acceptance remain pending. [Its package-local status](../tabilet/memory-bank/status-M96.md) owns delivery and acceptance.
+OpenUdon M96 implementation is qualified and review1 passed; publication/reconciliation and final acceptance remain pending. [Its package-local status](../tabilet/memory-bank/status-M96.md) owns delivery and acceptance.
 
-The published M93 capture contract imports canonical profiles and a receipt. Existing package preparation requires a fully reviewed/built package. Ordinary native virtual-source adoption/materialization is currently reachable through retained iCoT; capture import alone cannot bridge these boundaries.
+The published M93 capture contract imports canonical profiles and a receipt. Existing package preparation requires a fully reviewed/built package. At that published baseline, ordinary virtual-source adoption required retained iCoT. The new browser-author commands now bridge capture and ordinary package authoring with separate approval.
 
 M96 adds a bounded non-iCoT command over the existing neutral authoring engine, elicitor and artifact writer. It binds receipt/source/input identities and retains separately issued authoring approval before native build. Capture approval, package promotion and runtime authority remain separate. Both authenticated/TOTP and registration are retained. No duplicate profile/review writer or browser rerun is allowed.
 
@@ -10,7 +10,7 @@ Kinet remains an external CLI consumer. After the exact producer is accepted/pub
 
 ## M96.1 frozen command and wire
 
-Public commands (M96.2 implementation; acceptance pending):
+Public commands:
 
 ```text
 openudon browser-author plan --example DIR --request FILE|-
@@ -27,7 +27,7 @@ Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
 
 | Field | Contract |
 | --- | --- |
-| `request_id`, `workflow_name` | Bounded lowercase identifiers |
+| `request_id` | Bounded lowercase request identifier |
 | `start` | Base64 of the exact UTF-8 native start file bytes; decoding reuses the closed native start schema and its exact receipt hash |
 | `receipt_path` | Clean example-relative `expected/browser-capture/ID.json` |
 | `receipt_sha256` | Lowercase64hex of the exact receipt file bytes |
@@ -35,7 +35,7 @@ Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
 | `input_sha256` | Optional tagged current package inventory digest for read-only discovery; required for apply |
 | `expected_totp` | Required explicit Boolean; true requires captured native TOTP evidence, never a synthesized step |
 | `registration_authority` | Required non-secret registration requester identity; absent for authentication; grants no submit permission |
-| `workflow_name` | Name of the proposed workflow |
+| `workflow_name` | Bounded lowercase name of the proposed workflow |
 | `flow`, `action` | Exact native operations. Flow selects authentication/registration; action selects authenticated capability. Missing choices produce a non-ready read-only catalog, never an implicit choice |
 | `cleanup_disposition` | Registration only: `delete_separately` or `retain_dedicated_test_identity` |
 | `inputs` | At most32 unique `{name,type,sensitive?}` declarations; no defaults or values |
@@ -44,7 +44,7 @@ Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
 
 Unknown/duplicate keys and capitalization aliases, mixed modes, native schema violations and unsafe paths
 are refused without payload echo. Native canonical receipt/source/review/expiry
-and immutable start policy validation remain required in M96.2. The source pair
+and original-start policy validation remain mandatory on each plan/apply. The source pair
 and session/credential lowering reuse neutral elicitor semantics. Registration
 is an inert unsupported-runtime recipe, retaining all native safety policies.
 
