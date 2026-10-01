@@ -546,3 +546,27 @@ exact application source, with three fresh repeats and private TCP-disabled
 X authentication. Its invocation, log and display metadata are retained;
 no pass is claimed before completion and independent report verification.
 M93.5 remains the sole general in-progress row. Closing review stays0/10.
+
+## M93.5 private visible session ready — 2026-10-01
+
+Fresh later-reuse operation under the selected M93.5 row is ready at
+`/var/tmp/openudon-m93-browser-h_9348ri`; display `:98`, loopback-only
+VNC127.0.0.1:5901 and noVNC relay127.0.0.1:6080, X TCP disabled, private
+authentication, bounded expiry `2026-10-01T09:37:04.333275+00:00`.
+The approved installed components and protected SSH-forwarding boundary are
+unchanged; no service/firewall/public listener was created. Supervisor helper
+SHA-256 `930cb6a66d3ab30254c2ecfbfbd8ff52120ed8bdb078cd660d2d178bd2a86291` checks M93.5,
+not the closed M93.0 row. It owns teardown of all desktop children and private
+authentication. A new password stays only in the session's private directory
+and must be retrieved by the user in their SSH terminal, never in goal output.
+
+Disposable visible consumer helpers are prepared for the exact f1273b6 public
+CLI. They pause for local desktop input/approval prompts; credential/code
+values enter only the native browser, never the protocol, ordinary logs or
+audit. The registration fixture uses an in-page verification double and never
+submits an account. No journey has run or been confirmed yet. An asynchronous
+readiness question is pending; independent native qualification continues.
+
+Full make check and final document check passed
+(`/tmp/openudon-m93-5-final-check.log`, `/tmp/openudon-m93-5-final-doc.log`).
+Review stays0/10; this operation and these checks do not establish acceptance.
