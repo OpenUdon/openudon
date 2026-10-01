@@ -437,4 +437,9 @@ guessed endpoint, and `step bind` resolves only that exact contract against an
 explicit source/operation and mappings. New 1.12 operations carry confirmed
 effect labels; labels never authorize execution. Pending packages are readable
 and assessable, but package inspection, approval, dry runs and real runs refuse
-pending contracts everywhere in the document. Pure simulation remains pending.
+pending contracts everywhere in the document. Pure simulation is implemented through `openudon simulate`; producer conformance, runtime qualification and milestone acceptance remain pending.
+
+M92.3 previews bound and pending contracts using fixtures, explicit examples or
+public schema synthesis. Pending results remain hypothetical; browser outputs
+are mocked contracts. Exported previews redact scalar values and object field
+names, retain declared step/effect/provenance, and grant no execution authority.

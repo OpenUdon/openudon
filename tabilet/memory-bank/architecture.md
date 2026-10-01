@@ -1372,3 +1372,15 @@ validation when pending contracts exist. This includes unused workflows and
 unselected branches. Refusal produces no approval, staging, credential lookup
 or executor dispatch. The unchanged legacy version retains its wire shape;
 confirmed 1.12 effects are additive and descriptive.
+
+M92.3's `internal/simulation` captures bounded regular package files and uses
+shared review-handoff digest and public UWS decoders. Captured HCL/YAML must
+agree; empty operation inventories normalize the public decoder nil/empty
+difference. Pending operations exist only in memory. Legacy request expression
+wrappers and received_body outputs adapt to public expressions; the public
+orchestrator/mock runtime owns all scheduling, branching, loops and evaluation.
+No network, browser worker, executor or credential resolver is connected.
+Explicit fixtures/examples/schemas supply responses; original package files
+and digest are checked again after computation. Fixed diagnostics and bounded
+redacted shapes are exported as `openudon.simulate.v1`. This is preview evidence,
+not approval or real-run evidence; final M92 qualification remains pending.

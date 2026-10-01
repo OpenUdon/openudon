@@ -1090,3 +1090,12 @@ fixture bytes remain frozen; current bind tests independently verify the new
 intent digest and effect, plus the exact older digest with just that additive
 annotation absent. `step bind` resolves a pending contract using the current
 intent revision, exact contract and its existing source/auth/mapping checks.
+
+M92.3 adds `openudon simulate --example DIR [--input FILE] [--fixtures FILE]
+[--allow-generated-fallback]`, with `openudon.simulate-input.v1` input and
+`openudon.simulate.v1` results (see `docs/simulation.md`). It uses published UWS
+1.12 `mockruntime`, public fixture/JCS matching and deterministic schema synthesis;
+the exact transitive dependency is `github.com/gowebpki/jcs v1.0.2`. No private
+executor import or schema/expression engine is introduced. Numeric user inputs
+retain JSON number identity for fixture matching. M92.4 owns final producer
+conformance and runtime qualification.

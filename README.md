@@ -880,3 +880,5 @@ variants, scorecard and optional provider evaluation. These share the legacy
 iCoT implementation during migration; existing subcommand flags and report
 schemas remain compatible. The expert surface does not start a UI or browser
 worker. Model-backed evaluation remains an explicit separate operation.
+
+Pure previews, including unresolved contracts: [workflow simulation](docs/simulation.md).

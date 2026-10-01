@@ -1,6 +1,6 @@
 # Status M92 — UWS 1.12, pending packages and pure simulation
 
-**State:** M92.1 implemented and checked; remaining pending/simulation work and milestone qualification are not accepted.
+**State:** M92.1–M92.3 implemented and checked; producer conformance, runtime qualification and milestone acceptance remain pending.
 
 **Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
 
@@ -21,7 +21,7 @@ New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Ex
 | --- | --- | --- |
 | M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[+]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
 | M92.2 — Effects and package pending steps | `[+]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
-| M92.3 — Versioned pure simulation | `[ ]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
+| M92.3 — Versioned pure simulation | `[+]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
 | M92.4 — Qualify contracts, review and publish | `[ ]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
 
 ## Acceptance and verification
@@ -166,3 +166,45 @@ v1 fixture bytes remain unchanged. Current bind test verifies its envelope
 and exact pre-effect digest separately from the new generated digest and
 confirmed annotation. M92.3 simulation and M92.4 conformance/frozen runtime
 qualification remain pending; no milestone acceptance or publication claimed.
+
+## M92.3 selected — 2026-10-01
+
+M92.2 task source committed as `1049957` (resolve the full local Git identity
+before consumer qualification). M92.3 is the sole general in-progress row.
+Use the public orchestrator and pure mock runtime; never call a credential
+resolver, network adapter or executor. Producer acceptance remains pending.
+
+## Temporary M92 qualification display authority — 2026-10-01
+
+The user explicitly approved the installed Xvfb on
+`vps-f7dfc687.vps.ovh.us` for M92.4's fresh disposable loopback runtime
+qualification. Disable TCP, use private temporary X authentication, and
+record automatic teardown. No installation, public listener, permanent
+service, real target or human-visible acceptance is included. The coordinator
+record is Kinet `tabilet/memory-bank/suggested.txt`. Do not infer M93.0 setup
+or M93.5 demonstration completion from this synthetic permission.
+
+## M92.3 task evidence — 2026-10-01
+
+Pure `openudon simulate` uses the public UWS orchestrator and mock runtime.
+Pending contracts project to mock operations only in memory; original step
+IDs and unresolved labels are retained. Bound operations require explicit
+fixtures, examples or schemas. Exact fixture misses refuse unless the caller
+explicitly permits generated fallback. Browser results are labeled mocked
+contracts, not page verification. Package representations are checked before
+preview and package bytes/digest again afterward. No approval is inferred.
+
+Tests cover pending-only/nested/mixed workflows, fixture precedence and caller
+immutability, parallel/branch/loop data flow, unknown/write effects, failed
+responses/schemas, cancellation, symlink/mismatched/outside packages, request
+bounds, changed package invalidation, private value/field-name redaction and
+top-level CLI refusal/help. A loopback server and executor canary prove zero
+HTTP/executor calls. JSON numeric inputs retain their exact number identity.
+
+Standalone `make fast` passed full Go tests/vet/build and repository/boundary/
+document checks (`/tmp/openudon-m92-3-final-fast.log`). Relevant owner and CLI
+race checks passed (`/tmp/openudon-m92-3-final-owner-race.log`).
+`docs/simulation.md` states supported inputs, conservative preview redaction,
+all bounds and the explicit bound-response requirement. M92.4 owns versioned
+producer fixtures, fresh adoption/browser evidence, deep review and publication;
+no milestone acceptance is claimed by this task.

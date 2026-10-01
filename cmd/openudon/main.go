@@ -67,7 +67,8 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, bind, check, or add explicitly selected local API sources\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  simulate  preview a package with the pure public UWS mock runtime\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, author pending contracts, bind, check, or add explicitly selected local API sources\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -123,6 +124,8 @@ func main() {
 		runValidateCommand(flag.Args()[1:])
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
+	case "simulate":
+		os.Exit(runSimulateCommand(flag.Args()[1:], os.Stdout, os.Stderr))
 	case "run":
 		runTrustedCommand(flag.Args()[1:])
 	case "run-evidence":
