@@ -212,7 +212,7 @@ removal; accepted M94 does not authorize early retirement.
 
 ## Approved replacement prerequisite — 2026-10-01
 
-M96 exposes reviewed capture adoption and ordinary package authoring without iCoT. All M95 rows remain pending and review stays0/10. M95.1 must verify M96's actual accepted/published contract and downstream M19/U07/W28 adoption; M95.2 must retain its neutral implementation/CLI and fixtures when removing old transports. Do not infer migration from capture receipt import. Reconcile exact producer revision before removal. The user requires an explicit pause before W8M W28 to verify latest W27 status; no W27 state or live authority is inferred.
+M96 exposes reviewed capture adoption and ordinary package authoring without iCoT. All M95 rows remain pending and review stays0/10. M95.1 must verify M96's actual accepted/published contract and downstream M19/U07/W28 adoption; M95.2 must retain its neutral implementation/CLI and fixtures when removing old transports. Do not infer migration from capture receipt import. Reconcile exact producer revision before removal. The additional W27-status pause is cancelled after both approved integrations were independently verified; U07.4 human acceptance and explicit Gate5B remain. Frozen W27 history grants no new live authority.
 
 ## M96 exact producer reconciliation — 2026-10-01
 
@@ -221,3 +221,42 @@ Qualified application source `eed683f27d448ca96af90e7bc5987967a6cd0335`, CLI SHA
 `openudon browser-author plan/apply` reuses native reviewed receipt/source/start/operation checks and one neutral lowering/writer/build path. Strict `openudon.browser-author.v1` request uses base64 of exact native start bytes; bounded symbolic declarations/bindings and exact current inventory/request/plan/receipt/transaction digests bind separate ordinary authoring confirmation. Plan is read-only; apply never recaptures, promotes or executes. Structured `build_failed` may follow committed authoring; inspect/reconcile, never infer no-write or replay. Exact original capture receipt digest is required; unsigned replaced receipts are not new capture attestations. Registration retains native approved-origin navigation semantics, not invented profile/initial-URL equality.
 
 M19.3 adopts the published qualified application source in the one shared pin, with its own adapter/worker/native checks; narrowly admits only validated public review artifacts, implements durable prepare/promote/inspect/recover and single-use backup/restore, and leaves frozen external v1 unchanged. M95/M20 retain this replacement; W28 binds accepted M19/U07 plus M96 and qualifies its own consumer, W29 later qualifies final M95/M20. No downstream row, review counter, runtime adoption or live authority is completed by producer acceptance. Normal M96 retirement/closure resolves through OpenUdon's permanent history index once recorded.
+
+## M19 exact accepted-source reconciliation — 2026-10-01
+
+Kinet M19 accepted application/source publication is independently verified at
+`d712c1081487ab6fae9a580195d5072f84d43d9f`; review1/10 passed with no open
+findings. Clean exact-source CLI SHA-256
+`6611df798c6fa7d7811070a9d7e19fba28b3533775bfe546af5c5015d45e740a`;
+build-closure SHA-256
+`f8b5657d646cd0e316d3f99191b593ee0666e501b0fd0a6e394a3db8f0c34b90`.
+Evidence: `/var/tmp/kinet-m19-4-qualified-15rjw7ay/qualification-summary.json`,
+SHA-256 `ff8a657a3195e1ac7a7fa4bfcbcf443a6c0e8cb0d1db2ba6266b690073da1661`.
+Both fresh native external modes/TOTP, registration verification refusal/approval,
+native author/build/delivery, lost promotion output, deleted requester result,
+physical process interruption/replay and private browser/display teardown passed.
+A later unsafe post-effect destination fix has separate final default/race
+coverage; the earlier native attempt is not relabeled as containing it.
+Resolve complete acceptance through Kinet `tabilet/docs/history/status-M19.md`.
+
+The frozen `kinet.external-authoring.v1` binds request/owner/destinations/expiry,
+exact original input and both modes. Single-use synchronized intent precedes
+capture and possible promotion. Native `browser-author plan/apply` and package
+prepare/promote/inspect/recover remain OpenUdon semantics at qualified M96
+`eed683f27d448ca96af90e7bc5987967a6cd0335`. Separate issued capture/import,
+ordinary author/build and exact delivery approvals are retained; no runtime
+operation is delegated to Kinet. `--recover` never captures/authors/promotes
+again, including after expiry. Possible delivery stays `recovery_required`
+without exact native selection proof, even when unsafe publication is refused.
+Durable terminal records reconstruct lost results; backup preserves consumed
+records. W8M must independently validate current native package evidence and
+matching terminal result before use; historical outcome alone is not freshness.
+
+All consumer rows/review counters remain pending and unchanged by reconciliation.
+U07 owns readable owner/deadline/issued questions, cancellation, no-store transient
+presentation and reconnect without automatic decision replay. M95/M20 retain
+the public native replacement through final pin adoption. W28 qualifies its
+accepted M19/U07/M96 stack; W29 separately qualifies final M95/M20. Fresh U07.4
+human-visible acceptance and explicit Gate5B still precede W28. The additional
+W27-status pause is cancelled after the verified integrations; no frozen W27
+record or expired M93 desktop is reopened.
