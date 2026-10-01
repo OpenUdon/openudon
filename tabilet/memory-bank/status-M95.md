@@ -4,7 +4,7 @@
 
 **Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
 
-**Dependencies.** M91–M94 accepted/published; Kinet U07 acceptance; approved Gate 5B and inventory dispositions; W8M W28 accepted/published at exact Kinet/OpenUdon revisions.
+**Dependencies.** M91–M94 and M96 accepted/published; Kinet U07 acceptance; approved Gate 5B and inventory dispositions; W8M W28 accepted/published at exact Kinet/OpenUdon revisions.
 
 **Downstream.** Kinet M20, then W8M W29 final adoption. Earlier W28 qualification cannot qualify new M95 binaries.
 
@@ -209,3 +209,7 @@ private catalog roots, raw source or reconstructed request/body summaries.
 Retain both new catalog commands, all native conformance fixtures and shared
 source writer/provenance when removing iCoT. U07, Gate5B and W28 still gate
 removal; accepted M94 does not authorize early retirement.
+
+## Approved replacement prerequisite — 2026-10-01
+
+M96 exposes reviewed capture adoption and ordinary package authoring without iCoT. All M95 rows remain pending and review stays0/10. M95.1 must verify M96's actual accepted/published contract and downstream M19/U07/W28 adoption; M95.2 must retain its neutral implementation/CLI and fixtures when removing old transports. Do not infer migration from capture receipt import. Reconcile exact producer revision before removal. The user requires an explicit pause before W8M W28 to verify latest W27 status; no W27 state or live authority is inferred.
