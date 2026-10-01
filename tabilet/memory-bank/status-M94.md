@@ -1,6 +1,6 @@
 # Status M94 — Catalog discovery and digest-bound source provisioning
 
-**State:** M94.1 complete; M94.2 selected; M94.3 pending. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
+**State:** M94.1–M94.2 complete; M94.3 selected. M93 is accepted, retired and published; no M94 acceptance or publication is claimed.
 
 **Goal.** Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
 
@@ -39,7 +39,7 @@ Lineage: Promotes G1/S2d, retaining M89 source/confirmation guarantees. APItools
 
 ## Closing review
 
-Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration1 PASSED on 2026-10-01; no open P1/P2 or higher finding. Reviewed the complete M94 diff from published M93 closure `ca3b805456a459d83431cbc6ef3126015a575772`, including M94.3's uncommitted fixtures/tests/docs, native APItools semantics, schema/authority, path/digest/selector binding, staging and shared atomic failure/cancellation behavior, legacy compatibility and affected consumers. A stale M93 qualification sentence in current architecture was corrected with its old wording preserved in the knowledge journal; no retired record changed. Full check/vet, real-dispatch conformance and final affected race passed. Publication/downstream reconciliation remain pending until observed evidence is recorded.
 
 ## APItools producer reconciliation — 2026-09-30
 
@@ -264,3 +264,48 @@ make fast passed: /tmp/openudon-m94-2-fast.log; focused vet, gofmt and diff
 checks passed. Public documentation describes approval, bounds, advisories,
 indeterminate-write inspection and no automatic replay. M94.3 is now the sole
 general in-progress row; closing review still0/10 and not started.
+
+## M94.3 execution selected — 2026-10-01
+
+M94.2 committed at `75a7bd16c7def4b6c08f70193b5353c41b8c5629`. Qualify actual
+main dispatch against source-backed public request/report/source/provenance
+fixtures, all native outcome and index failure semantics, legacy source and
+authoring compatibility, complete make check/vet/docs and affected race. APItools
+and other sibling sources remain unchanged. Initial stale-registration test
+incorrectly tried to store a false raw digest; native registration correctly
+refused it. It now updates actual raw bytes and registrations while leaving the
+old index, exercising genuine staleness. Native read-only SQLite can recreate
+WAL/shared-memory coordination files; no-write assertions cover data, metadata,
+index and raw files rather than falsely treating transient SQLite locks as
+registration writes. This native behavior is documented; no migration, pruning,
+data or access-time update occurs. Fixtures are fresh actual native outputs,
+not invented expected ranks, and old fixture/UI/lock bytes remain unchanged.
+
+## M94.3 qualification and review — 2026-10-01
+
+Published-contract files prepared in docs/fixtures/catalog-discovery-v1 contain
+thirteen exact source-backed JSON request/report/source/provenance fixtures,
+with hash manifest and APItools producer provenance. Permanent tests execute
+the real main dispatcher and compare full native output and confirmed source
+publication; fresh native indexes are built from actual registrations/raw
+bytes. All five outcomes, relocated roots, multiword/empty provider scopes,
+unknown licenses, stale/missing/corrupt/unsafe indexes and package refusal
+semantics passed. Legacy candidate/source/authoring tests passed as part of the
+full owner suite. Default checks remain credential/model/browser/network-free.
+
+Full offline make check passed (/tmp/openudon-m94-3-check.log), including
+standalone legacy iCoT build, all Go tests, sibling readiness and public
+repository boundary. Full vet passed (/tmp/openudon-m94-3-vet.log); final
+affected race passed (/tmp/openudon-m94-3-race.log), real-dispatch conformance
+passed (/tmp/openudon-m94-3-public-conformance.log), documents/format/diff
+passed. Verified536 preexisting protected fixture/example/UI/lock files remain
+byte-identical to the published M93 closure and all13 new public fixture hashes
+match their manifest. No browser/capture/executor code or runtime pin changed;
+M93's original fresh browser evidence remains under its actual source, not
+relabeled as M94. No browser qualification is added for this APItools adapter.
+Review1/10 passed; applicable lessons consolidated and evolution v47 inspected:
+no direction/boundary change beyond its already approved M94 target.
+
+This source/fixture qualification commit precedes the required fast-forward
+publication; M94.3 stays in progress until publication and normal closure are
+observed. No downstream implementation/acceptance is implied by these checks.

@@ -1868,3 +1868,16 @@ APItools M79 operation-candidate metadata at
 `v0.0.0-20260928033144-e3625f6ef52e` (commit
 `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs.
 ```
+
+## 2026-10-01 — M94 consolidation corrects the M93 capture status
+
+Source: architecture.md, supervised browser capture/import section. Reason: the
+implementation description retained a pre-qualification sentence after M93
+normal closure. Evidence: retired M93 record, qualified application
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, published closure
+`ca3b805456a459d83431cbc6ef3126015a575772`, and explicit human acceptance of
+both journeys. Replacement: current architecture sentence links M93 history.
+
+```markdown
+M93.5's native/visible qualification and accepted publication are still pending.
+```

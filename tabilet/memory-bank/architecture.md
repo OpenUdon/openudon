@@ -1470,7 +1470,9 @@ effects include login/submission recipes. This is local authoring admission,
 not full-package promotion or execution authority. Only a committed import emits
 terminal imported metadata; refusal/cancel/EOF/expiry writes no profiles. A
 failed write or lost terminal delivery requires inspection, never automatic replay.
-M93.5's native/visible qualification and accepted publication are still pending.
+M93 native/visible qualification, explicit human acceptance and publication
+are complete; see [its permanent record](../docs/history/status-M93.md).
+Kinet and W8M retain their independent adoption qualifications.
 
 ## M94 catalog discovery adapter
 

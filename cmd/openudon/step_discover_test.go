@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -214,5 +215,96 @@ func TestStepDiscoverRejectsUntrustedInstallationAndMalformedRequests(t *testing
 	var stdout, stderr bytes.Buffer
 	if code := runStepDiscoverCommand([]string{"--secret-canary"}, strings.NewReader("{}"), &stdout, &stderr); code != 2 || strings.Contains(stdout.String()+stderr.String(), "secret-canary") {
 		t.Fatal("invalid flags accepted or echoed")
+	}
+}
+
+func TestStepDiscoverIndexFailuresStayNativeReadOnlyEvidence(t *testing.T) {
+	for _, mode := range []string{"stale-catalog", "stale-registration", "corrupt-index", "index-symlink", "outside-index"} {
+		t.Run(mode, func(t *testing.T) {
+			installation := preparedDiscoveryCatalog(t, false)
+			switch mode {
+			case "stale-catalog":
+				options, _ := installation.IndexOptions()
+				cat := *options.Catalog
+				cat.Providers[0].DisplayName = "Changed synthetic provider"
+				data, _ := json.Marshal(cat)
+				if err := os.WriteFile(installation.MetadataPath, data, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			case "stale-registration":
+				rawPath := filepath.Join(installation.Root.Directory, "openapi/notes.json")
+				raw, err := os.ReadFile(rawPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				raw = append(raw, '\n')
+				if err := os.WriteFile(rawPath, raw, 0o600); err != nil {
+					t.Fatal(err)
+				}
+				hash := sha256.Sum256(raw)
+				data, _ := os.ReadFile("testdata/catalog-root/registrations.json")
+				var rows []sqlitecache.CatalogArtifact
+				if err := json.Unmarshal(data, &rows); err != nil {
+					t.Fatal(err)
+				}
+				cache, err := sqlitecache.Open(filepath.Join(installation.Root.Directory, "cache.sqlite"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, row := range rows {
+					row.SHA256 = hex.EncodeToString(hash[:])
+					row.Bytes = int64(len(raw))
+					if err := cache.StoreCatalogArtifact(context.Background(), row); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := cache.Close(); err != nil {
+					t.Fatal(err)
+				}
+			case "corrupt-index":
+				if err := os.WriteFile(filepath.Join(installation.Root.Directory, "operations.v1.json"), []byte("{}"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			case "index-symlink":
+				path := filepath.Join(installation.Root.Directory, "operations.v1.json")
+				if err := os.Rename(path, path+".original"); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(path+".original", path); err != nil {
+					t.Fatal(err)
+				}
+			case "outside-index":
+				installation.Root.IndexPath = "../outside-index.json"
+			}
+			before := packageSnapshot(t, installation.Root.Directory)
+			// Native SQLite mode=ro preserves data but may create its transient
+			// WAL/shared-memory coordination files after the writer closes.
+			delete(before, "cache.sqlite-wal")
+			delete(before, "cache.sqlite-shm")
+			options, err := installation.IndexOptions()
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := discoveryRequest()
+			native, nativeErr := apitools.DiscoverCatalogOperations(context.Background(), apitools.CatalogDiscoveryOptions{Index: options, Request: request})
+			data, _ := json.Marshal(request)
+			var stdout, stderr bytes.Buffer
+			args := append(discoveryCommandArgs(installation), "--catalog-index", installation.Root.IndexPath)
+			code := runStepDiscoverCommand(args, bytes.NewReader(data), &stdout, &stderr)
+			wantCode := 0
+			if nativeErr != nil || native.Outcome == apitools.CatalogDiscoveryBlocked {
+				wantCode = 4
+			}
+			want, _ := json.Marshal(native)
+			if code != wantCode || !bytes.Equal(bytes.TrimSpace(stdout.Bytes()), want) || native.Outcome == apitools.CatalogDiscoveryNoQualifyingAPI || stderr.Len() != 0 {
+				t.Fatal("index failure was broadened or lost native evidence", code, native.Outcome)
+			}
+			after := packageSnapshot(t, installation.Root.Directory)
+			delete(after, "cache.sqlite-wal")
+			delete(after, "cache.sqlite-shm")
+			if !reflect.DeepEqual(before, after) {
+				t.Fatal("read-only discovery changed root")
+			}
+		})
 	}
 }

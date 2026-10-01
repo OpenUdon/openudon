@@ -146,3 +146,17 @@ M93.5 actual public authenticated/TOTP capture with no outputs; shared
 browserauthor.checkpointResponse and
 TestCompletionRetainsExplicitEmptySelectionAcrossWorkerJSON. This retains the
 worker's refusal of missing/unconfirmed authority instead of relaxing it.
+
+## Bind catalog selection through native export and package publication
+
+An indexed discovery result proves only its reported scope. Preserve its native
+artifact references, raw identity and selectors through selected export, then
+independently validate selector binding before a confirmed package transaction.
+Keep every selected provider link and only applicable advisory overlays; advice
+does not authorize runtime behavior. Stage privately and commit source bytes,
+manifest and provenance with the existing atomic writer, so refusals cannot
+leave a partially provisioned package. Evidence: M94 catalog round-trip,
+wrong-selector/drift/collision/cancellation/schema tests and source-backed
+public fixtures in docs/fixtures/catalog-discovery-v1. Read-only native SQLite
+may maintain transient WAL/shared-memory files; assert unchanged registration
+data/index/raw bytes rather than confusing those locks with application writes.

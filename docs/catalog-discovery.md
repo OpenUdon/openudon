@@ -40,6 +40,10 @@ explicit bounded installation catalog matching the index, otherwise APItools'
 built-in catalog is used. APItools owns all root/index/registration validation.
 No directory, registry or index is created, rebuilt, migrated or refreshed by
 discovery; no sibling path, working directory or user home is inferred.
+Native SQLite read-only access can maintain transient WAL/shared-memory
+coordination files; it does not migrate or modify registration data or access
+timestamps. Catalog discovery requests are at most64KiB and reports at most2MiB;
+explicit installation metadata is bounded to2MiB.
 
 ## Reports and consumer actions
 
@@ -85,6 +89,12 @@ those sources and compare complete CLI reports with the native APItools call,
 covering all five outcomes, provider constraints, relocation, missing indexes,
 unknown licenses and refusal without widening remote authority. Default checks
 need no model, credential, browser or external service.
+Public downstream fixtures are in
+[docs/fixtures/catalog-discovery-v1](fixtures/catalog-discovery-v1/provenance.json):
+five request/report pairs plus the confirmed source request/result/provenance
+round trip. Their provenance binds the actual producer and fixture hashes;
+owner tests compare them with the real main dispatcher and freshly indexed
+source bytes. They contain only synthetic data and confer no permission.
 
 ## Confirmed source provisioning
 
