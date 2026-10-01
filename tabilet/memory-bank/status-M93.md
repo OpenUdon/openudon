@@ -42,7 +42,7 @@ Lineage: Preserve accepted browser-authoring/transaction gates and M91 inventory
 
 ## Closing review
 
-Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration 1 started on 2026-10-01 after final-source automated qualification passed; findings not yet recorded. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
 
 ## M91 exact producer reconciliation — 2026-10-01
 
@@ -592,3 +592,25 @@ pending; neither visible journey has started. Native39 is automated evidence
 and does not substitute for that human checkpoint. Review remains0/10, not
 started until the remaining automated integration check finishes. M93.5 is
 still in progress; publication and downstream acceptance remain incomplete.
+
+## Closing review iteration1 started — 2026-10-01
+
+Persisted before reviewing. Source under review:
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, plus subsequent status-only
+checkpoint commits. Review the complete M93 diff from accepted M92 closure
+`f33d41f7202c00b986b640dee17861a39c79c027`: protocol/start schemas and
+conformance; native adapters/decision validation; private inputs; issued exact
+authority; shared worker; cancellation/reader/process/private cleanup;
+independent attested profile reconstruction and atomic import; compatibility;
+fixtures; command/metadata/documentation and approved desktop operations.
+
+All required automated evidence is now passing: full make check, full vet,
+focused race/conformance checks, three actual final-source public mode probes,
+full current native39 with independent verification, integration-v6 seventeen
+passed/zero failed/three optional unrequested with independent verification,
+and document/gofmt/diff checks. Integration report:
+`/var/tmp/openudon-m93-qualified-8heukane/evidence/integration1-v6.json`.
+No human-visible journey is implied by these results. The readiness reply and
+both visible journeys remain pending. Do not publish/accept or advance a
+consumer until the missing human evidence and normal closure are complete.
+Resume this interrupted review at iteration1, not a new number.
