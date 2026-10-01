@@ -652,3 +652,20 @@ desktop expires, retain its teardown and restore a new bounded session under
 M93.5; never reopen M93.0 or reset the review counter. Acceptance, publication,
 retirement and exact downstream reconciliation remain pending; no consumer
 may advance yet.
+
+## M93.5 connection restoration — 2026-10-01 12:27 UTC
+
+The user reported noVNC Connect failed. Safe inspection proved the prior
+session expired at09:37:04.486968 UTC, with all owned processes stopped and
+private authentication removed; ports5901/6080 were absent. No capture journey
+had run. Restarted the already approved bounded later-reuse operation under
+M93.5, preserving M93.0 closure and review1/10 passed.
+
+Fresh root `/var/tmp/openudon-m93-browser-s3lttof5`, expires
+`2026-10-01T13:27:53.330220+00:00`. Exact loopback VNC/relay listeners are
+ready; X TCP remains disabled and HTTP vnc.html returned200 with the full
+viewer. Private password/authentication remain local and outside repository
+output. The existing SSH tunnel can be reused after browser refresh and new
+password retrieval in the user's SSH terminal. No public listener, firewall,
+installation or permanent service was changed. Human readiness and both
+visible journeys remain pending; automated qualifications are unchanged.
