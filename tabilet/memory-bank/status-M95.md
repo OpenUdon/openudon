@@ -260,3 +260,41 @@ accepted M19/U07/M96 stack; W29 separately qualifies final M95/M20. Fresh U07.4
 human-visible acceptance and explicit Gate5B still precede W28. The additional
 W27-status pause is cancelled after the verified integrations; no frozen W27
 record or expired M93 desktop is reopened.
+
+## U07 exact accepted-source reconciliation — 2026-10-01
+
+Kinet U07 accepted after review1/10 with no open P1/P2/higher findings.
+Qualified application/task source and independently verified publication:
+`d3589d4742272b3d024328192768374da4c0c637`. Clean CLI SHA-256 `c69f3ddfa80d5e25ff94a049d3579218c5a0bad8f6ab7601b3b323ba20d2673f`;
+build-closure SHA-256 `21cf7ea4a26d066e7ba3fa7b5607860e01d9d92cf3d2a54dfca55aad7a0f0772`. Qualification and build contexts:
+`/var/tmp/kinet-u07-4-qualified-zk6meqih/{qualification-summary.json,build-closure.json}`.
+Full default, UI85/embed and jobs/server race passed. Fresh local/rootless
+catalog and native pending/refusal/resolution passed; bound read/write mock
+preview made0 HTTP reads/writes/executor calls. Both fresh embedded UI/native
+login/TOTP and registration verification-refusal-approval-review-import journeys
+passed twice with distinct capture IDs. The user explicitly accepted both after
+the slower repeat. Private launch/display/browser roots were joined and auth
+removed; no registration submission or real account/target/model was used.
+
+Resolve complete U07 acceptance via Kinet's package-local history index and
+`tabilet/docs/history/status-U07.md` after closure. Production bytes qualified
+from190cca6 plus an explicit manual test fixture are committed at the exact
+source above; the clean detached CLI build has separate recorded provenance.
+M19 external v1 semantics and the shared accepted M96 producer pin remain
+unchanged. UI controls delegate exact current owner/native decisions, preserve
+separate capture/import/plan/delivery authority and current deadlines, and never
+replay an action on reconnect. Hosted external/capture remains refused.
+
+This is producer acceptance only. Explicit Gate5B remains unapproved and no
+consumer row/review count is advanced. W28 must qualify both modes and validate
+original bindings, current native package evidence and terminal result before
+use; old W27/M19/U07 evidence is not fresh W28 runtime adoption. M95 still waits
+for W28 acceptance; M20 and W29 independently qualify the final changed pins.
+Authoring and udon-ui retirement remain deferred.
+
+U07 normal retirement/closure publication independently verified at Kinet
+`29d0a0bf47ccbd3de1db670be89d7a357c1a39b0`. The qualified application/task
+source remains `d3589d4742272b3d024328192768374da4c0c637`; closure changes
+only documentation and retirement records. Its permanent history record exists
+and literal source/status equality is validated. Gate5B is still unapproved;
+this reconciliation advances no consumer task or operational authority.
