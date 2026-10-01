@@ -2716,8 +2716,8 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 	files := map[string][]byte{
 		"project.md":                  []byte("# Project\n"),
 		"workflows/intent.hcl":        []byte("intent {}\n"),
-		"workflows/workflow.hcl":      []byte("workflow {}\n"),
-		"workflows/workflow.uws.yaml": []byte("version: 1.0.0\n"),
+		"workflows/workflow.hcl":      []byte("uws = \"1.11.0\"\n"),
+		"workflows/workflow.uws.yaml": []byte("uws: 1.11.0\n"),
 		"expected/plan.json":          []byte("{}\n"),
 		"expected/quality.json":       []byte(`{"status":"` + status + `"}` + "\n"),
 		"expected/refinement.json":    []byte("{}\n"),

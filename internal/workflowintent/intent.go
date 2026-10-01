@@ -82,6 +82,8 @@ type Input struct {
 }
 
 type Step struct {
+	Effect               string                `hcl:"effect,optional" json:"effect,omitempty"`
+	Pending              *uws1.PendingStep     `hcl:"pending,block" json:"pending,omitempty"`
 	Name                 string                `hcl:"name,label" json:"name,omitempty"`
 	Type                 string                `hcl:"type,optional" json:"type,omitempty"`
 	Do                   string                `hcl:"do,optional" json:"do,omitempty"`
@@ -296,6 +298,8 @@ type hclIdempotency struct {
 }
 
 type hclStep struct {
+	Effect               string              `hcl:"effect,optional" json:"effect,omitempty"`
+	Pending              *hclPending         `hcl:"pending,block" json:"pending,omitempty"`
 	Name                 string              `hcl:"name,label" json:"name,omitempty"`
 	Type                 string              `hcl:"type,optional" json:"type,omitempty"`
 	Do                   string              `hcl:"do,optional" json:"do,omitempty"`
@@ -629,6 +633,14 @@ func validateStep(step *Step, label string) error {
 		return err
 	}
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
+	if !validIntentEffect(step.Effect) {
+		return fmt.Errorf("%s.effect must be read, write or unknown", label)
+	}
+	if isPendingIntent(step) {
+		if err := validatePendingIntent(step); err != nil {
+			return err
+		}
+	}
 	if kind == "browser" || kind == "browser_authentication" || kind == "browser_registration" {
 		if !browserBindingPattern.MatchString(strings.TrimSpace(step.Name)) {
 			return fmt.Errorf("%s name must be a portable browser runtime identifier", label)
@@ -963,6 +975,16 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 	block := body.AppendNewBlock("step", []string{step.Name})
 	sb := block.Body()
 	setAttrString(sb, "type", step.Type)
+	setAttrString(sb, "effect", step.Effect)
+	if step.Pending != nil {
+		pb := sb.AppendNewBlock("pending", nil).Body()
+		setAttrString(pb, "purpose", step.Pending.Purpose)
+		setAttrString(pb, "effect", string(step.Pending.Effect))
+		inputs, _ := json.Marshal(step.Pending.Inputs)
+		outputs, _ := json.Marshal(step.Pending.Outputs)
+		setAttrString(pb, "inputs", string(inputs))
+		setAttrString(pb, "outputs", string(outputs))
+	}
 	setAttrString(sb, "do", step.Do)
 	setAttrString(sb, "using", step.Using)
 	setAttrString(sb, "set", step.Set)
@@ -1171,7 +1193,7 @@ func stepRequiresDo(step *Step) bool {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(step.Type)) {
-	case "sequence", "parallel", "switch", "merge", "loop", "await":
+	case "sequence", "parallel", "switch", "merge", "loop", "await", "pending":
 		return false
 	default:
 		return strings.TrimSpace(step.Operation) == ""

@@ -31,6 +31,10 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 		report.add("uws.execution_profile", "fail", "workflow.uws.yaml could not be loaded by local execution-profile helpers", err.Error())
 		return
 	}
+	if count := len(uwsprofile.PendingStepIDs(doc)); count != 0 {
+		report.add("uws.pending_steps", "fail", "workflow.uws.yaml contains unresolved pending contracts", fmt.Sprintf("%d pending step(s); simulation only, approval and execution refused", count))
+		return
+	}
 	if err := uwsprofile.ValidateForExecution(doc); err != nil {
 		report.add("uws.execution_profile", "fail", "workflow.uws.yaml fails local execution-profile validation", err.Error())
 		return

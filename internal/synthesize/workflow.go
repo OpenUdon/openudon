@@ -22,6 +22,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/browserregistration"
@@ -103,33 +104,9 @@ func workflowUWSVersion(result Result) (string, error) {
 	if uwsPath == "" && result.ExampleDir != "" {
 		uwsPath = filepath.Join(result.ExampleDir, "workflows", "workflow.uws.yaml")
 	}
-	version := ""
-	for _, path := range []string{workflowPath, uwsPath} {
-		if path == "" {
-			continue
-		}
-		data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return "", fmt.Errorf("read existing UWS version: %w", err)
-		}
-		document, err := decodeUWSDocument(path, data)
-		if err != nil {
-			return "", fmt.Errorf("existing UWS document could not be decoded")
-		}
-		// Delegate version policy to the public model, retaining its exact
-		// declared value. Other document gaps belong to normal assessment.
-		for _, issue := range document.ValidateResult().Errors {
-			if issue.Path == "uws" {
-				return "", fmt.Errorf("existing UWS document declares an unsupported version")
-			}
-		}
-		if version != "" && version != document.UWS {
-			return "", fmt.Errorf("existing workflow and exported UWS versions disagree")
-		}
-		version = document.UWS
+	version, err := uwsprofile.DeclaredVersion(workflowPath, uwsPath)
+	if err != nil {
+		return "", err
 	}
 	if result.declaredUWSVersion != "" {
 		if version != "" && version != result.declaredUWSVersion {
@@ -227,6 +204,15 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
 		return nil, fmt.Errorf("intent produced no UWS operations or steps")
 	}
+	if doc.UWS != "1.12.0" {
+		// Effect is additive in 1.12; retained legacy declarations keep their wire
+		// shape. A pending contract remains invalid rather than being upgraded.
+		for _, op := range doc.Operations {
+			if op != nil {
+				op.Effect = ""
+			}
+		}
+	}
 	if err := doc.Validate(); err != nil {
 		return nil, err
 	}
@@ -278,6 +264,10 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		},
 	}
 	var ops []*uws1.Operation
+	if step.Pending != nil {
+		uwsStep.Pending = step.Pending
+		return uwsStep, nil, nil
+	}
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
 		effectiveSource := browserworkflow.EffectiveSource(step, defaultOpenAPI)
@@ -318,6 +308,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	}
 	op := &uws1.Operation{
 		OperationID:              name,
+		Effect:                   uws1.OperationEffect(step.Effect),
 		Description:              strings.TrimSpace(step.Do),
 		Request:                  request,
 		SuccessCriteria:          step.SuccessCriteria,

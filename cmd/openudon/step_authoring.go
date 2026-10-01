@@ -18,7 +18,7 @@ import (
 
 func runStepCommand(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check|source add} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|pending|bind|check|source add} --example DIR --request FILE|-")
 		return 2
 	}
 	switch args[0] {
@@ -26,12 +26,14 @@ func runStepCommand(args []string) int {
 		return runStepCandidatesCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "check":
 		return runStepCheckCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	case "pending":
+		return runStepPendingCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "bind":
 		return runStepBindCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "source":
 		return runStepSourceCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check|source add} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|pending|bind|check|source add} --example DIR --request FILE|-")
 		return 2
 	}
 }
@@ -285,7 +287,8 @@ func writeStepCheckResult(stdout io.Writer, outcome stepauthoring.Outcome) int {
 func writeStepBindResult(stdout io.Writer, outcome stepauthoring.BindOutcome) int {
 	encoded, err := json.Marshal(outcome.Result)
 	if err != nil || len(encoded) > stepauthoring.MaxResultBytes {
-		fallback := []byte(`{"version":"openudon.step-authoring.v1","kind":"result","command":"step.bind","status":"failed","diagnostics":[{"code":"result.encoding_failed","severity":"error","message":"The step-bind result could not be encoded within its output bound."}]}` + "\n")
+		fallback, _ := json.Marshal(stepauthoring.BindWireResult{Version: outcome.Result.Version, Kind: "result", Command: outcome.Result.Command, Status: "failed", Diagnostics: []stepauthoring.Diagnostic{{Code: "result.encoding_failed", Severity: "error", Message: "The step authoring result could not be encoded within its output bound."}}})
+		fallback = append(fallback, '\n')
 		_, _ = stdout.Write(fallback)
 		return 1
 	}

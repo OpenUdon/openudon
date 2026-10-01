@@ -371,6 +371,10 @@ openudon flow-review --example docs/examples/step-authoring/v1/example \
   --request docs/examples/step-authoring/v1/requests/flow-review.json
 ```
 
+Unresolved contracts use the additive [pending-step command](docs/step-pending.md).
+Approval and all execution paths refuse them; bind resolves an exact reviewed
+contract against a source and explicit mappings.
+
 The [v1 contract](docs/step-authoring-contract-v1.md), [JSON schema](docs/schemas/openudon.step-authoring.v1.schema.json),
 and [request/result fixtures](docs/examples/step-authoring/v1/) define the wire format and limits.
 Kinet can validate the fixtures independently without importing OpenUdon Go packages.

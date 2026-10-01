@@ -283,7 +283,13 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		policy:      policy,
 		discoverer:  discoverer,
 	}
-	if !policy.NoOpenAPI {
+	// An unresolved-only intent has no API bindings to discover yet. This
+	// does not alter the brief or waive later admission/source checks.
+	pendingOnly := false
+	if intent, e := workflowintent.ParseIntentFile(result.IntentPath); e == nil {
+		pendingOnly = intent.OnlyPendingSteps()
+	}
+	if !policy.NoOpenAPI && !pendingOnly {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -955,7 +961,7 @@ func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) e
 func allowedIntentRuntimeType(typ string) bool {
 	switch strings.ToLower(strings.TrimSpace(typ)) {
 	case "", "http", "openapi", "browser", "browser_authentication", "browser_registration", "fnct", "cmd", "ssh",
-		"sequence", "parallel", "switch", "merge", "loop", "await":
+		"sequence", "parallel", "switch", "merge", "loop", "await", "pending":
 		return true
 	default:
 		return false

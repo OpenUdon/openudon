@@ -1080,3 +1080,13 @@ external CLI, never an imported dependency.
 M91's browser integration v5/current scenario v4 locks remain immutable rollback
 contexts. They do not qualify M92's newer pin. M92.4 must publish a new current
 qualification context and selectors before milestone acceptance.
+
+M92.2 adds `openudon step pending --example DIR --request FILE|-`, with
+`openudon.step-pending.v1` request/result envelopes. See `docs/step-pending.md`
+and its schema, which references unchanged step-authoring v1 definitions;
+offline validators load both resources. Confirmed bind effects are stored in
+intent HCL and exported as public operation effects for 1.12 packages. Old v1
+fixture bytes remain frozen; current bind tests independently verify the new
+intent digest and effect, plus the exact older digest with just that additive
+annotation absent. `step bind` resolves a pending contract using the current
+intent revision, exact contract and its existing source/auth/mapping checks.

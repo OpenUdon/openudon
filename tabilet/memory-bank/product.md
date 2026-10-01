@@ -430,3 +430,11 @@ scorecards and explicit model evaluation over shared implementation. Legacy
 iCoT terminal/UI/control remains available during Stage 5A; M95 removes it
 only after approved replacements qualify. Extraction itself changes no
 user approval or execution authority.
+
+M92.2 adds explicitly reviewed unresolved step contracts inside packages. The
+non-interactive `step pending` command publishes an intent contract, without a
+guessed endpoint, and `step bind` resolves only that exact contract against an
+explicit source/operation and mappings. New 1.12 operations carry confirmed
+effect labels; labels never authorize execution. Pending packages are readable
+and assessable, but package inspection, approval, dry runs and real runs refuse
+pending contracts everywhere in the document. Pure simulation remains pending.

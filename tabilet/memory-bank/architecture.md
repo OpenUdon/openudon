@@ -1355,3 +1355,20 @@ synthesis implementation; it cannot overwrite a different existing declaration.
 External executor compatibility uses M45's verified frozen binary and build
 closure, including report-v5 evidence for both retained 1.11 and new 1.12
 packages. Broader M92 browser qualification remains pending.
+
+M92.2 shares declared-version reading in `uwsexec` across synthesis and pending
+commands. Pending intent schema field sets are JSON strings in HCL, decoded
+into the public `uws1.PendingStep`; generation uses its native UWS shape and no
+executable operation. Pending-only authoring skips API discovery without
+changing the project brief or later source/quality checks. A new additive
+`openudon.step-pending.v1` envelope uses revision-checked atomic intent writes
+and existing scaffolds/dependency checks. Resolution uses the existing bind
+path, requires the exact pending contract and removes that pending block.
+
+Assess distinguishes pending contracts in HCL and exported UWS. Trusted runner
+admission independently decodes both captured artifacts before stored quality
+or an injected assessor can authorize anything, and uses public executable
+validation when pending contracts exist. This includes unused workflows and
+unselected branches. Refusal produces no approval, staging, credential lookup
+or executor dispatch. The unchanged legacy version retains its wire shape;
+confirmed 1.12 effects are additive and descriptive.

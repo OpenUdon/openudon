@@ -20,7 +20,7 @@ New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Ex
 | Item | State | Notes |
 | --- | --- | --- |
 | M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[+]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
-| M92.2 — Effects and package pending steps | `[ ]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
+| M92.2 — Effects and package pending steps | `[+]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
 | M92.3 — Versioned pure simulation | `[ ]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
 | M92.4 — Qualify contracts, review and publish | `[ ]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
 
@@ -131,3 +131,38 @@ Task verification additionally passed standalone `make fast` (including full
 Go tests, vet, build, repository/boundary/document gates) and `git diff --check`;
 log `/tmp/openudon-m92-1-fast.log`. The separate version-refusal pipeline
 test passed, proving refusal occurs before any refinement artifact is created.
+
+## M92.2 selected — 2026-10-01
+
+M92.1 task source is committed. M92.2 is now the sole in-progress row;
+confirmed effects, pending authoring/resolve and admission refusals are next.
+No sibling source or authority changes are included.
+
+## M92.2 task evidence — 2026-10-01
+
+Implemented additive `step pending` (`openudon.step-pending.v1`), native public
+UWS pending generation and confirmed effects. Pending-only authoring works
+without a source document or fabricated API binding. Revision-checked writes
+preserve unrelated intent blocks; resolution through existing bind requires
+the exact pending contract and removes its block. Unsupported mixed fields,
+invalid schemas, legacy declarations, stale revisions, unsafe paths and
+cancellation refuse without writes. Native pending-schema HCL/JSON round trips
+retain the confirmed field sets.
+
+Assessment has separate pending checks for both artifacts. Trusted-runner
+inspection/approval/dry/real paths inspect captured HCL and YAML independent
+of stored pass quality and invoke public executable validation. Tests prove
+zero assessment/executor dispatch and no files written for pending contracts
+in either artifact alone, an unselected branch and an unused workflow.
+
+Focused pending/resolve/effect tests passed
+(`/tmp/openudon-m92-2-pending3.log`), race checks passed
+(`/tmp/openudon-m92-2-race.log`), and standalone `make fast` passed full
+Go tests/vet/build plus repository, boundary and document gates
+(`/tmp/openudon-m92-2-fast.log`). The synthetic trusted-runner fixture now
+uses inert public UWS version declarations, so admission can decode it; no
+tracked external fixture or historical record changed. Old step-authoring
+v1 fixture bytes remain unchanged. Current bind test verifies its envelope
+and exact pre-effect digest separately from the new generated digest and
+confirmed annotation. M92.3 simulation and M92.4 conformance/frozen runtime
+qualification remain pending; no milestone acceptance or publication claimed.

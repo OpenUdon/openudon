@@ -2,6 +2,7 @@ package stepauthoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -152,6 +153,14 @@ func Bind(ctx context.Context, exampleDir string, request BindRequest) BindOutco
 	steps := findSteps(intent.Steps, request.StepID)
 	if len(steps) > 1 {
 		return bindFailure("blocked", "step.ambiguous", "The selected step name is not unique in the workflow.", 4)
+	}
+
+	if len(steps) == 1 && steps[0].Pending != nil {
+		old, _ := json.Marshal(steps[0].Pending)
+		proposed, _ := json.Marshal(pendingContract(request.Contract))
+		if !bytesEqual(old, proposed) {
+			return bindFailure("conflict", "contract.changed", "Resolving a pending step requires its exact declared contract.", 3)
+		}
 	}
 
 	sourceRel, sourceBytes, sourceErr := locateSource(root, request.OperationRef)
@@ -589,7 +598,7 @@ func sourceDirectories(kind string) []string {
 
 func bindStep(request BindRequest, source string, operation apitools.OperationSummary) (*workflowintent.Step, error) {
 	step := &workflowintent.Step{
-		Name: request.StepID, Type: "http", Do: request.Contract.Purpose,
+		Name: request.StepID, Type: "http", Do: request.Contract.Purpose, Effect: request.Contract.Effect,
 		Source: source, Operation: operation.OperationID, With: map[string]string{},
 		DependsOn: append([]string(nil), request.DependsOn...),
 	}
@@ -815,6 +824,7 @@ func hasNestedSteps(body *hclwrite.Body) bool {
 func writeStepFields(body *hclwrite.Body, step *workflowintent.Step) {
 	body.SetAttributeValue("type", cty.StringVal(step.Type))
 	body.SetAttributeValue("do", cty.StringVal(step.Do))
+	body.SetAttributeValue("effect", cty.StringVal(step.Effect))
 	body.RemoveAttribute("openapi")
 	body.RemoveAttribute("provider")
 	for _, name := range []string{
@@ -846,7 +856,7 @@ func writeStepFields(body *hclwrite.Body, step *workflowintent.Step) {
 		body.SetAttributeValue("depends_on", cty.TupleVal(values))
 	}
 	for _, block := range body.Blocks() {
-		if block.Type() == "bind" {
+		if block.Type() == "bind" || block.Type() == "pending" {
 			body.RemoveBlock(block)
 		}
 	}

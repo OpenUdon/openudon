@@ -35,8 +35,14 @@ func LoadDocumentFile(path, format string) (*uws1.Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	return DecodeDocument(data, resolveFormat(path, format))
+}
+
+// DecodeDocument decodes captured package bytes without rereading mutable files.
+func DecodeDocument(data []byte, format string) (*uws1.Document, error) {
+	var err error
 	var doc uws1.Document
-	switch resolveFormat(path, format) {
+	switch format {
 	case DocumentFormatYAML:
 		err = convert.UnmarshalYAML(data, &doc)
 	case DocumentFormatJSON:
@@ -71,6 +77,9 @@ func ValidateForExecution(doc *uws1.Document) error {
 	}
 	if err := doc.Validate(); err != nil {
 		return err
+	}
+	if len(PendingStepIDs(doc)) != 0 {
+		return doc.ValidateExecutable()
 	}
 	sourceDescriptions := map[string]bool{}
 	for _, source := range doc.SourceDescriptions {
