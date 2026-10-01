@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
@@ -31,6 +32,12 @@ func ImportedAuthenticationCandidate(cfg LiveConfig, transaction browsertransact
 			review = &collection.Captures[i]
 		}
 	}
+	// Capture applies these native textual normalizations before emitting its
+	// review. Preserve the exact start hash while matching that native policy.
+	cfg.ProfileID = strings.TrimSpace(cfg.ProfileID)
+	cfg.GoalRole = strings.ToLower(strings.TrimSpace(cfg.GoalRole))
+	cfg.GoalContext = strings.TrimSpace(cfg.GoalContext)
+	cfg.GoalLabel = strings.TrimSpace(cfg.GoalLabel)
 	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
 	if err != nil {
 		return nil, invalid
@@ -43,8 +50,10 @@ func ImportedAuthenticationCandidate(cfg LiveConfig, transaction browsertransact
 	if review == nil || review.Version != authenticatedAuthoringReviewVersion || review.ProfileID != cfg.ProfileID || review.EnvelopeSHA256 != transaction.Provenance.ResultSHA256 || review.ObservedAt != transaction.Provenance.ObservedAt || review.Goal != cfg.Goal || !reflect.DeepEqual(review.GoalPredicate, want) || review.AuthenticationTarget != filepath.ToSlash(filepath.Join("browser-authentication", transaction.ID+"-auth.json")) || review.CapabilityTarget != filepath.ToSlash(filepath.Join("browser-profiles", transaction.ID+".json")) {
 		return nil, invalid
 	}
-	origins := slices.Clone(cfg.Origins)
-	slices.Sort(origins)
+	origins, err := normalizeBrowserAuthoringOrigins(cfg.Origins)
+	if err != nil {
+		return nil, invalid
+	}
 	reviewOrigins := slices.Clone(review.Origins)
 	slices.Sort(reviewOrigins)
 	transactionOrigins := slices.Clone(transaction.Provenance.Origins)

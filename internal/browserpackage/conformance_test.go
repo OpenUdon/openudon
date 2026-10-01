@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browsercapture"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
@@ -268,5 +269,60 @@ func TestCancelledContextBeforeCommitPreservesPackage(t *testing.T) {
 	after, err := InputDigest(context.Background(), root)
 	if err != nil || after != r.InputSHA256 {
 		t.Fatal("cancelled authoring wrote package", err)
+	}
+}
+
+func TestImportedPolicyRetainsNativeCanonicalStartForms(t *testing.T) {
+	root, r := authorFixture(t, "authenticated", true)
+	var start browsercapture.StartRequest
+	if err := json.Unmarshal(r.Start, &start); err != nil {
+		t.Fatal(err)
+	}
+	start.Authentication.GoalRole = " HEADING "
+	start.Authentication.GoalContext = " main "
+	start.Authentication.GoalLabel = " Dashboard "
+	start.Authentication.Origins = []string{" https://members.example.test/ "}
+	// The actual native capture config accepts and canonicalizes these values.
+	startData, _ := json.Marshal(start)
+	if _, err := browsercapture.DecodeStart(startData); err != nil {
+		t.Fatal("native start schema rejected fixture", err)
+	}
+	private := t.TempDir()
+	if err := os.Chmod(private, 0700); err != nil {
+		t.Fatal(err)
+	}
+	_, cfg, err := start.AuthenticationConfig(root, private, "")
+	if err != nil {
+		a := start.Authentication
+		diagnostic := browserauthoring.LiveConfig{ExampleDir: root, PrivateRoot: private, URL: a.URL, DashboardURL: a.DashboardURL, GoalURL: a.GoalURL, Goal: a.Goal, Origins: a.Origins, ProfileID: a.ProfileID, AfterAuthentication: a.AfterAuthentication, GoalRole: a.GoalRole, GoalLabel: a.GoalLabel, GoalContext: a.GoalContext, NoLLM: true}
+		t.Fatal("native config rejected fixture", err, browserauthoring.NormalizeLiveConfig(&diagnostic))
+	}
+	if cfg.GoalRole != "heading" || cfg.GoalContext != "main" || cfg.ProfileID != "member" {
+		t.Fatal("native normalization changed")
+	}
+	r.Start, _ = json.Marshal(start)
+	path := filepath.Join(root, filepath.FromSlash(r.ReceiptPath))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rec receipt
+	if err := json.Unmarshal(data, &rec); err != nil {
+		t.Fatal(err)
+	}
+	rec.StartSHA256 = evidencefile.SHA256(r.Start)
+	data, _ = json.Marshal(rec)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	r.ReceiptSHA256 = evidencefile.SHA256(data)
+	r.InputSHA256, err = InputDigest(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ = json.Marshal(r)
+	plan, err := Prepare(context.Background(), root, data)
+	if err != nil || !plan.Ready {
+		t.Fatal("native canonical equivalents refused", err)
 	}
 }

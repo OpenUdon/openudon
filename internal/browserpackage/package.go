@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	engine "github.com/OpenUdon/openudon/internal/authoringengine"
@@ -194,6 +195,12 @@ func readImport(root string, r Request, at time.Time) (elicitor.VirtualBrowserTr
 		origins = start.Registration.Origins
 	}
 	origins = slices.Clone(origins)
+	for i, origin := range origins {
+		origins[i], err = profile.ParseOrigin(strings.TrimSpace(origin))
+		if err != nil {
+			return elicitor.VirtualBrowserTransactionInput{}, invalidEvidence
+		}
+	}
 	slices.Sort(origins)
 	transactionOrigins := slices.Clone(rec.Transaction.Provenance.Origins)
 	slices.Sort(transactionOrigins)
