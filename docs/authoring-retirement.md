@@ -3,8 +3,8 @@
 Kinet owns chat, interviews and browser UI. OpenUdon is an external CLI/artifact
 producer; it has no terminal interview, UI listener or application-control server.
 This migration implements the approved 23 retained capabilities in
-[the inventory](icot-retirement-inventory.md). M95 acceptance and final M20/W29
-consumer adoption remain separate ledger gates.
+[the inventory](icot-retirement-inventory.md). M95 producer removal is accepted; final M20/W29
+consumer adoption remains a separate ledger gate.
 
 | Previous entry | Current entry and owner |
 | --- | --- |
@@ -22,7 +22,9 @@ consumer adoption remain separate ledger gates.
 
 ## Draft publication
 
-`--print` renders without state writes; combining it with a `--report` output path is refused before effects. Agent mode always reports without publishing deliverables, including with
+`--print` renders without state writes; combining it with a `--report` output
+path is refused before effects. Agent mode always reports without publishing
+deliverables, including with
 `--print` or `--yes`; publish a reviewed complete seed without `--agent`. Missing mandatory input returns the
 existing structured frontier without publication. `--yes` explicitly authorizes
 publication of a complete seed; `--force` selects replacement source precedence,
@@ -64,3 +66,14 @@ Current archives still build for Linux/macOS/Windows. Reviewed browser-package
 admission requires qualified Unix owner/mode/hard-link checks. Non-Unix platforms
 refuse that operation until ACL equivalence qualifies; other public commands remain
 buildable. This does not weaken Unix admission or claim a Windows browser journey.
+
+## Accepted producer and separate consumer adoption
+
+Accepted application/source: `c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`.
+Closing review3 passed, no open P1/P2. Native39 source
+`bb9863ed097a56460082640668f7cc0a121002ac`, integration/offline source
+`94ef1d7f26120005e6b3d6be51c892032e4f9f71`, and final minimal draft refusal
+with full/default checks retain distinct actual evidence identities. Native
+owners/entry/fixtures/locks/modules are identical; no report is relabeled.
+Kinet M20 and W8M W29 must qualify the actual final pins themselves.
+Authoring and udon-ui retirement stays deferred.

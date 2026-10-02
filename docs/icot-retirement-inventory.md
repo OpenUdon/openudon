@@ -183,3 +183,8 @@ is accepted evidence; final Kinet M20 and W8M W29 remain pending consumer gates.
 Replacing terminal/UI transports transfers interaction to Kinet. It does not
 remove neutral authoring/evaluation, rewrite .icot histories, grant runtime
 approval, retire Authoring/udon-ui, or accept final downstream qualifications.
+
+Final M95 producer acceptance: `c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`,
+review3 passed, no open P1/P2. Final guard rejects only `--print --report`;
+agent mode retains read-only reporting, including `--print --yes`. All23 entries
+retain dispositions/distinct actual contexts; final M20/W29 adoption pending.

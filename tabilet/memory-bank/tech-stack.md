@@ -938,8 +938,9 @@ adapters and `lint|reconcile|repair|report|variants|scorecard|replay-eval|author
 for retained expert/evaluation commands. Existing report schema labels and
 `.icot` artifact layouts stay compatible. Explicit model evaluation remains
 outside offline checks. M91's published/qualified evidence is preserved in its
-retired record; it does not qualify M95's changed runtime. M95 owner qualification,
-review and exact downstream M20/W29 adoption are still required.
+retired record; it does not qualify M95's changed runtime. M95 owner qualification/removal passed review3 at application
+`c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`; exact final M20/W29 adoption
+is still required. Native/delta reports retain their actual sources.
 
 ## M92 applied UWS dependency and executor compatibility
 

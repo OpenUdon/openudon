@@ -329,8 +329,10 @@ APIs are outside the OpenUdon module boundary.
 OpenUdon provides external CLI and artifact contracts. Kinet owns interactive
 interviews, chat, browser UI, approvals and user-ledger publication. OpenUdon
 contains no iCoT entry point, application HTTP/control transport or embedded UI.
-Removal is implemented in M95; acceptance still requires its owner qualification,
-review and publication, followed by Kinet M20 and W8M W29 adoption.
+Removal is accepted in M95 at application
+`c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`, review3 passed. Kinet M20 and
+W8M W29 still own exact final consumer adoption; native/delta evidence retains
+its actual sources in M95's record.
 
 `openudon authoring draft` is a closed seeded/local authoring adapter over the
 single `authoringengine`, `elicitor` and `artifactwriter` implementation.

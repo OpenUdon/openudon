@@ -1,6 +1,6 @@
 # Status M95 — Remove iCoT after consumer migration
 
-**State:** Active, 2026-10-02; M95.1 verifies accepted consumer migration/dispositions. No removal or final adoption is accepted.
+**State:** Completed, review3 passed, 2026-10-02; producer removal accepted, final M20/W29 adoption pending.
 
 **Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
 
@@ -23,7 +23,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
 | M95.3 — Update CI and release gates | `[+]` | Two CLI release builds on all six OS/architecture targets; neutral expert/scorecard/seed and actual draft-to-approved-dry-run passed. Strict docs, affected race and additive current offline/native gate checks passed; frozen qualification remains M95.4. |
 | M95.4 — Qualify legacy packages and retained gates | `[+]` | Frozen bb9863 current full/offline4/integration17/native39 and independent verifiers passed; declared legacy1.11 rebuild/assess/approval/dry-run preserved .icot bytes. Separate CI/doc-only correction qualified; no runtime evidence relabeled. |
-| M95.5 — Document, review and publish | `[~]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
+| M95.5 — Document, review and publish | `[+]` | All23 retained entries mapped; owner checks and frozen qualification/delta contexts passed; review3 passed, no open P1/P2; exact published c2f161d application for M20/W29. |
 
 ## Acceptance and verification
 
@@ -41,7 +41,7 @@ Lineage: Consumes M91 extraction and W28 migration without reopening their histo
 
 ## Closing review
 
-Persisted iteration count: 2/10. Iteration2 FINDINGS, 2026-10-02. M95-R1 (P2): combined --agent --print --yes can enter the agent publisher, bypassing print-only rendering; incomplete --print with --report can write a report. Reject conflicting print/output modes before source discovery or effects and add no-write regression. No acceptance; fix and affected verification precede iteration2.
+Persisted iteration count: 3/10. Iteration3 PASSED, 2026-10-02. M95-R1 (P2): combined --agent --print --yes can enter the agent publisher, bypassing print-only rendering; incomplete --print with --report can write a report. Reject conflicting print/output modes before source discovery or effects and add no-write regression. No acceptance; fix and affected verification precede iteration2.
 
 ## APItools producer reconciliation — 2026-09-30
 
@@ -806,3 +806,43 @@ output in print mode. Actual baseline repro at
 Commit corrected minimal guard and truthful evidence; final frozen full/default
 verification follows. Integration94ef1d7 and nativebb9863 retain actual scope;
 no protected native/gate/dependency differences, no new native replay selected.
+
+### Whole review iteration3 STARTED — 2026-10-02
+
+Final corrected minimal application c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0
+frozen at /var/tmp/openudon-m95-review-final-h3l09sef passed full make check,
+original nativev6/W28v5 independent verification and source-clean checks.
+Affected authoringcli/cmd/eval tests and vet passed. Final integration17/offline4
+at94ef1d7 and native39 atbb9863 retain separate honest source contexts; final
+delta is only narrowing the early report-file guard plus regression/docs.
+Review whole removal, boundaries, retained23, source/version/private-data gates,
+legacy package/corpus/CI/docs, final flags and corrected evidence; no review
+counter reset or new consumer acceptance. No native/gate/fixture/lock changes.
+Final default summary SHA2561a2d5f6b8d8d39ea1100629bcb7471546d3873a1f1f2e687608ba64851793e8d; CLI SHA2565c74ff6e4bb13d7f930b41171b0747702779c870a9dbb91b3388d51e94b767e6; closure SHA2567df27d33b0ce97d898d51f3627cc96341075600305bcf6037c3574df7522dad9.
+
+## Acceptance and exact downstream reconciliation
+
+Iteration3 reviewed the full126-file removal/prerequisite diff, single native
+owners, closed drafts, legacy readers/artifacts, private-data/source/permissions/
+teardown, corpus, CI16-repo closure, all12 platform builds, docs and retained23
+replacement entries. R1's incorrect alleged agent publisher is corrected; actual
+print-report write reproduced and fixed. R2 CI assertion and R3 read-only flag/
+document compatibility resolved. No open/deferred P1/P2 or new discontinuations.
+Accepted final application/source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0 is
+independently normally published. Full/default/focused checks and vet passed;
+only the minimal draft report/print refusal changed since prior contexts.
+Complete native39/three fresh passes atbb9863 and integration17/offline4 at94ef1d7
+plus independent verifiers/static native-owner/fixture/lock/module equality are
+separate actual contexts, never relabeled as executions atc2f161d. Legacy
+1.11 rebuild/assessment/exact sandbox approval/dry-run preserved .icot bytes
+and modes. Strict docs/memory/diff passed. No real account/provider, remote
+CI/tag/release, deployment, or sibling implementation was invoked.
+
+Final default bundle /var/tmp/openudon-m95-review-final-h3l09sef; integration
+regression /var/tmp/openudon-m95-review-final-huhpxlon; original full native
+/var/tmp/openudon-m95-qualified-4z1c8jd5. Equality evidence:
+/var/tmp/openudon-m95-review-native-equivalence.json. Downstream coordinator
+reconciles Kinet status-M20.md and W8M status-W29.md to actual identities before
+literal retirement/advancement. M20 owns actual legacy Kinet accept and final
+both-mode qualification; W29 owns supervised final seed/adoption, not completed
+here. Earlier W28 or M95 reports cannot claim new final consumer acceptance.

@@ -394,7 +394,7 @@ defaults remain unchanged. See ../../docs/per-step-run-evidence.md.
 scorecards and explicit model evaluation over shared implementation. M95 implements removal of the
 iCoT terminal/UI/control after accepted W28 migration. Closed draft, inert
 browser plans, pure registration definitions and public capture/package commands
-retain their native owners. Acceptance/adoption still require M95/M20/W29; no
+retain their native owners. M95 producer acceptance passed review3; final adoption still requires M20/W29; no
 additional user approval or execution authority is created.
 
 M92.2 adds explicitly reviewed unresolved step contracts inside packages. The
