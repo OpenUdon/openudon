@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -34,11 +33,8 @@ func TestDefaultScenariosCoverBroadSmokeMatrix(t *testing.T) {
 
 func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	runRoot := filepath.Join(repoRoot, ".openudon-run", "test-smoke-dry-run-"+strconv.Itoa(os.Getpid()))
+	runRoot := testWorkRoot(t, repoRoot)
 	out := filepath.Join(runRoot, "summary.json")
-	t.Cleanup(func() {
-		_ = os.RemoveAll(runRoot)
-	})
 	secret := "slack-secret-value-for-redaction"
 	report, err := Run(context.Background(), Options{
 		RepoRoot: repoRoot,
@@ -84,10 +80,7 @@ func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 
 func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	runRoot := filepath.Join(repoRoot, ".openudon-run", "test-local-udon-smoke-"+strconv.Itoa(os.Getpid()))
-	t.Cleanup(func() {
-		_ = os.RemoveAll(runRoot)
-	})
+	runRoot := testWorkRoot(t, repoRoot)
 	report, err := RunLocalUdonSmoke(context.Background(), LocalUdonSmokeOptions{
 		RepoRoot: repoRoot,
 		UdonRepo: filepath.Join(runRoot, "fake-udon-repo"),
@@ -139,12 +132,10 @@ func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T)
 
 func TestLiveRequiredMissingEnvFailsBeforeExecution(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	t.Cleanup(func() {
-		_ = os.RemoveAll(filepath.Join(repoRoot, ".openudon-run", "test-smoke-missing-required"))
-	})
+	runRoot := testWorkRoot(t, repoRoot)
 	report, err := Run(context.Background(), Options{
 		RepoRoot: repoRoot,
-		WorkDir:  filepath.Join(repoRoot, ".openudon-run", "test-smoke-missing-required"),
+		WorkDir:  runRoot,
 		Mode:     ModeLive,
 		Now:      fixedNow,
 		Scenarios: []Scenario{{
@@ -178,12 +169,10 @@ func smokeArgValue(args []string, name string) string {
 
 func TestLiveOptionalMissingEnvSkipsWithoutFailure(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	t.Cleanup(func() {
-		_ = os.RemoveAll(filepath.Join(repoRoot, ".openudon-run", "test-smoke-missing-optional"))
-	})
+	runRoot := testWorkRoot(t, repoRoot)
 	report, err := Run(context.Background(), Options{
 		RepoRoot: repoRoot,
-		WorkDir:  filepath.Join(repoRoot, ".openudon-run", "test-smoke-missing-optional"),
+		WorkDir:  runRoot,
 		Mode:     ModeLive,
 		Now:      fixedNow,
 		Scenarios: []Scenario{{
@@ -311,4 +300,20 @@ func repoRootForTest(t *testing.T) string {
 
 func fixedNow() time.Time {
 	return time.Date(2026, 5, 26, 0, 0, 0, 0, time.UTC)
+}
+
+// Each test owns its complete directory: no ignored runtime parent is created
+// in the supplied source tree, and native containment remains unchanged.
+func testWorkRoot(t *testing.T, repoRoot string) string {
+	t.Helper()
+	root, err := os.MkdirTemp(repoRoot, ".smoke-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	})
+	return root
 }

@@ -537,3 +537,22 @@ Commit and refreeze these corrections before the one required fresh run.
 Whole closing review remains0/10.
 
 Pre-launch corrections passed the full authoringcli reference/regression suite, strict Mkdocs, actual check-doc-memory and diff checks. The frozen fresh gate has not yet started; preserve qualified prior release platform checks as their actual earlier source, then execute full/default/offline/native/integration on the corrected source.
+
+Corrected prequalification source/publication independently verified at
+34556808c4b4d2211a9c9b72948ca8d0ffd9f065. This supersedes the unexecuted
+cf4e25d preparation for the same deliberate fresh selection; no expensive run
+was launched or consumed. Freeze and execute that exact corrected source now.
+
+M95.4 first frozen execution /var/tmp/openudon-m95-qualified-5zlscy6u at
+34556808c4b4d2211a9c9b72948ca8d0ffd9f065 passed build/full make check then
+stopped at current offline admission (current_stack_source_state),53.886seconds.
+No browser/display/native/integration stage launched; failure summary retained.
+Independent ignored-status inspection found empty .openudon-run created by old
+smokematrix/releaseevidence tests. Moved only test-owned working roots to unique
+complete disposable directories inside the same containing source root; native
+containment and source guard remain unchanged. Preserve the failed attempt,
+check the smallest affected suites/cleanliness first, commit/refreeze before
+selecting the required corrected qualification. This is not automatic fallback
+or reuse of a consumed operation. Whole review remains0/10.
+
+Affected smokematrix and releaseevidence suites passed uncached in0.437/0.289seconds. Final cleanup has one owner per root, with no shared ignored parent or suppressed cleanup errors. Only test fixtures change; the current source guard is not relaxed. Required corrected selection remains fresh offline/integration/native with the same25–35minute estimate, clean exact source and all prior failure records preserved.

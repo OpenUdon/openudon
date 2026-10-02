@@ -14,9 +14,14 @@ import (
 
 func TestRunWritesReleaseEvidenceSummary(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	runRoot := filepath.Join(repoRoot, ".openudon-run", "test-release-evidence-"+strings.ReplaceAll(t.Name(), "/", "-"))
+	runRoot, err := os.MkdirTemp(repoRoot, ".release-evidence-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
-		_ = os.RemoveAll(runRoot)
+		if err := os.RemoveAll(runRoot); err != nil {
+			t.Error(err)
+		}
 	})
 	summary, err := Run(context.Background(), Options{
 		RepoRoot:     repoRoot,
