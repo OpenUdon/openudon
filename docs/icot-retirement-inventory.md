@@ -89,3 +89,45 @@ under M91's existing scope; it does not accept unfinished replacement evidence.
 The user explicitly approved all 23 dispositions before extraction. Later
 Gate 5B, human-visible qualification and each entry's replacement evidence
 remain required. No additional capability discontinuation was approved.
+
+## M95.1 verified migration map — 2026-10-02
+
+Consumer acceptance: W8M executed source46accdb39f57597c3dd50640e8c2b2f13a834e69,
+acceptance7cbea4933adf6a8c55864ddb6257e8d33edd0950, closurefd571ef0db8ab438a33cf454dd859f0fbb91fc5d;
+Kinet U07 applicationd3589d4742272b3d024328192768374da4c0c637; OpenUdon M96
+applicationeed683f27d448ca96af90e7bc5987967a6cd0335. Complete actual build/proof
+identities and private evidence digests are in status-M95.md. Gate5B and all23
+dispositions are approved; zero extra discontinuations. This table records
+existing seams and required removal checks; planned entries are not passing
+replacement evidence. Final M95.4/.5 must supply its new qualified revision.
+
+| Entry | Actual replacement / retained implementation | Verification owner before closure |
+| --- | --- | --- |
+| J01 | Kinet workflow jobs/chat, OpenUdon step/build/package | Kinet U07/W28 accepted; M95 retained package checks |
+| J02 | Neutral authoring/elicitor records; planned closed `openudon authoring draft` for seeded/from-example/print/report/prompt modes | M95.2 draft conformance, noninteractive no-input refusal and legacy draft bytes |
+| J03 | `internal/authoringengine`, `elicitor`, step pending/check; Kinet conversation | Native readiness/frontier/refusal tests and neutral draft checks |
+| J04 | `internal/artifactwriter`, `packagepipeline`, step source/bind | Atomic/rollback/symlink/optimistic guard and package recovery tests |
+| J05 | `openudon step source add/candidates/bind/check`, `flow-review` | Existing step v1 conformance and real-main dispatch |
+| J06 | `internal/sourcecatalog`, step source add/discover/provision | Source root/provenance/credential alias/freshness tests |
+| J07 | `openudon step discover/provision`, APItools native catalog, neutral elicitor planner records | M94 accepted contracts; draft/source import and five-outcome conformance |
+| J08 | Browser profiles/registry/verification helpers in elicitor/browserverify | Profile traversal/identity/refusal tests; mock versus actual evidence labels |
+| J09 | Existing browserauthoring.Plan; planned expert non-executing plan entry | M95.2 public plan read-only/no-action test |
+| J10 | `openudon browser-capture`, Kinet capture/external sessions | M93/M96/U07/W28 both-mode/TOTP accepted; fresh neutral producer qualification |
+| J11 | Same public capture with registration protocol and explicit authority | Separate verification refusal/approval, no production registration reopened |
+| J12 | `internal/browsercapture`, `browserauthor`, `browserauthoring` | Issued action/revision/deadline/origin/disclosure/stale-decision tests |
+| J13 | `openudon browser-author plan/apply`, `package prepare/promote/inspect/reconcile`; Kinet exact decisions | Native writer/package recovery and lost-output fixtures |
+| J14 | `openudon __browsertools-worker`, `internal/processgroup` | Worker dispatch, bounded environment, joined teardown |
+| J15 | Kinet embedded UI/public jobs/external v1; no OpenUdon listener needed | U07/W28 current controls/recovery accepted; M95 removal/dependency exclusion |
+| J16 | `openudon authoring lint/reconcile/repair/report` | Retained exact reports and mutation/no-write tests |
+| J17 | `openudon authoring scorecard/variants/replay-eval` and eval corpus | M95.2 closed draft path; deterministic classes/counts/report verification |
+| J18 | `openudon authoring authoring-eval/replay-eval`, explicit existing provider configuration | Fake/model-free tests; no paid/live provider run authorized |
+| J19 | `openudon build/assess/approval-template/run/package` | Legacy packages/.icot unchanged and real external executor checks |
+| J20 | `internal/trustedrunner`, `udonrunner` supported v10/v11 dispatch | Exact profile/protocol pairing, local/container args and executor boundaries |
+| J21 | Retained historical readers; planned neutral current native/scenario/integration selectors | M95.2–.4 new source-bound qualification; no old UI gate silently omitted |
+| J22 | W8M constrained Kinet packets, independent native/result selection | W28 accepted both modes/counts; W29 final pins independently qualified later |
+| J23 | Two retained release binaries openudon/udon-runner; neutral expert and capture gates | M95.3 CI/release/docs checks and M95.4 actual frozen qualification |
+
+Historical inventory source references above are preserved as baseline evidence.
+M95 does not delete historical package .icot/session/transcript artifacts, alter
+old report schemas/locks or retire Authoring/udon-ui. No capability is silently
+dropped because its old transport is removed.

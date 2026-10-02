@@ -1,6 +1,6 @@
 # Status M95 — Remove iCoT after consumer migration
 
-**State:** Approved planning, 2026-09-30; every task pending. No implementation or publication is established by this record.
+**State:** Active, 2026-10-02; M95.1 verifies accepted consumer migration/dispositions. No removal or final adoption is accepted.
 
 **Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
 
@@ -19,7 +19,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M95.1 — Verify consumer migration and dispositions | `[ ]` | Check exact W28 acceptance, Kinet U07 and M91 journey replacement evidence; retain supported journeys and approved historical assets. |
+| M95.1 — Verify consumer migration and dispositions | `[+]` | Exact W28 source/build/qualification/closure and U07/Gate5B/23 retained dispositions verified. Existing native/neutral seams mapped; closed draft and current neutral qualification still require M95.2–.4. Historical artifacts and authority preserved. |
 | M95.2 — Remove iCoT code and surfaces | `[ ]` | Delete only retired OpenUdon entry points/assets/planner and remaining Authoring icot use after dependencies pass. |
 | M95.3 — Update CI and release gates | `[ ]` | Remove obsolete standalone/UI/variants iCoT gates and release binary; keep equivalent neutral evaluation and qualification gates. |
 | M95.4 — Qualify legacy packages and retained gates | `[ ]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
@@ -308,3 +308,80 @@ scoped normal publication. Preserve package-local ledgers, source/build evidence
 no-automatic-expensive-cache-fallback and single execution ownership. No live
 account, target operation, M17 deployment or extra discontinuation is authorized.
 Receipt: `/var/tmp/kinet-stage5-gate5b-receipt.json`.
+
+## W28 exact accepted consumer reconciliation — 2026-10-02
+
+W28 acceptance/publication independently verified at
+`7cbea4933adf6a8c55864ddb6257e8d33edd0950`. Executed clean W8M source is
+`46accdb39f57597c3dd50640e8c2b2f13a834e69`; the acceptance commit changes
+only documentation/records and must never be relabeled as executed source.
+Review2/10 passed, W28-R1 operator guidance resolved, no open P1/P2.
+
+Selected Kinet source `d3589d4742272b3d024328192768374da4c0c637`, CLI SHA256
+`c69f3ddfa80d5e25ff94a049d3579218c5a0bad8f6ab7601b3b323ba20d2673f`;
+OpenUdon source `eed683f27d448ca96af90e7bc5987967a6cd0335`, clean rebuilt CLI
+SHA256 `2d6e75fa6db07c3d2e22703ccc42da94fdb7a373d640faecc6cfc92350b09020`.
+This is an explicitly different build from M96's original da4f127 CLI; both
+retain their actual evidence identities. Exact19-source/tool/environment closure
+is in the frozen W8M selection and private records, not inferred from versions.
+
+Private evidence root: `/var/tmp/w8m-w28-4-authorized-20261002-m1l8cy05`.
+Summary SHA256 `6ec63e46ac139a4be985e8292d111f2142730eb2f5c11283d717253cde58314a`;
+fresh-v4 SHA256 `bec9c641c7af0b87d8488bdcdc97e5506d0247de6b8925e9db29c5d2af4ca9e8`;
+reuse-v5 SHA256 `d2b03f66793ec366b106770699ecad74c304a53447c701dd84671cfa698881f5`.
+Native39/three passes, fresh and reuse each three new authenticated/TOTP and
+actual embedded registration pairs, separate verification refusal/approval,
+native selected delivery and counts0/1/3 independently passed. Native proof
+was not rerun for reuse. All worker/display owners joined, zero survivors/forced
+cleanup; outer auth removed. Total40.343minutes versus estimate40–45minutes.
+
+W28's contract preserves packet/agent/origin/goal/dashboard/scope/destination/
+diagnostic/deadline/TOTP bindings and independent terminal/package inspection.
+It launches Kinet serve only, never iCoT. This satisfies the old-entry consumer
+migration prerequisite, not final M95/M20/W29 adoption or live action authority.
+All tasks in this consumer remain pending until their own verified execution.
+Preserve retained23 dispositions, historical .icot artifacts/readers/locks and
+W27's frozen outcomes. M95 changes invalidate earlier producer identity; M20
+must run its exact-pin gates, and W29 freshly qualifies final consumers, with
+explicit seed selection if current cache bindings fail. No automatic fallback.
+
+W28 normal literal retirement/closure is independently verified published at
+`fd571ef0db8ab438a33cf454dd859f0fbb91fc5d`. Resolve the permanent producer at
+W8M `tabilet/docs/history/status-W28.md`; source46accdb and actual runtime
+identities above remain unchanged. Original specification SHA256
+`c3194567a7a6635073ade10fd126b6661ec1e4d4137106ac171ce5e91e93def9` and
+status SHA256 `a24c8455de65b2872a9e88a6273fe5e1e8fd66170a5a93e1e6369514fe97c806`
+were compared before removal. W29 is the next planning owner, awaiting M95/M20
+with no task/operation in progress. Remaining verified order:M95 → M20 → W29.
+
+## M95.1 migration/disposition inspection — 2026-10-02
+
+One execution owner; worktree contains only this session’s exact W28 downstream
+reconciliation. Actual owner planning/instructions are regular tracked files,
+not symlinks to Tofu. M91–M94/M96, Kinet U07 and W28 resolve through their own
+accepted/retired records. Gate5B and all23 retained/replaced dispositions were
+explicitly approved. W28 final closurefd571ef independently published.
+
+Authoring’s remaining icot dependency is already absent: all three internal
+authoring adapters use published `authoring/engine`. Preserve that dependency;
+no sibling Authoring change is needed. Actual remaining removal seams include
+cmd/icot, internal/icot, authoringcli’s legacy Main/UI/control/browser entry
+wrappers, authoringui assets/transport, native qualification and scenario callers
+and CI/release/docs. Do not delete only the compatibility facade.
+
+Two replacement contracts still require M95 implementation before removal:
+J02/J17 need a closed noninteractive draft entry for seeded/from-example/print/
+report/replay use; old Main is still called internally by scorecards. J21 needs
+neutral current qualification selectors and fixtures in place of legacy UI/control
+gates, preserving frozen historical version readers. These are explicit M95.2–.4
+work, not an extra capability discontinuation or upstream blocker. Public
+capture/browser-author/package/step and expert commands already cover retained
+native authority. Kinet owns interactive UI/session/delivery replacements.
+
+M95.1 verification passed: all23 entries have explicit retained owners and
+required checks; all five native prerequisite retired records have completed/
+passed metadata; actual U07/W28 closure commits contain permanent records;
+Authoring icot imports absent; check-doc-memory and git diff --check passed.
+No new evolution version: implementation advances the approved retirement
+boundary, not a changed direction or capability disposition. Task1 completes
+inspection only; every subsequent implementation/qualification row pending.

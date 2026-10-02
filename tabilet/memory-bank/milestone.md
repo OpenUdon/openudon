@@ -268,7 +268,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
+| M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Active; consumer migration verified, removal/qualification pending |
 
 ## Requested Changes After Initialization
 
