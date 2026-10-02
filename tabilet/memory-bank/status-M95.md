@@ -22,7 +22,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | M95.1 — Verify consumer migration and dispositions | `[+]` | Exact W28 source/build/qualification/closure and U07/Gate5B/23 retained dispositions verified. Existing native/neutral seams mapped; closed draft and current neutral qualification still require M95.2–.4. Historical artifacts and authority preserved. |
 | M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
 | M95.3 — Update CI and release gates | `[+]` | Two CLI release builds on all six OS/architecture targets; neutral expert/scorecard/seed and actual draft-to-approved-dry-run passed. Strict docs, affected race and additive current offline/native gate checks passed; frozen qualification remains M95.4. |
-| M95.4 — Qualify legacy packages and retained gates | `[~]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
+| M95.4 — Qualify legacy packages and retained gates | `[+]` | Frozen bb9863 current full/offline4/integration17/native39 and independent verifiers passed; declared legacy1.11 rebuild/assess/approval/dry-run preserved .icot bytes. Separate CI/doc-only correction qualified; no runtime evidence relabeled. |
 | M95.5 — Document, review and publish | `[ ]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
 
 ## Acceptance and verification
@@ -631,3 +631,93 @@ changes only synthetic input sequencing, not executor approvals, workflow
 deadlines, submit counts or native report evidence. Publish/refreeze the focused
 correction, then run one bounded affected development handoff on exact source.
 Full acceptance remains pending regardless of that focused result.
+
+Focused correction source bb9863ed097a56460082640668f7cc0a121002ac
+is independently published. Select one fresh development handoff from a new
+frozen exact-source closure, expected1–4minutes; preserve previous failures.
+No cache, consumer adoption or automatic expensive fallback.
+
+Corrected focused development handoff passed onbb9863ed097a56460082640668f7cc0a121002ac
+in81.82seconds, private display joined/auth removed. Evidence root
+/var/tmp/openudon-m95-brp-diagnosis-o766j7ip; report SHA256
+78b19ae3ec8763f3a5aec4049637ced2a28b9f323484a5f7373dca63f1f87f16. Diagnostic-only context explicitly
+corrects the helper's inherited full-qualification label/estimate without
+overwriting original records. Neither development attempt qualifies acceptance.
+
+Select the required fresh full owner qualification on the corrected exact clean
+sourcebb9863ed097a56460082640668f7cc0a121002ac in
+/var/tmp/openudon-m95-qualified-4z1c8jd5: full/default, offline4+verify,
+integration17+verify, native39/three fresh passes+verify and retained v5
+read-only verification. Expected25–35minutes. Prior actual native failure
+remains failed, not resumed or relabeled; focused readiness correction and
+safe phase evidence justify this distinct exact-source candidate selection.
+No cache/reuse, automatic fallback, live targets/accounts/models or deployment.
+Join all private process/display owners and remove temporary auth. M95.4 sole
+in-progress row; closing review0/10, M20/W29 pending.
+
+M95.4 release gate self-check found a material preexisting CI prerequisite gap:
+release.yml used nonexistent current-compatibility-lock.json and staged only
+four siblings instead of the M45 build closure. Current local qualification
+uses the valid v5 snapshots and is unaffected. Reconcile CI preparation to
+those actual locks, all16 distinct browser/executor repositories (14 closure
+plus Browserdriver/Udon), exact clean detached heads and ephemeral read-only
+Git credential headers. No token persisted or printed; no release/tag or
+remote CI execution claimed. This CI-only correction is separately verified
+and cannot relabel the currently executingbb9863 native source.
+
+CI local preparation verification /var/tmp/openudon-m95-ci-layout-i9vjdbww
+passed: actual inline preparation body with Git clone URLs mapped only to
+existing local exact-source objects staged16 distinct repos; all14 Udon
+replacements resolved offline, conflicting locks refused before clone, no
+credential header persisted. This is local layout/conformance, not remote CI.
+Current architecture/tooling self-check also found stale three-binary release,
+UI/control inventory ownership and open M93 claims plus duplicated neutral
+policy. Preserve complete old excerpts in knowledge.md and consolidate current
+truth; historical snapshots/readers/evidence remain unchanged. No native code
+or dependency changes from these CI/document corrections.
+
+Native full selection is still in progress. Select independent cheap legacy
+package check on the same already-built exact frozen producer, using a separate
+outer disposable package root (no source/binary mutation): explicit1.11
+rebuild, assess, exact sandbox approval and no-executor dry-run; compare opaque
+.icot bytes/modes. Expected1–5seconds. This independent package evidence does
+not replace full native acceptance. Strict owner docs/memory/diff checks passed
+for the separate CI/document delta at /var/tmp/openudon-m95-current-docs-87nkyebx.
+
+Independent public legacy package check passed in1.767seconds at actual
+sourcebb9863ed097a56460082640668f7cc0a121002ac, binary SHA256
+dfb0e9f0764aecf7ee448d5c6d19adea6945bf79244123231c5f39524176ece3.
+It retained declared1.11 through rebuild, assessment and exact sandbox approval
+with dry-run executor.invoked=false; opaque historical .icot file bytes/modes
+were identical. Summary /var/tmp/openudon-m95-qualified-4z1c8jd5/legacy-package-4c2prmv5/summary.json,
+SHA256090f045315248b3b11ee2e56f6023d6525cf5626457a709305095ef4b116870f.
+Actual CI-layout proof SHA2564728c093cca63e76105ede5952830e1f5708cad4787319398e66d60d098afd8d;
+strict owner-doc proof SHA256a6e3f2b8214afa96cdfd386a7b8844fd57026acbe5d52da10f484ff989aa68ae.
+Whole required native selection remains in progress; closing review not started.
+
+### M95.4 required frozen acceptance evidence — 2026-10-02
+
+Exact qualified application source: bb9863ed097a56460082640668f7cc0a121002ac.
+Full make check, offline v6 four gates, integration v7 seventeen required gates
+with0failed/3optional unrequested, native v6 all39 stages in three fresh passes,
+and each independent verifier passed. Retained W28 native v5 report independently
+verified without replay/relabeling. Exact original summary:
+/var/tmp/openudon-m95-qualified-4z1c8jd5/qualification-summary.json,
+SHA256ea80c3d40ce3c544f33845e931d50dc17cb8a318e466ba9fd9c04ef6b601e201. Native SHA256
+267927b434595133afc3e562f821d8e8217b3980fde17b4a0dcd228756cd34a1; integration SHA256
+59d516e790271b3a50534aa2ee2eff70759e08fee85d54c0b6696975ca2d064b; offline SHA256
+3586591379f07940c8f250a5b295b039d105cebd0876b2fb3914f00342b9d9fe. CLI SHA256
+dfb0e9f0764aecf7ee448d5c6d19adea6945bf79244123231c5f39524176ece3; build closure SHA2560b1ec5a0a26b707a304159eba34da0ff0b538374f9bc41e7ead484c414337bd0.
+Whole1631.471seconds (27.191minutes versus25–35estimate); native1426.547seconds.
+Private TCP-disabled display joined and auth removed; source closure remained
+clean after all stages. Both authenticated/TOTP and registration verification
+refusal/grant/typed history/review/import/native package selection passed; BRP
+proved separately approved exactly-one synthetic POST. Earlier failed/superseded
+contexts remain preserved with their original outcomes.
+
+The subsequent delta changes only CI preparation, documentation/history and
+status; its local16-repo/14-replacement/refusal/no-header-persistence proof and
+strict docs/memory/diff checks are recorded above. It changes no runtime code,
+module, fixture or lock and cannot relabelbb9863 qualification as a later commit.
+Task4 verification complete; whole acceptance/review/publication/downstream
+reconciliation remain M95.5.

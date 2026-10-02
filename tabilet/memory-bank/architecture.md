@@ -87,14 +87,12 @@ self-digest clears its own field before canonical JSON hashing.
 
 ## System Boundary
 
-- Registration discovery inventory, coverage limitations and owner review are
-  OpenUdon application concerns. `internal/registrationdiscovery` owns private
-  bounded revision history; shared UI/control application operations expose it
-  only on explicit request. Browsertools supplies native page observations.
+- `internal/registrationdiscovery` retains neutral private inventory and bounded
+  revision-history records. OpenUdon exposes no UI/control transport; Kinet
+  owns interactive presentation and Browsertools supplies native observations.
   UWS owns reviewed portable flows, fields, steps and success predicates; its
-  published optional 1.1 discovery metadata stays compatible, while new iCoT
-  recipes omit inventory metadata. Selection does not alter drafts, runtime
-  authority, browser lifecycle, containment or consumed-attempt state.
+  optional 1.1 discovery metadata remains readable. New registration recipes
+  omit inventory metadata. Selection grants no runtime, browser or retry authority.
 - `../uws` owns public workflow semantics, UWS versions, schema lookup, document parsing, JSON
   Schema validation, artifact discovery, Go model, and the explicit advisory
   content-trust analyzer contract.
@@ -574,30 +572,10 @@ imports a private executor package or decides a downstream retry.
 
 ## Shared authoring implementation (M91/M95)
 
-OpenUdon provides external CLI and artifact contracts. Kinet owns interactive
-interviews, chat, browser UI, approvals and user-ledger publication. OpenUdon
-contains no iCoT entry point, application HTTP/control transport or embedded UI.
-Removal is implemented in M95; acceptance still requires its owner qualification,
-review and publication, followed by Kinet M20 and W8M W29 adoption.
-
-`openudon authoring draft` is a closed seeded/local authoring adapter over the
-single `authoringengine`, `elicitor` and `artifactwriter` implementation.
-It never reads terminal interview answers. Partial inputs return the structured
-frontier; `--print` is read-only and artifact publication requires `--yes`.
-`--from-example --prompt-mode fast` retains deterministic corpus defaults through
-the existing neutral elicitor without network/model calls or an autosaved draft.
-Source validation, symbolic credential policy, atomic writes and rollback rules
-remain authoritative. Generic frontier mechanics belong to Authoring's public
-`engine`; no copied interview engine is introduced.
-
-`openudon authoring browser-plan` emits an inert bounded-capture plan.
-`openudon authoring registration-draft` constructs reviewed typed/conditional
-field definitions through the one pure `internal/registrationdraft` builder.
-It accepts no credential values, launches no browser, writes no package and
-makes unobserved success proof explicitly deferred. See
-[registration draft](../../docs/registration-draft.md).
-
-See the [neutral boundary](#neutral-authoring-boundary-m95) for capture and retained expert ownership.
+M91 extracted the shared implementations; M95 removes only the legacy
+transports. The [neutral authoring boundary](#neutral-authoring-boundary-m95)
+defines the single draft, registration definitions, capture and package owners.
+No second interview, writer, browser engine or UI implementation is introduced.
 
 ## M92.1 version-preserving authoring
 

@@ -214,3 +214,23 @@ checks. Preserve failed and superseded execution identities and independently
 verify process/display teardown. Tests-only deltas get their own checks and do
 not relabel native source/time. Evidence: M96 guard/refusal/partial-build/replay
 regressions, frozen native39/integration17, failed preflight and superseded bundles.
+
+## Bind current CI setup to actual native lock snapshots
+
+Do not infer executor prerequisites from only the four primary browser repos.
+Prepare all current replacement inputs from the versioned build lock, reject
+conflicting identities before cloning, and verify clean exact heads. GitHub read
+headers belong only in transient child environments, never persisted config.
+Evidence: M95 local CI preparation executes the actual workflow body against
+local exact objects, verifies16 distinct repositories/14 offline Udon replacements
+and conflict refusal/no credential persistence. Native acceptance uses its own
+recorded clean source and independent reports.
+
+## Wait for an actual private input checkpoint
+
+Synthetic runtime tests must wait for Apply readiness before filling fields
+disabled during package/runtime startup. A short browser action timeout is not
+a workflow readiness deadline. Keep the existing runtime limit and approval
+policy, and expose only fixed phase codes when a component fails. Evidence:
+M95 bounded diagnosis, readiness/privacy regression and corrected native39
+qualification; the earlier failure remains preserved, not retrospectively explained.

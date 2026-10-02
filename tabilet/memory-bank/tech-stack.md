@@ -485,10 +485,13 @@ under `docs/step-authoring-contract-v1.md` and
   that writes compact JSON/Markdown summaries under ignored `.openudon-run`
   paths.
 
-- Public CI cross-builds `openudon`, `icot`, and `udon-runner` for Linux,
-  macOS, and Windows on amd64 and arm64. Tag automation packages those three
-  commands, README, and the Apache-2.0 license into six archives and publishes
-  `SHA256SUMS`.
+- Public CI cross-builds `openudon` and `udon-runner` for Linux, macOS and
+  Windows on amd64 and arm64. Tag automation packages those two commands,
+  README and Apache-2.0 license into six archives with `SHA256SUMS`; earlier
+  published archives retain their original contents. Release browser setup
+  reads the actual v5 compatibility and M45 build-input snapshots, staging all
+  sixteen distinct browser/executor repositories with fourteen local replacements.
+  Private GitHub read headers stay in the clone environment, never Git config.
 
 - Public docs publishing runs `mkdocs build --strict` before GitHub Pages deploy.
 ## Module Dependencies
@@ -773,9 +776,10 @@ and translate the Udon argv to that container path.
   authentication profiles, static registries, and value-free verification
   reports remain its browser inputs.
 
-- Public iCoT format docs cover v2-only `--answers` sessions, ignored v2 transcript JSON, adaptive
-  rounds, approved draft/final lifecycle, local/remote source discovery, and the recommended
-  `project.md` section schema.
+- Retained iCoT format documents describe historical v2 session/transcript and
+  interview behavior. Current seeded draft and expert command migration is in
+  docs/authoring-retirement.md; Kinet owns interactive conversation persistence.
+  The historical documents grant no removed transport or execution authority.
 
 - Never paste credentials into prompts, commands, examples, review evidence, or eval artifacts.
 
@@ -1058,7 +1062,9 @@ registration uses its existing closed diagnostics and no-submit traffic policy.
 Tests cover verification refusal, preview definitions, symbolic canonical
 profile validation, exact current generations, retained outcomes, private
 cleanup ordering and value-free bounded wire. Public CLI/worker embedding,
-independent package import and fresh native/visible qualification remain M93.4/5.
+independent package import and native/visible qualification were accepted in
+M93; its complete evidence is in the package-local history record. M95 keeps
+these native contracts while separately qualifying its transport removal.
 
 
 ## M93.4 command, reviewed start and profile admission
@@ -1080,7 +1086,9 @@ receipt metadata binds the reviewed start/transaction and exact file digests.
 It grants no package promotion/executor authority. New profile/receipt targets
 are create-only; the retained auth review append uses its exact prior digest.
 Native expiry/drift are rechecked immediately before replace. Uncertain writes
-or terminal delivery never authorize retries. M93.5 qualification remains open.
+or terminal delivery never authorize retries. M93.5 qualification is accepted
+and preserved in [M93 history](../docs/history/status-M93.md); changed M95
+runtime bytes require their own native qualification.
 
 The confirmed initial noVNC session expired cleanly at 07:58:47 UTC on
 2026-10-01, with owned processes gone and private auth removed. Human desktop

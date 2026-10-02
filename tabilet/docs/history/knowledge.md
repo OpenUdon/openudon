@@ -5684,3 +5684,88 @@ retirement. Previous wording:
 Replacement: the Consumer-owned LLM drafting candidate in the active milestone
 candidate table. Kinet owns the UI and interviews; OpenUdon retains neutral
 expert commands. This wording supplies no implementation or execution authority.
+
+## 2026-10-02 — M95 current tooling and neutral-boundary consolidation
+
+Source baseline: bb9863ed097a56460082640668f7cc0a121002ac with uncommitted M95 CI/status documentation work.
+Reason: remove stale three-binary/redundant UI ownership and open M93 claims;
+retain historical format meaning and single current owner. Replacement:
+memory-bank architecture System Boundary/neutral boundary and tech-stack current
+CI/history references. Original evidence remains under M93/M91 histories; no
+qualified runtime or old document is relabeled.
+
+### architecture.md — System Boundary
+
+````markdown
+- Registration discovery inventory, coverage limitations and owner review are
+  OpenUdon application concerns. `internal/registrationdiscovery` owns private
+  bounded revision history; shared UI/control application operations expose it
+  only on explicit request. Browsertools supplies native page observations.
+  UWS owns reviewed portable flows, fields, steps and success predicates; its
+  published optional 1.1 discovery metadata stays compatible, while new iCoT
+  recipes omit inventory metadata. Selection does not alter drafts, runtime
+  authority, browser lifecycle, containment or consumed-attempt state.
+````
+
+### architecture.md — Shared authoring implementation (M91/M95)
+
+````markdown
+## Shared authoring implementation (M91/M95)
+
+OpenUdon provides external CLI and artifact contracts. Kinet owns interactive
+interviews, chat, browser UI, approvals and user-ledger publication. OpenUdon
+contains no iCoT entry point, application HTTP/control transport or embedded UI.
+Removal is implemented in M95; acceptance still requires its owner qualification,
+review and publication, followed by Kinet M20 and W8M W29 adoption.
+
+`openudon authoring draft` is a closed seeded/local authoring adapter over the
+single `authoringengine`, `elicitor` and `artifactwriter` implementation.
+It never reads terminal interview answers. Partial inputs return the structured
+frontier; `--print` is read-only and artifact publication requires `--yes`.
+`--from-example --prompt-mode fast` retains deterministic corpus defaults through
+the existing neutral elicitor without network/model calls or an autosaved draft.
+Source validation, symbolic credential policy, atomic writes and rollback rules
+remain authoritative. Generic frontier mechanics belong to Authoring's public
+`engine`; no copied interview engine is introduced.
+
+`openudon authoring browser-plan` emits an inert bounded-capture plan.
+`openudon authoring registration-draft` constructs reviewed typed/conditional
+field definitions through the one pure `internal/registrationdraft` builder.
+It accepts no credential values, launches no browser, writes no package and
+makes unobserved success proof explicitly deferred. See
+[registration draft](../../docs/registration-draft.md).
+
+See the [neutral boundary](#neutral-authoring-boundary-m95) for capture and retained expert ownership.
+
+
+````
+
+### tech-stack.md — Current tooling/migration correction
+
+````markdown
+- Public CI cross-builds `openudon`, `icot`, and `udon-runner` for Linux,
+  macOS, and Windows on amd64 and arm64. Tag automation packages those three
+  commands, README, and the Apache-2.0 license into six archives and publishes
+  `SHA256SUMS`.
+````
+
+### tech-stack.md — Current tooling/migration correction
+
+````markdown
+- Public iCoT format docs cover v2-only `--answers` sessions, ignored v2 transcript JSON, adaptive
+  rounds, approved draft/final lifecycle, local/remote source discovery, and the recommended
+  `project.md` section schema.
+````
+
+### tech-stack.md — Current tooling/migration correction
+
+````markdown
+cleanup ordering and value-free bounded wire. Public CLI/worker embedding,
+independent package import and fresh native/visible qualification remain M93.4/5.
+````
+
+### tech-stack.md — Current tooling/migration correction
+
+````markdown
+or terminal delivery never authorize retries. M93.5 qualification remains open.
+````
