@@ -54,12 +54,12 @@ func TestReleaseWorkflowPackagesAllPublicCommands(t *testing.T) {
 		`- "v*"`,
 		`./cmd/openudon`,
 		`./cmd/${COMMAND}`,
-		`for COMMAND in icot udon-runner`,
+		`for COMMAND in udon-runner`,
 		`SHA256SUMS`,
 		`gh release create`,
 		`runtime-only-render`,
 		`--dry-run`,
-		`GOWORK=off go build ./internal/icot ./cmd/icot`,
+		`GOWORK=off go build ./cmd/openudon ./cmd/udon-runner`,
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release workflow missing %q", want)
@@ -67,27 +67,27 @@ func TestReleaseWorkflowPackagesAllPublicCommands(t *testing.T) {
 	}
 }
 
-func TestRequiredUIBrowserGateCannotDisableSandbox(t *testing.T) {
+func TestRequiredCaptureGateRetainsBothNativeModesAndSandbox(t *testing.T) {
 	root := filepath.Join("..", "..")
 	makefile := readRepoFile(t, root, "Makefile")
-	for _, want := range []string{
-		"icot-ui-browser-check-unsandboxed:",
-		"OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1",
-		"sandbox-disable override is forbidden",
-		"chromium_sandbox_enabled",
-	} {
-		if !strings.Contains(makefile+readRepoFile(t, root, "internal", "authoringui", "phase_c_browser_test.go"), want) {
-			t.Fatalf("sandboxed UI browser gate missing %q", want)
+	for _, want := range []string{"browser-capture-check:", "sandbox-disable override is forbidden", "-tags=browser_system_qualification", "./internal/capturequalification", "TestNeutral(Registration|Authenticated)PublicCapturePackage"} {
+		if !strings.Contains(makefile, want) {
+			t.Fatalf("capture gate missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"./cmd/icot", "./internal/authoringui", "icot-ui-browser-check:", "--no-sandbox"} {
+		if strings.Contains(makefile, forbidden) {
+			t.Fatalf("retired or unsafe release gate %q", forbidden)
 		}
 	}
 }
 
-func TestNormalCIStartsWithStandaloneICoTBuild(t *testing.T) {
+func TestNormalCIStartsWithStandalonePublicBuild(t *testing.T) {
 	workflow := readRepoFile(t, filepath.Join("..", ".."), ".github", "workflows", "test.yml")
-	build := strings.Index(workflow, "GOWORK=off go build ./internal/icot ./cmd/icot")
+	build := strings.Index(workflow, "GOWORK=off go build ./cmd/openudon ./cmd/udon-runner")
 	tests := strings.Index(workflow, "GOWORK=off go test ./...")
 	if build < 0 || tests < 0 || build > tests {
-		t.Fatal("normal CI must build standalone iCoT before the full test suite")
+		t.Fatal("normal CI must build standalone public commands before the full test suite")
 	}
 }
 

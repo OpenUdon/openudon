@@ -28,7 +28,7 @@ jobs:
             echo "public go.mod must not contain replace directives" >&2
             exit 1
           fi
-          GOWORK=off go build ./internal/icot ./cmd/icot
+          GOWORK=off go build ./cmd/openudon ./cmd/udon-runner
           GOWORK=off go mod download
           GOWORK=off go vet ./...
           GOWORK=off go test ./... -count=1 -timeout=10m
@@ -107,8 +107,8 @@ jobs:
             test "$(sysctl -n kernel.unprivileged_userns_clone)" = "1"
           fi
 
-      - name: Run required iCoT UI browser qualification
-        run: make icot-ui-browser-check
+      - name: Run required neutral public capture qualification
+        run: xvfb-run -a make browser-capture-check
 
       - name: Run required deterministic loopback suite
         run: |
@@ -214,7 +214,7 @@ jobs:
             -ldflags="-s -w -X main.version=${VERSION}" \
             -o "${DEST}/openudon${EXTENSION}" \
             ./cmd/openudon
-          for COMMAND in icot udon-runner; do
+          for COMMAND in udon-runner; do
             GOWORK=off CGO_ENABLED=0 go build \
               -trimpath \
               -ldflags="-s -w" \
@@ -226,7 +226,7 @@ jobs:
             "${DEST}/openudon" version --json |
               grep -F "\"version\": \"${VERSION}\""
             DEMO_ROOT="${GITHUB_WORKSPACE}/.openudon-run/release-archive-smoke"
-            "${DEST}/icot" \
+            "${DEST}/openudon" authoring draft \
               --from-example ./examples/eval/runtime-only-render \
               --example "${DEMO_ROOT}/package" \
               --no-llm \

@@ -49,11 +49,11 @@ digests; E21 evidence is recorded in [status-E21.md](../docs/history/status-E21.
 Native `openudon browser-system-eval --stack current --suite loopback` selects
 M92 v5 compatibility and 14-source build-input locks, requires all primary
 and auxiliary worktrees to be clean, and emits
-`openudon.browser-system-qualification.v5`. Scenario/journey use v5 and
-integration uses v6. The retained v4 reader uses E22/M91 snapshots; v3 uses E21.
+`openudon.browser-system-qualification.v6`. Scenario/journey use v5 and
+integration uses v7. The retained v4 reader uses E22/M91 snapshots; v3 uses E21.
 The effective UWS pin is published 1.12 `a7688f54c68f5a75c7cc95aa2b31cea98b31af41`;
 Browsertools retains its declared 1.11 dependency edge, separately recorded
-in the new lock. Accepted Udon M45 supplies the exact executor closure. The default remains historical native v2.
+in the new lock. Accepted Udon M45 supplies the exact executor closure. Historical native v1–v5 reports remain verifiable; removed UI gates cannot execute from this source.
 `make browser-system-current-check` runs the explicit current path
 and verifies its report; the verifier dispatches from the saved report version.
 Current evaluation can take `--browserdriver-node-modules` for a separate
@@ -76,7 +76,7 @@ child processes with a minimal environment; no package installation runs.
 Udon Go test gates clone its exact current source and fourteen locked sibling
 inputs to a temporary workspace; the native runner removes it before passing
 the stage and rechecks the original closure.
-Native registration UI, supervised control, and authenticated package fixtures
+Native public registration and authenticated package fixtures
 and the BRP transaction fixture remove any empty `eval/runs` ancestry they
 create, preserving pre-existing paths and rejecting symlink parents so source
 rechecks stay clean.
@@ -146,7 +146,7 @@ Kinet retains confirmed output mappings outside UWS intent and resends them to
 and refuses unresolved or incompatible mappings; APItools' name-based
 candidate score is advisory and no longer blocks an explicit, proven alias.
 Check is read-only; bind replaces or adds one step in `workflows/intent.hcl` through
-`internal/icot/artifactwriter`, using optimistic SHA-256 checks and create-only
+`internal/artifactwriter`, using optimistic SHA-256 checks and create-only
 installation for an initially absent intent. Bind locates path-free source IDs
 by hashing contained regular source files under the matching source-family
 directory; the Google Discovery alias is included and supported security
@@ -176,47 +176,18 @@ under `docs/step-authoring-contract-v1.md` and
   package/run artifacts. Native spinbutton locators remain outside immutable
   BRP 1.1; numeric scalar fixtures use supported textboxes.
 
-- Private registration discovery uses Go `os.Root`, strict JSON, SHA-256
-  revisions, cross-process exclusive write locks and synced atomic revision
-  files. Storage is outside Git/examples: 0700 directories, 0600 files, 32
-  candidates and 512 revisions maximum. The separate authenticated HTTP
-  resource and explicit application-control discovery replies share one service;
-  ordinary API snapshots and package exports exclude inventory. Embedded plain
-  JavaScript prepares existing wizard fields without launching a browser. No
-  UWS, Browsertools or runtime dependency changes are required by A28.
 - Primary language: Go, with module directive `go 1.26.6`.
+
 - Module path: `github.com/OpenUdon/openudon`.
-- CLI entrypoints: `cmd/openudon`, `cmd/icot`, and `cmd/udon-runner`.
-- Headless authoring lives under `internal/icot/engine`. Its internal methods
+
+- Headless authoring lives under `internal/authoringengine`. Its internal methods
   use `context.Context` plus typed configuration, snapshots, acquisition,
   round, preview, approval, resume, and capture-stage records. The bounded API
   upload mutation accepts an `io.Reader`; no terminal reader/writer or browser
   object enters the engine. Snapshots are JSON-marshalable but are not a
   published schema or supported Go API.
-- Phase B local UI transport lives under `internal/icot/ui` and is standard
-  library only: `net/http`, IPv4 loopback listeners, `crypto/rand` capability
-  tokens, terminal-only 12-character Crockford access codes with throttled
-  post-use/expiry terminal-only rotation, scoped
-  per-process cookie paths, SHA-256 revisions, optimistic
-  workspace inspection, strict bounded duplicate-safe UTF-8 JSON with a
-  maximum nesting depth of 32, conditional
-  snapshots, `embed` assets, platform opener commands, and bounded
-  signal-driven shutdown. The `openudon.icot-ui-api.v4` response wire is
-  experimental and has no published schema or compatibility guarantee; v1-v3
-  routes are not served. Authoring and capture revisions are separate, browser
-  transactions retain their own engine revision, and the response ETag binds
-  the complete displayed state.
-- The production shell remains separately embedded plain HTML, CSS, and
-  JavaScript with no React, Node, client build step, workflow execution, or
-  folder browser. It renders journey/source acquisition, isolated Browsertools
-  capture, and the full
-  frontier as engine-described accessible controls, posts complete
-  revision-bound rounds, reopens eligible settled human answers, exposes exact
-  previews/actions/read-only write conflicts plus prompt-safe review evidence, and requires
-  explicit reviewed final or incomplete approval. A polite mutation live
-  status and deterministic post-success focus cover the next frontier,
-  proposal review, authored/package-failure recovery, and handoff-ready completion.
-- `internal/icot/artifactwriter` is the common terminal/engine transaction for
+
+- `internal/artifactwriter` is the common neutral authoring transaction for
   source revalidation/materialization, safe browser capability/authentication
   metadata, incomplete-draft promotion/cleanup, and rollback-capable atomic
   file writes. Outputs stay beneath the canonical example root; descendant
@@ -229,18 +200,22 @@ under `docs/step-authoring-contract-v1.md` and
   case-insensitive-equivalent, ancestor/descendant, and remove/write output
   collisions, while source staging reserves `.icot/**`, `project.md`, and both
   intent paths.
+
 - `openudon catalog ...` exposes thin authoring-time wrappers over
   `github.com/OpenUdon/apitools/catalog` for first-class provider inspection,
   advisory output, security reports, and package-local OpenAPI import.
+
 - Intent may use `source = "..."` as the preferred API source document reference. `openapi = "..."`
   remains a backward-compatible alias. OpenUdon infers source type from catalog metadata,
   directory convention, or parser behavior rather than adding a separate intent `source_type`.
+
 - The optional operator-authored `content_trust` intent block lowers to UWS
   `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.12.0;
   existing packages retain their declared versions. Source labels remain package-relative paths until
   synthesis resolves generated source-description IDs; operation labels use
   the same stable lowering as leaf steps. Empty/no-op or unresolved objects
   fail closed. The structured LLM intent schema deliberately omits this field.
+
 - Package assessment invokes `contenttrust.Analyze` only when the generated
   document declares content trust. A package-local Browsertools M28 resolver
   stable-reads contained profiles; invalid or unavailable contracts become the
@@ -249,26 +224,31 @@ under `docs/step-authoring-contract-v1.md` and
   message, and the same value-free fields enter `expected/review.md`. This pass
   is not called from execution validation, plan construction, or trusted-runner
   authorization.
+
 - `make content-trust-qualification` runs the deterministic OpenUdon E12 matrix
   and an opt-in `udon_contenttrust_qualification` test. The tagged test requires
   clean exact UWS `9e676eaa469e`, Browsertools `75fd5c3ab81f`, and Udon
   `207e7f1` sibling checkouts before invoking M37's public analyzer tests with
   `GOWORK=off`. Udon is deliberately absent from OpenUdon's `go.mod`.
+
 - OpenUdon A23 updates the current production Browsertools dependency to
   published A10 `v0.0.0-20260829181035-3107470313d4`; the historical E12
   tagged compatibility fixture above remains locked to its qualified M28
   checkout. The A23 module pin and exact dependency expectation pass full
   offline consumer verification.
+
 - OpenUdon scans and stages API/event source files under `openapi/`, `google-discovery/`,
   `aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and
   legacy-readable `discovery/`. It emits typed source descriptions for OpenAPI, Google Discovery,
   AWS Smithy, UWS 1.3 AsyncAPI, and UWS 1.4 GraphQL/OpenRPC/gRPC-protobuf/OData sources.
+
 - OpenUdon also scans and stages verified `uws.browser.1.5` through `1.10` profiles under
   `browser-profiles/`, emits UWS `browser-profile` source descriptions, and
   records prompt-safe source review metadata in `.icot/browser-sources.json`.
   Browsertools owns validation, private cache, bundles, discovery, and the
   service-free static registry; Udon owns drivers, sessions, and execution.
-- Repeatable `icot --browser-verification PATH` accepts only strict, bounded
+
+- Repeatable `openudon authoring draft --browser-verification PATH` accepts only strict, bounded
   JSON `browsertools.live-check.v1` and
   `browsertools.portability-check.v1` files. `internal/browserverify` mirrors
   only those value-free wires and Browsertools' fixed probe/diagnostic
@@ -276,6 +256,7 @@ under `docs/step-authoring-contract-v1.md` and
   import the unpublished live-capture implementation or Playwright. Final
   packages retain normalized summaries in `.icot/browser-sources.json`, not
   the input report or local path.
+
 - OpenUdon scans reviewed `uws.browser-authentication.1.0`/`1.1` profiles under
   `browser-authentication/`, records safe review metadata in
   `.icot/browser-authentication.json`, and lowers explicit authentication and
@@ -287,6 +268,7 @@ under `docs/step-authoring-contract-v1.md` and
   count actions select v11, matching Udon's typed count consumer. An active
   older/1.10 mix fails before execution. Older-only workflows keep their prior
   protocol selection.
+
 - OpenUdon scans reviewed `uws.browser-registration.1.0` profiles and their
   digest-bound `browsertools.registration-review.v1` bundles under
   `browser-registration/`. Explicit `browser_registration` intent lowers to
@@ -294,14 +276,7 @@ under `docs/step-authoring-contract-v1.md` and
   duplicate/ambiguity/cleanup policy. Package, quality, approval-template, and
   trusted-runner dry-run are supported; executor argv construction rejects the
   workflow until compatible Udon and Browserdriver contracts are pinned.
-- The API-v4 guided registration form defaults symbolic `identifier`,
-  `password`, and identifier-class `contact_name` slots. Credential macro
-  controls select only current declared symbols and may reuse a symbol across
-  multiple steps. Success uses an operator-reviewed role/name rather than a
-  current observation candidate; the strict request fixes proof kind to
-  `operator_reviewed_deferred`, requires a declared origin and canonical
-  disclosure-safe accessibility name, and discloses that runtime proof remains
-  required. No public UWS or Browsertools wire changes.
+
 - Guided registration binding validation uses the portable lowercase symbol
   grammar as name authority. An entropy-like name must additionally have
   descriptive snake-case structure made from at least two closed-vocabulary
@@ -311,6 +286,7 @@ under `docs/step-authoring-contract-v1.md` and
   digit-bearing or letters-only opaque multi-token names remain rejected with a
   binding-specific value-free API diagnostic. This rule is local to draft
   construction and does not weaken artifact credential scanning.
+
 - `internal/browsertransaction` implements the unsupported-as-a-library but
   public-as-JSON `openudon.browser-profile-transaction.v1` artifact contract
   for unchanged BAP and legacy BRP results plus the registration-v2-only
@@ -322,16 +298,7 @@ under `docs/step-authoring-contract-v1.md` and
   published BAP 1.0/1.1, BCP 1.5/1.6/1.7, and BRP 1.0 discriminators, plus the
   exact authenticated-authoring v2 or registration-authoring v1/v2
   Browsertools provenance versions, and does not change UWS.
-- `internal/browsertransaction/engine` owns the driver-free optimistic
-  lifecycle and invokes `internal/packagepipeline` for preparation,
-  qualification, promotion, selected inspection, and recovery. Its defensive
-  snapshots expose only the public transaction, stable failure codes, allowed
-  operations, and package/recovery digests. The sibling `presentation` package
-  derives one Browsertools-backed BAP+BCP/BRP disclosure for API v4 and
-  terminal NDJSON. `icot ui` starts the engine only from an all-or-none public
-  transaction/package flag group; `icot browser-transaction` uses bounded
-  exact stdin phrases and has no implicit or flag-only approval, browser,
-  submit, or runtime path.
+
 - `internal/browsertransactioneval` defines the canonical
   `openudon.browser-transaction-qualification.v2` evidence wire. It accepts
   only the unchanged published UWS lock and exact clean locked OpenUdon,
@@ -349,12 +316,14 @@ under `docs/step-authoring-contract-v1.md` and
   browser-transaction-eval --verify REPORT` rejects noncanonical, missing,
   duplicate, unknown, oversized, symlinked, tampered, or dependency-drifted
   evidence without launching a browser or contacting a target.
+
 - `internal/browsercandidate` consumes Browsertools registration-authoring
   v1/v2 results through an anchored mode-`0700` private inbox and a 256 KiB stable
   read. It independently reconstructs canonical profile/review bytes, checks
   exact result/source/review digests and freshness, and produces only a
   candidate-state M77 transaction plus defensive canonical source/review
   copies. Private result names, paths, and envelopes are not returned.
+
 - `internal/browsercandidate` also composes authenticated-authoring v2 BAP+BCP
   pairs. It rechecks canonical producer encoding, both independent reviews,
   exact flow/slot/origin/context compatibility, login-state requirement, and
@@ -362,40 +331,45 @@ under `docs/step-authoring-contract-v1.md` and
   `candidate -> reviewed` transition. The transaction carries only a symbolic
   execution-local session; no browser handle, cookie, storage, or runtime
   session state is retained.
-- `internal/icot/elicitor` validates those path-free transaction candidates as
+
+- `internal/elicitor` validates those path-free transaction candidates as
   deterministic `virtual-browser://` sources. It binds candidate and review
   digests, schema, freshness, origins, exact reviewed-flow identity and
   symbolic slot coverage, canonical target, and BAP-provides/BCP-requires
   session dependencies; BRP remains
-  dependency- and session-free. `internal/icot/engine` exposes only a
+  dependency- and session-free. `internal/authoringengine` exposes only a
   value-free catalog summary, requires an exact optimistic catalog generation
   for dependency-closed selection/replacement, and retains canonical source
   bytes only in memory. Physical target collisions and stale selected
   identities fail closed, while existing API-first source ordering is
   preserved. Workspace materialization still occurs only through explicit
   authoring approval.
+
 - Reviewed BRP virtual operations carry one exact flow, transaction-derived
   symbolic bindings, the producer-reviewed cleanup disposition, fixed
   duplicate/ambiguity policy, a bounded timeout, and an explicit
   `runtime_supported=false` marker. The authoring step has no browser session
   or generic operation field and requires a fresh step-scoped confirmation.
-  `internal/icot/artifactwriter` revalidates the canonical BRP and independent
+  `internal/artifactwriter` revalidates the canonical BRP and independent
   Browsertools review from in-memory bytes, stages the conventional adjacent
   review, and derives `.icot/browser-registration.json`; synthesis then lowers
   the package to `uws.browser-registration-call.1.0`, while trusted non-dry
   execution continues to reject before executor invocation.
+
 - `internal/packagepipeline.PrepareCurrent` creates the P05 value-free
   preparation manifest and immutable-by-copy byte set from one strict
   handoff-complete generation. It uses package-artifact path validation,
   bounded stable reads, existing handoff self-digest semantics, and the same
   package digest version as trusted-run inspection; it requires a caller-owned
   portable scope and never writes or exposes the canonical local root.
+
 - `internal/packagepipeline.Qualify` is the P05 pre-promotion gate. It uses a
   fresh same-filesystem mode-0700 scratch root, anchored `os.Root` materialize
   and cleanup operations, mode/link/inventory validation, current quality and
   secret assessment, package/handoff inspection, and trusted dry-run with an
   empty environment. Its deterministic evidence contains digests and fixed
   posture/gate names only; scratch and source paths remain private.
+
 - P05 promotion uses only Go filesystem primitives: a same-store restrictive
   staging directory, file and supported-directory `Sync`, immutable
   record-derived generation names, `Rename` publication, and one sibling-temp
@@ -403,19 +377,22 @@ under `docs/step-authoring-contract-v1.md` and
   create-only mode-0600 lock serializes cooperative builders, and strict
   readback re-prepares every selected generation before exposing defensive
   bytes. No generation-retention operation exists in this boundary.
+
 - Promotion recovery uses strict JSON lock/intent/report wires with self
   digests, atomic create-only hard-link publication, typed failure state plus
   target-generation identity, and `InspectRecovery`/`Reconcile` read-check-
   confirm semantics. Reconciliation is capped at 128 recognized transients
   and uses anchored removal only for staging, temporary selector, intent, and
   lock names; it cannot mutate `current.json` or any `generations/` member.
+
 - `packagepipeline` compatibility entry points bind every selected package
   review, approval template, and trusted run to an exact selector digest. They
   canonicalize prospective approval/work paths and reject containment in the
   immutable store, force real current assessment, and preserve trustedrunner's
   approval, run-evidence, dry-run, and executor contracts. The CLI emits only
   versioned value-free preparation/qualification/selection/recovery JSON.
-- `icot browser-authoring plan` emits exact JSON argv templates, typed dynamic
+
+- `openudon authoring browser-plan` emits exact JSON argv templates, typed dynamic
   argument declarations, and review stages for an external Browsertools
   authoring run. Its private root must already be a restrictive non-symlink
   directory disjoint from the example, and any file output remains inside that
@@ -424,28 +401,7 @@ under `docs/step-authoring-contract-v1.md` and
   files supplied through `--browser-profile` are strict-decoded and replayed
   with Browsertools' existing draft/profile/review APIs; only the canonical
   embedded profile can enter an approved package.
-- UI capture and `icot browser-author live` start a separate worker process.
-  `internal/icot/browserauthor` owns the frontend-neutral asynchronous client;
-  the hidden `__browsertools-worker` uses Browsertools' importable runner. The
-  parent publishes a fully copied and hashed executable into a private
-  content-addressed mode-`0500` cache, applies a minimal environment and
-  process-group cancellation, re-verifies cached bytes before reuse, drains stdout, and speaks the closed
-  `browsertools.author-session.v2`,
-  `browsertools.authenticated-authoring.v2`, and separate no-submit
-  `browsertools.registration-author-session.v1` /
-  `browsertools.registration-authoring.v1` wires. A process-private parent
-  attestation binds the ordered actions, checkpoints, approvals, observations,
-  outputs, contexts, authentication proof, and exact-origin ledger before
-  staging and is never serialized or exposed over HTTP. The UI does not accept an
-  arbitrary executable; terminal `--browsertools` remains an expert
-  compatibility override. The release binary links Browsertools' Playwright
-  implementation for the worker, but the engine and HTTP server never run it
-  in-process. Chromium remains a separately installed prerequisite; module
-  maintenance does not install a driver or browser. Experimental UI API v4
-  registration state includes the additive, value-free `attempt_consumed` and
-  `failure_code` fields. The Go server, not JavaScript, owns the one-attempt
-  latch and closed failure-code allowlist; the client only renders and locks
-  from that authoritative state.
+
 - `openudon browser-integration-eval` and `make browser-integration-check`
   run the provider-free A03/P01/A04/A06/E02/E03 release matrix across sibling OpenUdon,
   Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
@@ -462,6 +418,7 @@ under `docs/step-authoring-contract-v1.md` and
   `--headed-auth` enable only the existing engine, authentication, and
   same-context authoring loopback fixtures and remain skipped when pinned
   components are unavailable.
+
 - `openudon browser-scenario-eval` strict-decodes 23 embedded loopback, eight
   realistic journey, and four public manifests plus
   `openudon.browser-scenario-lock.v2`. The required
@@ -489,6 +446,7 @@ under `docs/step-authoring-contract-v1.md` and
   unrelated failures remain `unclassified` and cannot satisfy negative cases.
   Hosted Ubuntu jobs explicitly enable sandbox-compatible user namespaces and
   never launch Chromium with `--no-sandbox`.
+
 - M86 adds `--stack current|historical` to the scenario CLI. Historical remains
   the CLI/default local-qualification selection and keeps its original lock,
   corpus and v1 report readers. Make and hosted release checks explicitly use
@@ -498,63 +456,41 @@ under `docs/step-authoring-contract-v1.md` and
   1.5/1.9 named v10 session; current passing verification requires the full
   23-case or eleven-case inventory. The Node readiness launch now requires
   `chromiumSandbox: true`. Browser execution acceptance is tracked by M86.
+
 - A browser suite with no executed scenario reports `not_run`, which is valid
   for structural inspection but never a passing release result. Probe, build,
   and scenario subprocesses have fixed 30-second, two-minute, and three-minute
   deadlines and terminate complete process trees on Unix and Windows.
-- A build-tagged `internal/icot/ui` qualification suite directly pins
-  `github.com/mxschmitt/playwright-go` v0.6201.0 for test-only Chromium control.
-  `make icot-ui-browser-check` exercises the real listener and is required by
-  `make release-saas-check` and tag release automation. The engine and HTTP
-  server have no Playwright import or in-process runtime; the default gate
-  sets a sandbox-required control, rejects the disable override, and logs an
-  enabled assertion. `make icot-ui-browser-check-unsandboxed` is the only
-  diagnostic escape hatch for hosts whose kernel policy prevents sandbox
-  startup and never counts as release evidence.
+
 - Advisory API-source security sidecars named `*.security.{json,yaml}` or
   `*.security-overlay.{json,yaml}` may live next to package-local API source files. They are
   packaged as review/build evidence and included in handoff digests when present, but are not
   treated as executable API source contracts.
+
 - Internal implementation: reusable behavior under `internal/`.
+
 - `internal/authoring/atomicfile` provides file sync, atomic rename,
   parent-directory durability where supported, and cleanup on failures.
   `internal/evidencefile` owns bounded regular-file reads, duplicate/unknown/
   trailing-safe JSON decoding with depth 64 accepted and depth 65 rejected,
   canonical digest sidecars, and complete
   40/64-character Git object validation.
+
 - Artifact formats: Markdown, HCL, JSON, YAML, UWS YAML, and review handoff JSON.
-- Normal verification: early `GOWORK=off go build ./internal/icot ./cmd/icot`,
-  `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
-  Local repository guard checks, UWS artifact validation, and trusted executor staging are Go CLI
-  commands/packages under `cmd/` and `internal/`.
+
 - Run evidence maintenance commands include `openudon run-evidence verify`,
   `openudon run-evidence archive`, `openudon release-notes draft`, and
   `openudon local-udon-smoke`. `openudon release-evidence` and
   `make release-evidence` wrap these into one local release-evidence workflow
   that writes compact JSON/Markdown summaries under ignored `.openudon-run`
   paths.
-- Public CI verification: reject committed module replacements, run
-  early `GOWORK=off go build ./internal/icot ./cmd/icot`,
-  `GOWORK=off go mod download`, `GOWORK=off go vet ./...`,
-  `GOWORK=off go test ./... -count=1 -timeout=10m`,
-  `GOWORK=off go run ./cmd/openudon check-apitools-boundary`, and
-  `git diff --check` through GitHub Actions without sibling checkouts.
+
 - Public CI cross-builds `openudon`, `icot`, and `udon-runner` for Linux,
   macOS, and Windows on amd64 and arm64. Tag automation packages those three
   commands, README, and the Apache-2.0 license into six archives and publishes
   `SHA256SUMS`.
-- Public docs publishing runs `mkdocs build --strict` before GitHub Pages deploy.
-- Release verification: `make release-check` for deterministic gates,
-  `make icot-ui-browser-check` for the embedded Phase C shell,
-  `make browser-integration-check` for the provider-free browser boundary,
-  `make browser-scenario-loopback` for the required real-browser local matrix,
-  `make browser-scenario-journey` for realistic headless local workflows,
-  `make browser-scenario-public` for explicit-network informational canaries,
-  `make release-saas-check` for the consolidated local release gate, and
-  `make release-eval` for opt-in real-provider eval gates. A11's mandatory
-  release qualification has passed with sandbox-required Chromium; the
-  separately named sandbox-disable target remains diagnostic-only evidence.
 
+- Public docs publishing runs `mkdocs build --strict` before GitHub Pages deploy.
 ## Module Dependencies
 
 OpenUdon is published as a normal Go module. Its committed `go.mod` must use public module versions
@@ -587,7 +523,7 @@ for:
 - `github.com/OpenUdon/asyncapi` for native AsyncAPI source metadata parsing and selector
   compatibility checks.
 - `github.com/mxschmitt/playwright-go` v0.6201.0 is a direct requirement for
-  build-tagged UI qualification and also enters `icot` transitively through
+  build-tagged native capture qualification and enters OpenUdon transitively through
   Browsertools' bundled worker. Only the worker process initializes it.
 
 Local sibling development belongs in the parent `go.work`, not in committed `replace ../...`
@@ -710,26 +646,27 @@ and translate the Udon argv to that container path.
 
 ## LLM And Provider Policy
 
-- Local real-LLM synthesis and iCoT authoring default to the `copilot-api` OpenAI-compatible proxy
+- Explicit real-LLM synthesis and neutral expert evaluation default to the `copilot-api` OpenAI-compatible proxy
   at `http://localhost:4141` with model `gpt-5.4-mini`.
+
 - Escalate to a larger model only after the default proxy model fails deterministic checks.
+
 - Shell-level provider/model defaults use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, matching
-  the optional iCoT pattern used by sibling OpenW8M. Explicit CLI `--provider` and `--model` flags
+  the optional expert-evaluation pattern used by sibling OpenW8M. Explicit CLI `--provider` and `--model` flags
   take precedence.
+
 - Provider credentials and proxy endpoints come from environment variables such as
   `COPILOT_API_BASE_URL`, `COPILOT_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, or
   `ANTHROPIC_API_KEY`.
-- Provider-specific API keys do not make iCoT auto-select that provider; set `OPENUDON_LLM_PROVIDER`
+
+- Provider-specific API keys do not make OpenUdon auto-select that provider; set `OPENUDON_LLM_PROVIDER`
   or pass `--provider` for explicit non-default providers such as Gemini.
+
 - Gemini sends credentials through `x-goog-api-key`, not the URL. All provider
   success/error bodies are limited to 8 MiB, preserve caller deadlines, and
   redact transport errors.
-- `cmd/icot --prompt-mode full|normal|fast` controls frontier answer collection. `full` shows and asks
-  every ready question, `normal` shows the full frontier and visibly accepts safe defaults, and
-  `fast` silently accepts safe defaults while still showing missing, low-confidence, conflicting, or
-  forced decisions. The final proposal approval is forced in all modes; `--yes` is explicit
-  noninteractive approval.
-- `cmd/icot --api-source KIND:ID=PATH`, `--openapi ID=PATH`,
+
+- `openudon authoring draft --api-source KIND:ID=PATH`, `--openapi ID=PATH`,
   `--browser-profile ID=PATH`, `--browser-verification PATH`,
   `--browser-registry PATH|HTTPS_URL`, and
   `--source-root PATH` are repeatable reviewed source inputs. API-capable
@@ -738,74 +675,84 @@ and translate the Udon argv to that container path.
   local secret-free authentication profiles. Guided results are explicit-file
   only and are reduced to profiles; authentication profiles are never pulled from or published to the
   static capability registry. `--network
-  never|ask|allow` defaults to `ask` interactively and is
-  effectively `never` in agent mode unless `allow` is explicit. Local discovery is bounded to 10,000
+  never|ask|allow` defaults to `never` in the closed draft; `ask` is refused and
+  `allow` must be explicit. Local discovery is bounded to 10,000
   visited entries, 100 candidates, and 20 MiB per file by default; remote lookup is one approved
   curated-catalog plus APIs.guru pass with an eight-second deadline and at most
   three candidates. Configured HTTPS browser registries use a separate approval
   decision and the same deadline/result/file-size bounds; local static
   registries remain offline.
-- `cmd/icot --agent --json` is the noninteractive local-agent surface. It never prompts or writes
+
+- `openudon authoring draft --agent --json` is the noninteractive local-agent surface. It never prompts or writes
   deliverables; it reports the full frontier, workflow candidates, source evidence/blockers, and
-  proposed file actions, including proposal approval for complete state. `cmd/icot lint --json`,
-  `cmd/icot scorecard`, and `cmd/icot repair --json` emit
-  versioned JSON reports for reliability scoring and bounded remediation. `cmd/icot variants
+  proposed file actions, including proposal approval for complete state. `openudon authoring lint --json`,
+  `openudon authoring scorecard`, and `openudon authoring repair --json` emit
+  versioned JSON reports for reliability scoring and bounded remediation. `openudon authoring variants
   validate` checks authoring variant metadata and reference-seeded clear slots without running the
-  scorecard. `cmd/icot variants coverage` requires every provider family represented in
-  authoring variants to have positive, missing-detail, and unsafe-negative coverage. `cmd/icot scorecard
+  scorecard. `openudon authoring variants coverage` requires every provider family represented in
+  authoring variants to have positive, missing-detail, and unsafe-negative coverage. `openudon authoring scorecard
   --include-variants` also reads `reference/authoring-variants.json` and summarizes provider-free
   reference/variant package coverage by provider family, variant class, failure family, and top
   readiness issue; `needs_input` variants must declare expected top issue code and slot, and the
   scorecard enforces exact matches. Scorecard reports also carry run ID, commit, command,
   prompt/readiness provenance, explicit missing-detail or unsafe false-pass counters, a
   `needs_input` diagnostic-gap counter, SHA-256 digest sidecar, and retention/share-safety metadata
-  marking scorecards as provider-free `release_evidence` that is safe to archive. `cmd/icot
+  marking scorecards as provider-free `release_evidence` that is safe to archive. `openudon authoring
   authoring-eval` is the optional real-LLM authoring evidence lane; it records provider/model, run
   ID, command, commit, prompt/readiness versions, LLM call count, generated paths, drift counts,
   per-variant pass/fail, and structured failure categories, scans generated
   project/intent/transcript/report output for credential-like literal values, writes a SHA-256
   digest sidecar, and marks reports as local ephemeral provider-output evidence requiring redaction
-  review before sharing. It is intentionally not part of provider-free release gates. `cmd/icot
+  review before sharing. It is intentionally not part of provider-free release gates. `openudon authoring
   report verify --file ...` revalidates scorecard or authoring-eval JSON, summary counters, variant
   top-issue expectations, failure categories, retention/share-safety metadata, and adjacent SHA-256
   digest sidecars after generation or archival; `make icot-authoring-scorecard` and `make
   release-saas-check` run it for the provider-free scorecard, while authoring-eval verification
   remains optional/manual real-LLM evidence. `make release-saas-check` also runs the variant
   coverage gate before producing scorecard evidence.
-- `cmd/icot replay-eval` defaults its own `--prompt-mode` to `fast` and reports actual transcript
+
+- `openudon authoring replay-eval` defaults its own `--prompt-mode` to `fast` and reports actual transcript
   prompt counts, auto-accepted defaults, LLM calls, repair attempts, rejected repairs, and unresolved
   final review warnings.
-- With LLM extraction enabled, iCoT runs an advisory pre-final flow review before showing the current
+
+- Optional expert model evaluation runs an advisory pre-final flow review before showing the current
   draft. The review is structured JSON and only reports cross-step data-flow warnings that
   deterministic request/schema checks may miss. By default it does not mutate the draft; advisory
   review warnings are also written as non-executable comments in the generated `intent.hcl`.
-- iCoT uses `openudon.icot-session.v2`, `openudon.icot-transcript.v2`, and v2 OpenUdon
+
+- Neutral authoring retains `openudon.icot-session.v2`, `openudon.icot-transcript.v2`, and v2 OpenUdon
   author/lint/repair/scorecard/authoring-eval/variant/replay wires. The generic graph remains
   `authoring.interview.v1`; v1 OpenUdon inputs are rejected without compatibility decoding.
+
 - Weather/report/Gmail drafts get a deterministic `render_weather_report` `fnct` transform when
   exactly one weather producer and a Gmail delivery sink are present. It selects `gmail.render_raw`,
   passes a request-body object, and relies on the trusted executor to register the public helper.
+
 - API-source security scheme names are the executable credential-binding source of truth. When a
   generated or edited intent maps a security field to a stale document-derived binding, build
   normalizes that request mapping to `credentials.<securitySchemeName>` before emitting workflow
   artifacts.
+
 - Operation security uses Apitools `SecurityRequirementSets` and Authoring
   `CredentialBindingSets`: outer sets are OR, bindings within a set are AND,
-  and an empty set is anonymous. iCoT persists one canonical SHA-256 fingerprint
+  and an empty set is anonymous. Neutral authoring persists one canonical SHA-256 fingerprint
   before request mappings, exposes only the selected set's fields, and treats
   prompt-budget loss of this structure as a deferable readiness blocker.
-- `cmd/icot --review-repair` is an experimental opt-in mode. It can make at most two bounded
+
+- Explicit expert evaluation review repair is an experimental opt-in mode. It can make at most two bounded
   pre-final review repairs, and only to request mappings, output sources, and `depends_on`; source,
   operation, credential, and side-effect-scope mutations are rejected and recorded in the transcript.
   M65 adds one narrowly proven exception for deterministic API prework: a read-only local GET/HEAD
   operation may be inserted when it is the only metadata-listed producer for a missing request field
   and requires no inputs. Response-field repair can use local OpenAPI `$ref`, nested object, array,
   and Swagger `schema` response metadata.
-- iCoT sessions use one unified interview evidence ledger for observed facts, user decisions,
+
+- Historical-format neutral sessions use one unified interview evidence ledger for observed facts, user decisions,
   recommendations, assumptions, open decisions, deferrals, and inapplicable branches. It contains
   concise public rationale, never hidden chain-of-thought. OpenUdon's ledger
   adapters also retain draft operation-detail refs and structured draft events
   so headless round autosave/resume reconstructs all authoring provenance.
+
 - The headless engine accepts exactly one complete current frontier per
   `ApplyRound`, previews entirely in memory, and requires a non-default explicit
   human approval value before the shared writer can create deliverables. It
@@ -825,25 +772,13 @@ and translate the Udon argv to that container path.
   It does not run live Browsertools orchestration; reviewed profiles,
   authentication profiles, static registries, and value-free verification
   reports remain its browser inputs.
-- `icot ui --example DIR` owns one engine and uses explicit `--answers` or
-  `--from-example`, `.icot/session.yaml`, existing final project/intent, then
-  empty state precedence. It accepts the same reviewed API/browser source
-  flags plus `--port` and `--no-open`, always binds `127.0.0.1`, and exposes an
-  authenticated experimental v3 journey/acquisition/capture/authoring/package/
-  handoff API plus a polling accessible embedded authoring and review shell;
-  v1/v2 routes are not served.
-  Callers submit only question IDs and values; the engine supplies frontier
-  slots. Exact revisions serialize mutations, `If-None-Match` (including `*`) avoids unchanged
-  snapshot bodies, external workspace drift blocks mutation until restart, and
-  any approved final or incomplete write freezes the process. The server uses
-  32 KiB headers, five-second header, 15-second read, and 30-second idle limits
-  without a global write timeout. Snapshot `write_conflicts` are a read-only
-  exact-path preflight used to require explicit overwrite review; authorization
-  and replacement remain inside the transactional writer.
+
 - Public iCoT format docs cover v2-only `--answers` sessions, ignored v2 transcript JSON, adaptive
   rounds, approved draft/final lifecycle, local/remote source discovery, and the recommended
   `project.md` section schema.
+
 - Never paste credentials into prompts, commands, examples, review evidence, or eval artifacts.
+
 - Real-provider evals are local/manual because they spend quota and may produce artifacts that need
   redaction review.
 
@@ -851,7 +786,6 @@ Provider drift release evidence should record provider, model, commit, compariso
 `provider_drift_watch.status`, structured fallback count, maximum attempts, release-gate result,
 and any provider error text. Do not loosen release criteria from a single transient run; rerun once
 from a trusted workstation if the error looks external.
-
 ## Trusted Runner Contract
 
 `openudon approval-template` prints approval JSON with:
@@ -920,7 +854,7 @@ evidence; trusted-public-key verification is the operator-identity claim.
 
 ## Tooling Constraints
 
-- Keep `cmd/openudon` and `cmd/icot` thin.
+- Keep `cmd/openudon` thin.
 - Keep scripts small wrappers around Go behavior where practical. Prefer `cmd/openudon` subcommands
   for local repository checks.
 - Do not add product-specific behavior to `../uws` or core `../udon`.
@@ -935,84 +869,44 @@ evidence; trusted-public-key verification is the operator-identity claim.
 ../skills/harness/tackle-memory-bank-api-loop --model lane-audit .
 ```
 
-## M79 local browser system gate
+## Native current and historical qualification
 
-`make browser-system-check` runs separate offline and explicit loopback suites
-and independently verifies their aggregate JSON reports. Loopback requires
-three fresh complete passes with no skipped browser prerequisite. Default
-unit tests remain browser-free. `icot control --no-open` exposes the same
-registration application decisions over bounded private NDJSON. The upstream
-Chromium/Linux, Playwright-Go v0.6201.0 and Playwright 1.62.1 baseline remains
-unchanged. Exact auxiliary Udon source inputs and the administrator-owned
-sandbox helper are prerequisites; no gate installs or upgrades them.
+`make browser-system-current-check` and `make qualify` explicitly select the
+current UWS1.12/M45 closure. Current native v6 retains thirteen stages and three
+fresh passes, replacing retired UI/control checks with actual public capture,
+pure registration definitions and both public package journeys. Default checks
+remain browser-free. Chromium sandboxing and exact external installed modules
+are required; nothing installs or upgrades dependencies. Historical native
+v1–v5 reports remain read-only verifiable under their frozen inventories/locks.
+Current integration v7 retains expert/authoring gates and tests the neutral
+capture/draft dependency boundary; integration v1–v6 selectors stay frozen.
+Failure streams are private bounded diagnostic sidecars. Missing prerequisites,
+process teardown failure and unknown native outcomes cannot become passing proof.
 
-The qualified M79 gate also requires 88 Udon browser-contract and 19 browser
-CLI race cases, actual supervised iCoT processes, 23 loopback scenarios, eight
-journeys and both existing package qualification components on each pass.
-Local acceptance and review iteration 5 pass with exact Go 1.26.6/Node 24.13.0
-recorded and the supplied Grand/Hcllight/Golet closure.
-
-The opt-in `openudon.application-control.v1` transport uses owned private
-pipes. See [architecture.md](architecture.md#icot-architecture) for the shared
-lifecycle and [M80](../docs/history/status-M80.md) for qualification evidence.
-
-M81/W09 adds opt-in `openudon run --interactive-browser` and forwards the private
-response stream through either trusted runner to Udon's existing interaction.
-The run-config schema stays unchanged and default execution has no input stream.
-
-Native `openudon.browser-system-qualification.v2` retains three loopback passes
-and adds `supervised_registration_package` and `supervised_authenticated_package`
-for 13 stages per pass. Original v1 reports keep their eleven-stage inventory.
-The W8M-owned complete gate runs three native-plus-target units and verifies
-all embedded native reports in canonical two-space JSON with a terminal newline.
-M81/W09 local acceptance passes 117 native stages and nine target workflow
-receipts with the unchanged Chromium/Playwright baseline. Default unit tests
-remain browser-free; no package installation or dependency upgrade is implied.
-
-The W10 publication followup retains native failure diagnostics in an
-owner-only `<report>.diagnostic.json` sidecar outside source trees. Each captured
-child stream contributes at most its final 1 MiB, with explicit truncation. Fixed
-failure reasons distinguish subprocess, teardown, deadline/cancellation and
-output-limit failures. Reduced report schemas and inventories are unchanged;
-the consumer must preserve the private sidecar before temporary cleanup.
-The existing Linux supervisor starts a separate direct-child monitor before
-background whole-host scans, preserving PID/start-time identities and joining
-both monitors during teardown. This prevents a slow full scan from suspending
-the fast discovery path; it adds no general executor or browser capability.
-
-The additive openudon.browser-registration-attestation.v2 schema and internal decoder require one prior attempt, delete_separately, a whole-second UTC expiry within twenty minutes, five SHA-256 links and the literal submission_not_started outcome. Existing v1 rejects the recovery field, including null.
-
-The additive v3 schema and decoder require exactly two prior attempts with the
-same closed digest links and expiry limit. V2 remains restricted to one prior
-attempt. Native artifact and trusted-runner tests cover all three versions;
-fresh complete consumer qualification remains mandatory before live adoption.
+Attestation v1/v2/v3, per-attempt claims and executor authority are unchanged.
+The retained M79/M80/M81 histories document former application-control evidence;
+they are not callable current transports. See the [neutral authoring boundary](architecture.md#neutral-authoring-boundary-m95).
 
 ## E13 development commands
 
-`make fast` uses normal Go test-result caching and document checks.
-`browser-system-dev --mode smoke --stage registration_ui_handoff --udon-repo
-/absolute/prepared/udon --out /tmp/unique.json --cache /absolute/private/cache`
-runs one fresh synthetic flow. `--reuse` explicitly permits matching successful
-results younger than 24 hours, preserving execution ID/time. Empty `--cache`
-bypasses custom caching. `make smoke` exposes the corresponding
-`OPENUDON_SMOKE_*` variables; `make qualify` aliases the existing fresh complete
-gate. The native report schema is unchanged; new development/timing schemas are
-`openudon.browser-development.v1` and `openudon.browser-check-timing.v1`.
-Private JSONL sidecars measure source hashing, subprocesses, selected builds,
-stages and transaction teardown. No new dependencies or downloads are required.
+`make fast` uses Go test caching and documentation checks, without browsers or a
+private executor checkout. `make smoke` defaults to `registration_capture_handoff`;
+it invokes the existing native adapter directly, allows dirty OpenUdon sources
+and binds before/after source, tool, runtime and current sibling identities.
+`browser-system-dev --mode smoke --stage registration_capture_handoff
+--udon-repo ABS --browserdriver-node-modules ABS --out /tmp/NEW.json
+--cache ABS` emits `openudon.browser-development.v2`, never runtime qualification.
+Only explicit `--reuse` admits a matching success younger than24hours, retaining
+its original execution identity/time. No automatic native qualification fallback.
+`make qualify` selects a fresh complete current gate; three repetitions never
+consume development cache. Private timing remains `openudon.browser-check-timing.v1`.
 
-The additive current-stack input endpoint is
-`openudon browser-system-input --stack current --repo-root ABS --udon-repo ABS
---browserdriver-node-modules ABS`. It returns
-`openudon.browser-qualification-input.v2` and a value-free digest. It validates
-the canonical external bundle, locked package versions and executable npm bin
-entry points, then binds all nineteen current-stack sources and roots, bundle
-bytes/modes, tool/browser/Go dependencies and effective environment/host identity.
-The historical default and its v1 response remain unchanged. This inventories
-inputs only: it never installs dependencies, runs a browser, qualifies a runtime
-or grants cache reuse. Consumers own their cache eligibility and fresh journeys.
-
-E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.
+`browser-system-input --stack current --repo-root ABS --udon-repo ABS
+--browserdriver-node-modules ABS` emits value-free input v3. It binds current
+nineteen-source closure, installed dependency bytes/modes, actual namespace/user,
+source roots, tool/browser and effective environment identities, but executes
+no browser and grants no cache reuse or runtime authority. Historical input v1
+remains unchanged. External consumers own their cache policy and fresh acceptance.
 
 ## Explicit per-step execution evidence (M90)
 
@@ -1026,42 +920,22 @@ M44 artifact pair. Default checks skip that real executor. Qualification binds
 source, exact closure and binary digests and executes a private binary copy;
 see [per-step run evidence](../../docs/per-step-run-evidence.md).
 
-## Shared authoring commands and qualification (M91)
+## Shared authoring commands and qualification (M91/M95)
 
-OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
-`18056cb6b0c1007dd567a4a825a6b4311a357185`, after published M29 closure
-`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Adapters use public `engine` APIs.
-Only this dependency changed; UWS 1.12 and APItools adoption remain M92/M94.
-Default checks remain provider/credential free; standalone checks use the
-actual published module with GOWORK off.
+Authoring's published neutral `engine` remains pinned at
+`18056cb6b0c1007dd567a4a825a6b4311a357185`. No sibling retirement occurs here.
+Single implementations live in `artifactwriter`, `elicitor`, `stepauthoring`,
+`browserauthoring`, `browserauthor`, `authoringengine`, `authoringcli` and
+`registrationdraft`; synthetic native callers live in `capturequalification`.
+OpenUdon has no `cmd/icot`, `internal/icot`, `authoringui` or embedded UI assets.
 
-Focused source paths are `internal/artifactwriter`, `elicitor`, `stepauthoring`,
-`browserauthoring`, `browserauthor`, `authoringengine`, `authoringui` and
-`authoringcli`. Current Make selectors follow them. UI build tags/response
-versions and embedded asset bytes retain their contracts.
-
-Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
-for retained expert/evaluation commands. Subcommand flags/help, report schemas
-and canonical `icot ...` report labels remain compatible; qualification binds
-actual launcher argv separately. Model-backed evaluation still requires
-explicit invocation and provider authority.
-
-`openudon.browser-integration-eval.v5` retains all 19 gates with neutral paths
-and preserved semantic coverage. v1–v4 readers and all compatibility/build
-locks remain frozen. `make browser-system-current-check` qualifies the existing
-exact current browser closure, using external read-only modules and three
-fresh sandboxed loopback repeats. M91 observed Go 1.26.6, Node 24.14.1, Chromium
-151.0.7922.34 and Playwright 1.62.1/Playwright-Go v0.6201.0. W8M's exact Node
-24.13.0 requirement is separate and was not qualified by this owner gate.
-
-Qualified application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`.
-Summary: `/var/tmp/openudon-m91-qualified-1y6zysvk/qualification.json`, SHA-256
-`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
-Required integration: 16 pass, zero fail, three unrequested optional gates.
-Native qualification: 39/39 stages across three fresh repeats; report verifies.
-All 405 retained fixtures and three embedded UI assets remain unchanged.
-The temporary approved test display was torn down; M93's desktop/human-visible
-checks and Kinet W08's fresh M92 consumer qualification remain pending.
+Use `openudon authoring draft|browser-plan|registration-draft` for closed neutral
+adapters and `lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
+for retained expert/evaluation commands. Existing report schema labels and
+`.icot` artifact layouts stay compatible. Explicit model evaluation remains
+outside offline checks. M91's published/qualified evidence is preserved in its
+retired record; it does not qualify M95's changed runtime. M95 owner qualification,
+review and exact downstream M20/W29 adoption are still required.
 
 ## M92 applied UWS dependency and executor compatibility
 
@@ -1272,3 +1146,12 @@ integration17/0failed/3unrequested optional plus independent verifiers and all
 three capture/package journeys. Later tests-only failure regression is separately
 qualified; evidence source/time is never relabeled. Review1 passed; accepted
 source publication is independently verified at `d77f6d51262d0f311910070bc4a43f662260cd7e`. See [retired M96](../docs/history/status-M96.md). Public fixtures: docs/fixtures/browser-author-v1.
+
+## Neutral seeded drafts and registration definitions (M95)
+
+See [architecture neutral boundary](architecture.md#neutral-authoring-boundary-m95)
+and the [registration-draft contract](../../docs/registration-draft.md). Closed
+seeded drafts never read terminal answers; print makes no state writes, explicit
+yes gates publication, and missing mandatory input remains a structured frontier.
+Historical artifact labels and report readers are preserved; transport removal
+never grants capture, package or executor authority.

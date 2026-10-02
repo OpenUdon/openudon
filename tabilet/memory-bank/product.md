@@ -45,24 +45,15 @@ workflows. Kinet owns its own planning loop and confirmation ledger.
 
 ## Product Goal
 
-iCoT can author generic registration 1.1 profiles and UWS calls through guided
-field definitions, required/optional/conditional rules, named input checkpoints
-and reviewed public wizard previews. Suggestions remain editable and require
-explicit confirmation. Runtime values and credentials are entered in Udon's
-separate private form after package review, never in iCoT authoring state.
-Registration 1.0 remains supported. See [A29](../docs/history/status-A29.md).
-
-Registration discovery is private authoring state in the shared application and
-iCoT. Operators maintain possible routes and registration types, record reduced
-Browsertools observations, revise limitations and review the inventory. Coverage
-and owner review are separate and never promise exhaustive discovery. Selection
-prepares editable wizard fields; canonical recipes contain reviewed workflow
-definitions without inventory metadata. Private values remain outside packages.
-See [A28](../docs/history/status-A28.md); this adds no automatic crawler or live authority.
-
-Make UWS workflow projects authorable, reviewable, packageable, and executable only through a
-validated trusted handoff path, with clear evidence for every generated artifact and side-effect
-boundary.
+Make UWS workflow projects authorable, reviewable and packageable through
+validated CLI/artifact contracts, with clear evidence for every generated
+artifact and side-effect boundary. Kinet owns the interactive UI and interviews.
+OpenUdon retains seeded/local draft, expert evaluations, supervised capture and
+native review/package operations. Its pure registration definitions support
+required, optional and conditional typed inputs, named private checkpoints and
+reviewed public previews. Runtime values remain in Udon's private input path.
+Registration 1.0/1.1 and existing source metadata remain readable. Neither draft
+construction, capture review nor package promotion authorizes execution.
 
 ## v0.2 Security Migration
 
@@ -73,7 +64,7 @@ through the documented `openudon` commands and v2 executable artifacts.
 Existing v1 evidence remains read-only inspectable; v1 handoffs and run configs
 cannot execute. OpenUdon does not yet expose a supported Go-library API.
 
-The bundled `icot` authoring surfaces and experimental loopback API, LLM/provider behavior, prompt wording,
+LLM/provider behavior, prompt wording,
 catalog/eval/readiness/smoke helpers, and exact generated prose remain
 experimental before v1.
 
@@ -86,18 +77,17 @@ experimental before v1.
   approval states before execution.
 - Runtime operators using `openudon run` to validate approval and package digests before invoking a
   trusted executor.
-- OpenUdon maintainers extending prompts, iCoT, eval fixtures, quality gates, and cross-repo glue.
+- OpenUdon maintainers extending prompts, neutral authoring, eval fixtures, quality gates, and cross-repo glue.
 
 ## Core Workflows
 
 1. Author or refine an example brief under `examples/<name>/project.md`.
-2. Use iCoT's primary single-workspace loopback UI, or the terminal expert
-   fallback, to select a journey, acquire reviewed API/browser sources, select
-   one active workflow, preserve later candidates, and approve `project.md`
-   plus final or explicitly incomplete workflow intent.
-3. Separately build and assess deterministic package bytes; a failed UI build
-   may return to authoring only through explicit revision-protected resume and
-   repeated authoring approval.
+2. Use Kinet's confirmed authoring flow, or explicit OpenUdon neutral commands,
+   to acquire reviewed local sources and publish one active workflow boundary.
+   Seeded expert draft publication requires explicit `--yes`; partial inputs
+   return structured frontier evidence without an interview or publication.
+3. Separately build and assess exact package bytes. Source refresh, authoring
+   decisions and package approval are separate; failed builds grant no retry authority.
 4. Validate API or browser-profile source availability, intent shape, workflow compilation, UWS
    export, expected-plan matching, review evidence, credential policy, and secret scanning.
 5. Run eval fixtures to compare prompt/model/pipeline behavior across curated briefs.
@@ -141,7 +131,7 @@ experimental before v1.
 - **API security alternative** is one operation-level authentication choice
   preserved from reviewed source metadata. Alternatives are OR, bindings
   inside one alternative are AND, and an empty alternative explicitly permits
-  anonymous access. iCoT selects one alternative before request mapping and
+  anonymous access. OpenUdon selects one alternative before request mapping and
   stores only symbolic binding names, never credential values.
 - **Lifecycle operation ranking** is prompt-safe sibling-role inference over
   Apitools operation summaries. Apitools owns the generic ranking algorithm;
@@ -183,25 +173,20 @@ experimental before v1.
   and qualification digests, atomic promotion identity, and closed failure or
   recovery states. It is not a UWS document, browser session, approval,
   execution record, private-result locator, or new UWS semantic contract. One
-  internal driver-free engine supplies matching value-free API v4, accessible
-  local UI, and exact stdin/NDJSON terminal views; every review, preparation,
+  internal driver-free engine supplies native package and transaction operations; every review, preparation,
   promotion, and recovery decision remains separate and none grants runtime
   authority.
 - **Browser authoring handoff** is an inert
   `openudon.browser-authoring-handoff.v1` plan that tells an operator how to
-  run bounded Browsertools authoring outside iCoT and how to return a reviewed
+  run bounded Browsertools authoring through explicit consumer orchestration and how to return a reviewed
   result. It carries typed argv templates and review gates, not browser
   authority, credentials, session state, or captured content. Its existing,
   restrictive private root contains every persisted handoff artifact.
-- **Authenticated browser authoring** is the primary iCoT UI capture flow with
-  `icot browser-author live` as an expert fallback. Browsertools owns one headed,
-  non-persistent Playwright-Go context while the human enters credentials/MFA;
-  iCoT owns typed-goal review, reduced-observation disclosure, API/origin/action/
-  completion/staging gates, strict local protocol consumption, and independent
-  validation of the private digest-bound result. No live context or secret is
-  transferred or packaged. Reduced accessibility labels are useful heuristics,
-  not DLP: ordinary names, identifiers, and order numbers may remain, so the
-  operator reviews them before planner disclosure or retained trace use.
+- **Authenticated browser authoring** uses the public supervised
+  `openudon browser-capture` protocol, orchestrated by Kinet. Browsertools owns
+  one headed non-persistent context; the human enters credentials/MFA directly.
+  Native issued decisions, goal/origin/action gates, review and digest-bound
+  import remain distinct. Reduced labels require disclosure review, not a DLP claim.
 - **Reviewed live MFA and outputs** are author-session v2 human-only choices.
   Browsertools advertises compatible MFA kinds; the human chooses the exact
   exercised kind and may declare at most 16 final-observation scalar/presence
@@ -263,25 +248,13 @@ lock contracts.
 - **Fnct helper selector** is a public helper function name, such as `gmail.render_raw`, that
   OpenUdon may author and review in `x-uws-runtime`. OpenUdon does not execute the helper; trusted
   runtimes import and register the implementation.
-- **Local iCoT UI server** is the primary interactive authoring surface and an
-  experimental `icot ui` transport over one engine. It binds only `127.0.0.1`, opens a tokenless page, and uses a
-  terminal-only five-minute single-use access code to install the scoped
-  cookie beneath a separate unguessable path; a used or expired code can be
-  rotated through a throttled root-page action that prints the replacement
-  only in the terminal. It retains separate exact authoring/capture revisions,
-  a complete-state ETag, and optimistic fingerprints over engine-owned files.
-  Journey selection, bounded API upload/staging, isolated existing-account
-  Chromium capture, frontier rounds, approval, package build/assessment,
-  failure resume, and closed-allowlist handoff inspection form one lifecycle.
-  It freezes only after a passing package build. External changes retain cached
-  inspection but require restart before mutation. Its JSON v4 wire remains an
-  experimental local coordination contract; v1/v2 are not served. The UI does
-  not invoke an LLM extractor, create runtime approvals, accept credentials, or
-  execute workflows.
+- **Consumer UI** belongs to Kinet. OpenUdon exposes no application UI,
+  terminal interview or application-control transport. Retained neutral reports
+  and old `.icot` package artifacts do not imply those surfaces remain available.
 
 ## Scope
 
-- OpenUdon-owned project templates, prompts, guided iCoT authoring, examples, eval fixtures, and review
+- OpenUdon-owned project templates, prompts, closed neutral authoring, examples, eval fixtures, and review
   policy.
 - UWS-facing artifacts authored or generated outside OpenUdon as review inputs
   when users bring them to OpenUdon. Desired-state conversion and
@@ -294,7 +267,7 @@ lock contracts.
   enforcement.
 - Cross-repo compatibility evidence for UWS semantics, udon lowering/runtime behavior, provider
   drift, release gates, and optional sibling checkout readiness.
-- OpenUdon-owned iCoT workflow graph, v2 session/transcript/report adapters, reviewed source staging,
+- OpenUdon-owned neutral workflow graph, v2 session/transcript/report adapters, reviewed source staging,
   proposal/draft approval lifecycle, review evidence, package digest, credential policy, and trusted
   executor handoff helpers. Generic graph/frontier mechanics remain in `../authoring` and API-source
   discovery remains in `../apitools`.
@@ -305,11 +278,6 @@ lock contracts.
 - Shared fail-closed credential detection across artifacts and LLM request
   mappings, bounded provider responses, header-only Gemini authentication, and
   DNS-pinned remote-source acquisition.
-- A single-workspace loopback-only iCoT UI process with an experimental
-  authenticated JSON v3 transport, separate authoring/capture revisions,
-  optimistic workspace-drift enforcement, bounded API and existing-account
-  browser acquisition, explicit authoring/package phases, and polling embedded
-  accessible authoring/review/handoff assets.
 - API/event source metadata discovery/search/import/indexing reuse plus optional provider/spec/security
   catalog advice through `github.com/OpenUdon/apitools`. OpenAPI/Swagger sources remain the default,
   while Google Discovery, AWS Smithy JSON, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData can
@@ -427,10 +395,11 @@ defaults remain unchanged. See ../../docs/per-step-run-evidence.md.
 ## Retained expert authoring entry
 
 `openudon authoring` provides lint, reconcile, repair, reports, variants,
-scorecards and explicit model evaluation over shared implementation. Legacy
-iCoT terminal/UI/control remains available during Stage 5A; M95 removes it
-only after approved replacements qualify. Extraction itself changes no
-user approval or execution authority.
+scorecards and explicit model evaluation over shared implementation. M95 implements removal of the
+iCoT terminal/UI/control after accepted W28 migration. Closed draft, inert
+browser plans, pure registration definitions and public capture/package commands
+retain their native owners. Acceptance/adoption still require M95/M20/W29; no
+additional user approval or execution authority is created.
 
 M92.2 adds explicitly reviewed unresolved step contracts inside packages. The
 non-interactive `step pending` command publishes an intent contract, without a

@@ -179,7 +179,7 @@ Agents may generate and validate artifacts. Production side effects must only ha
 ## Development browser checks
 
 Use `make fast` for routine iterations and one authorized affected `make smoke`
-for UI/runtime changes. Default smoke is the typed registration UI-to-runtime
+for UI/runtime changes. Default smoke is the typed public registration capture-to-runtime
 flow. Full `make qualify` is reserved for integration candidates and runtime
 adoption; do not rerun it for every edit. Native qualification remains three
 fresh repeats and never consumes the development cache. Reused development

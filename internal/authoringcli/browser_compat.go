@@ -21,12 +21,7 @@ func cloneBrowserAuthoringPlan(plan *browserAuthoringPlan) *browserAuthoringPlan
 func exampleDirForPlan(value string) string { return browserauthoring.ExampleDirForPlan(value) }
 func providerFromEnv() string               { return browserauthoring.ProviderFromEnv() }
 func firstNonEmpty(values ...string) string { return browserauthoring.FirstNonEmpty(values...) }
-func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer) int {
-	return browserauthoring.RunWorker(args, in, out, errOut)
-}
-func runBrowserAuthorLive(args []string, in io.Reader, out, errOut io.Writer) int {
-	return browserauthoring.RunLive(args, in, out, errOut)
-}
+
 func runBrowserAuthoring(args []string, out, errOut io.Writer) int {
 	return browserauthoring.RunPlan(args, out, errOut)
 }

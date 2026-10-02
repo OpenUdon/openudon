@@ -22,10 +22,11 @@ import (
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
-const DevelopmentVersion = "openudon.browser-development.v1"
+const DevelopmentVersion = "openudon.browser-development.v2"
 
 type DevelopmentOptions struct {
 	Root, UdonRepo, Out, Mode, Stage, Cache string
+	BrowserdriverNodeModules                string
 	Reuse                                   bool
 	Progress                                io.Writer
 }
@@ -47,10 +48,10 @@ func validDevelopment(r DevelopmentReport, input, stage string, now time.Time) b
 	return r.Version == DevelopmentVersion && !r.QualifiesRuntime && r.Mode == "smoke" &&
 		r.InputSHA256 == input && evidencefile.ValidSHA256(input) && len(r.ExecutionID) == 32 && validID(r.ExecutionID) &&
 		!r.ExecutedAt.IsZero() && !r.ExecutedAt.After(now) && now.Sub(r.ExecutedAt) <= 24*time.Hour &&
-		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback", browserscenario.StackHistorical, Version) == nil
+		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback", browserscenario.StackCurrent, CurrentVersion) == nil
 }
 func cacheableDevelopmentStage(id string) bool {
-	return id == "registration_ui_handoff" || id == "bap_bcp_transaction"
+	return id == "registration_capture_handoff" || id == "bap_bcp_transaction"
 }
 func validID(id string) bool { _, err := hex.DecodeString(id); return err == nil }
 func developmentStage(mode, stage string) (string, error) {
@@ -64,7 +65,7 @@ func developmentStage(mode, stage string) (string, error) {
 		return "", errors.New("development_mode")
 	}
 	if stage == "" {
-		return "registration_ui_handoff", nil
+		return "registration_capture_handoff", nil
 	}
 	for _, id := range inventory("loopback") {
 		if id == stage {
@@ -166,7 +167,7 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 	// all source and installed runtime bytes before considering explicit reuse.
 	input := ""
 	if o.Mode == "smoke" {
-		input, err = developmentInput(ctx, root, udon)
+		input, err = inputInventoryStack(ctx, root, udon, false, browserscenario.StackCurrent, o.BrowserdriverNodeModules)
 		if err != nil {
 			return nil, err
 		}
@@ -209,18 +210,27 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 	switch {
 	case o.Mode == "fast":
 		value, err = goTestsMode(ctx, root, []string{"./..."}, nil, false, true)
-	case id == "registration_ui_handoff" || id == "bap_bcp_transaction":
-		value, err = RunComponent(ctx, root, udon, browserscenario.StackHistorical, "", id)
+	case id == "registration_capture_handoff" || id == "bap_bcp_transaction":
+		// Development intentionally permits dirty OpenUdon sources. The native
+		// owners still validate exact sibling locks and dependencies; the aggregate
+		// qualification-only clean-source admission must not turn smoke into a
+		// release candidate check. The before/after input digest binds the delta.
+		options := browserscenario.Options{RepoRoot: root, UdonRepo: udon, BrowserdriverNodeModules: o.BrowserdriverNodeModules, RequireReady: true, Stack: browserscenario.StackCurrent}
+		if id == "registration_capture_handoff" {
+			value, err = browserscenario.RunBRPQualification(ctx, options)
+		} else {
+			value, err = browserscenario.RunBAPBCPQualification(ctx, options)
+		}
 		if err != nil {
 			err = &commandFailure{reason: "component_evaluation", stderr: []byte(err.Error())}
 		}
 	default:
-		value, err = runStage(ctx, root, udon, browserscenario.StackHistorical, "", id)
+		value, err = runStage(ctx, root, udon, browserscenario.StackCurrent, o.BrowserdriverNodeModules, id)
 	}
 	finish(err)
 	report.DurationMS = time.Since(started).Milliseconds()
 	if err == nil && o.Mode == "smoke" {
-		after, e := developmentInput(ctx, root, udon)
+		after, e := inputInventoryStack(ctx, root, udon, false, browserscenario.StackCurrent, o.BrowserdriverNodeModules)
 		if e != nil || after != input {
 			err = errors.New("development_input_changed")
 		}
@@ -243,10 +253,6 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 // Input includes dirty sources/fixtures, installed JS modules, Go dependency and
 // toolchain files, the running checker, both Chromium distributions and sandbox.
 // Environment values and local paths are hashed, never written to the report.
-func developmentInput(ctx context.Context, root, udon string) (digest string, resultErr error) {
-	return inputInventory(ctx, root, udon, false)
-}
-
 func inputInventory(ctx context.Context, root, udon string, qualification bool) (string, error) {
 	return inputInventoryStack(ctx, root, udon, qualification, browserscenario.StackHistorical, "")
 }

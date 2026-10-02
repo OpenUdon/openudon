@@ -668,7 +668,7 @@ func TestEnvironmentWithOverridesReplacesRatherThanDuplicates(t *testing.T) {
 }
 
 func gateForCommand(command Command) (gate, bool) {
-	for _, spec := range defaultGates() {
+	for _, spec := range neutralGates() {
 		if spec.Repository == command.Repository && equalStrings(spec.Args, command.Args) {
 			return spec, true
 		}

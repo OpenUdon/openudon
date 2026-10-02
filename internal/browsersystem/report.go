@@ -21,7 +21,8 @@ const (
 	Version          = "openudon.browser-system-qualification.v2"
 	CurrentV3Version = "openudon.browser-system-qualification.v3"
 	CurrentV4Version = "openudon.browser-system-qualification.v4"
-	CurrentVersion   = "openudon.browser-system-qualification.v5"
+	CurrentV5Version = "openudon.browser-system-qualification.v5"
+	CurrentVersion   = "openudon.browser-system-qualification.v6"
 	legacyVersion    = "openudon.browser-system-qualification.v1"
 )
 
@@ -70,11 +71,13 @@ var offlineStages = []string{"openudon_unit", "browsertools_unit", "driver_unit"
 var legacyLoopbackStages = []string{"ui_browser", "registration_ui", "supervised_control", "build_inputs", "udon_browser_contract", "udon_browser_cli", "registration_driver", "loopback_scenarios", "journey_scenarios", "bap_bcp_transaction", "registration_ui_handoff"}
 var loopbackStages = append(append([]string(nil), legacyLoopbackStages...), "supervised_registration_package", "supervised_authenticated_package")
 
+var neutralLoopbackStages = []string{"capture_protocol", "registration_definitions", "capture_lifecycle", "build_inputs", "udon_browser_contract", "udon_browser_cli", "registration_driver", "loopback_scenarios", "journey_scenarios", "bap_bcp_transaction", "registration_capture_handoff", "public_registration_package", "public_authenticated_package"}
+
 func inventory(suite string) []string {
 	if suite == "offline" {
 		return offlineStages
 	}
-	return loopbackStages
+	return neutralLoopbackStages
 }
 func hash(data []byte) string { d := sha256.Sum256(data); return hex.EncodeToString(d[:]) }
 func evidenceHash(data []byte) string {
@@ -102,11 +105,11 @@ func validToolchains(value Toolchains, lock browserscenario.CompatibilityLock) b
 
 func Validate(r *Report) error {
 	bad := errors.New("browser system report is invalid")
-	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV4Version && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV4Version || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
+	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV5Version && r.Version != CurrentV4Version && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV5Version || r.Version == CurrentV4Version || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
 		return bad
 	}
 	stack := browserscenario.StackHistorical
-	if r.Version == CurrentV3Version || r.Version == CurrentV4Version || r.Version == CurrentVersion {
+	if r.Version == CurrentV3Version || r.Version == CurrentV4Version || r.Version == CurrentV5Version || r.Version == CurrentVersion {
 		stack = browserscenario.StackCurrent
 	}
 	lock, err := browserscenario.LoadCompatibilityLockForStack(stack)
@@ -163,6 +166,9 @@ func Validate(r *Report) error {
 	failed := ""
 	for n, pass := range r.Passes {
 		ids := inventory(r.Suite)
+		if r.Version != CurrentVersion && r.Suite == "loopback" {
+			ids = loopbackStages
+		}
 		if r.Version == legacyVersion && r.Suite == "loopback" {
 			ids = legacyLoopbackStages
 		}
@@ -250,7 +256,7 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 			if reportVersion == CurrentV4Version && r.Version != browserscenario.CurrentV4ReportVersion && r.Version != browserscenario.CurrentV4JourneyVersion {
 				return bad
 			}
-			if reportVersion == CurrentVersion && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
+			if (reportVersion == CurrentVersion || reportVersion == CurrentV5Version) && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
 				return bad
 			}
 		}
@@ -264,7 +270,7 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 		var manifests []browserscenario.Manifest
 		var err error
 		if stack == browserscenario.StackCurrent {
-			if reportVersion == CurrentVersion {
+			if reportVersion == CurrentVersion || reportVersion == CurrentV5Version {
 				manifests, err = browserscenario.LoadCurrentManifestsV5(time.Now())
 			} else if reportVersion == CurrentV4Version {
 				manifests, err = browserscenario.LoadCurrentManifestsV4(time.Now())
@@ -295,7 +301,7 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 			return bad
 		}
 		return browserscenario.ValidateBAPBCPQualificationEvidence(e)
-	case "registration_ui_handoff":
+	case "registration_ui_handoff", "registration_capture_handoff":
 		var e browserscenario.BRPQualificationEvidence
 		if decodeProof(stage.Evidence, &e) != nil {
 			return bad

@@ -21,54 +21,11 @@ import (
 	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 )
 
-func Main(args []string, in io.Reader, out, errOut io.Writer) int {
-	if len(args) > 0 && args[0] == "__browsertools-worker" {
-		return runBundledBrowserWorker(args[1:], in, out, errOut)
-	}
-	if len(args) > 0 && args[0] == "control" {
-		return runApplication(args[1:], in, out, errOut)
-	}
-	if len(args) > 0 && args[0] == "ui" {
-		return runUI(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "browser-author" {
-		return runBrowserAuthorLive(args[1:], in, out, errOut)
-	}
-	if len(args) > 0 && args[0] == "browser-authoring" {
-		return runBrowserAuthoring(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "browser-transaction" {
-		return runBrowserTransaction(args[1:], in, out, errOut)
-	}
-	if len(args) > 0 && args[0] == "lint" {
-		return runLint(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "reconcile" {
-		return runReconcile(args[1:], in, out, errOut)
-	}
-	if len(args) > 0 && args[0] == "replay-eval" {
-		return runReplayEval(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "scorecard" {
-		return runScorecard(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "variants" {
-		return runVariants(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "authoring-eval" {
-		return runAuthoringEval(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "report" {
-		return runReport(args[1:], out, errOut)
-	}
-	if len(args) > 0 && args[0] == "repair" {
-		return runRepair(args[1:], out, errOut)
-	}
-	return runAuthor(args, in, out, errOut)
-}
-
-func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
-	fs := flag.NewFlagSet("icot", flag.ContinueOnError)
+// RunDraft retains seeded/local records and reporting without a terminal interview.
+func RunDraft(args []string, out, errOut io.Writer) int {
+	in := strings.NewReader("")
+	name := "openudon authoring draft"
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(out)
 	example := fs.String("example", "", "Example directory where project.md will be created")
 	dirAlias := fs.String("dir", "", "Alias for --example")
@@ -108,34 +65,32 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry URL] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
-		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
-		fmt.Fprintf(fs.Output(), "It also creates selected source directories such as openapi/, browser-profiles/, and browser-authentication/, plus workflows/ and expected/, when missing.\n")
-		fmt.Fprintf(fs.Output(), "\nPipeline: local source inspection -> active workflow boundary -> dependency frontier rounds -> complete proposal -> explicit approval.\n")
-		fmt.Fprintf(fs.Output(), "\nSubcommands:\n")
-		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
-		fmt.Fprintf(fs.Output(), "  icot lint --example examples/<name>       Check project.md quality, intent parseability, and drift.\n")
-		fmt.Fprintf(fs.Output(), "  icot scorecard --root examples/eval      Run the provider-free iCoT reliability scorecard.\n")
-		fmt.Fprintf(fs.Output(), "  icot variants validate --root examples/eval Validate authoring variant metadata.\n")
-		fmt.Fprintf(fs.Output(), "  icot variants coverage --root examples/eval Check provider-family variant class coverage.\n")
-		fmt.Fprintf(fs.Output(), "  icot repair --example examples/<name>    Apply bounded mapping/output/dependency repairs.\n")
-		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
-		fmt.Fprintf(fs.Output(), "  icot authoring-eval --root examples/eval Run optional real-LLM natural-language authoring evidence.\n")
-		fmt.Fprintf(fs.Output(), "  icot report verify --file report.json    Verify scorecard or authoring-eval report JSON and digest.\n")
-		fmt.Fprintf(fs.Output(), "  icot ui --example examples/<name>       Serve the primary loopback authoring shell and experimental API v4.\n")
-		fmt.Fprintf(fs.Output(), "  icot browser-author live ...             Run disclosure-gated authenticated Chromium authoring.\n")
-		fmt.Fprintf(fs.Output(), "  icot browser-authoring plan ...          Emit a non-executing Browsertools authoring handoff.\n")
-		fmt.Fprintf(fs.Output(), "  icot browser-transaction ...             Review, prepare, promote, or recover a value-free transaction.\n")
-		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")
-		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
+		fmt.Fprintln(fs.Output(), "Usage: openudon authoring draft --example DIR [--answers FILE|--from-example DIR] [--print|--agent --json|--yes] [options]")
+		fmt.Fprintln(fs.Output(), "Renders seeded/local drafts without terminal input. Incomplete input returns a frontier; complete publication requires --yes. Historical session/transcript formats remain readable.")
 		fs.PrintDefaults()
 	}
+
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		return 2
 	}
+	{
+		if fs.NArg() != 0 {
+			fmt.Fprintln(errOut, "openudon authoring draft: unexpected positional arguments")
+			return 2
+		}
+		if !*agentMode && !*printOnly && !*yes {
+			fmt.Fprintln(errOut, "openudon authoring draft: publication requires --yes; use --print or --agent for read-only review")
+			return 2
+		}
+		if *network == "ask" {
+			fmt.Fprintln(errOut, "openudon authoring draft: interactive network consent is unavailable; choose never or explicitly allow")
+			return 2
+		}
+	}
+
 	defaultMode, err := promptDefaultMode(*promptMode)
 	if err != nil {
 		fmt.Fprintln(errOut, err)
@@ -162,7 +117,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		LoginState: *browserAuthoringLogin, PrivateRoot: *browserAuthoringPrivateRoot,
 	}
 	if browserAuthoringInputProvided(browserAuthoringInput) && !*agentMode {
-		fmt.Fprintln(errOut, "browser authoring flags are available only with --agent; use `icot browser-authoring plan` for an operator handoff")
+		fmt.Fprintln(errOut, "browser authoring flags are available only with --agent; use `openudon authoring browser-plan` for an operator handoff")
 		return 2
 	}
 	browserAuthoring, err := optionalBrowserAuthoringPlan(browserAuthoringInput)
@@ -223,7 +178,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if loadDraft {
 		draftPath = elicitor.DraftPath(exampleDir)
 		if source == seedSourceDraft {
-			fmt.Fprintf(out, "icot: resumed draft %s\n", draftPath)
+			fmt.Fprintf(out, "openudon authoring draft: resumed draft %s\n", draftPath)
 		}
 	}
 	if *printOnly {
@@ -233,21 +188,12 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if !*printOnly && !*noTranscript {
 		transcriptPath = filepath.Join(exampleDir, ".icot", "transcript.json")
 	}
-	statusOut := out
-	if defaultMode == authoring.PromptDefaultsSilent {
-		statusOut = io.Discard
-	}
-	extractor, usingLLM := resolveExtractor(*noLLM, *provider, *model, *temperature, statusOut)
-	if !usingLLM {
-		fmt.Fprintln(statusOut, "icot: running without LLM extraction; continuing with manual slot filling")
-	}
 	authorSourceRoots := append([]string(nil), sourceRootFlags...)
 	if strings.TrimSpace(*fromExample) != "" && filepath.Clean(*fromExample) != filepath.Clean(exampleDir) {
 		authorSourceRoots = appendSeedSourceRoots(authorSourceRoots, *fromExample)
 	}
 	var artifacts elicitor.Artifacts
-	complete := completeSession(seed)
-	if complete {
+	{
 		refreshed, refreshErr := elicitor.RefreshSessionSources(context.Background(), seed, elicitor.SourceRefreshOptions{
 			ExampleDir: exampleDir, Query: projectwizard.Render(seed.Project), LocalSources: localSources, SourceRoots: authorSourceRoots,
 			BrowserSources: browserSources, BrowserRegistries: browserRegistryFlags, BrowserVerifications: browserVerificationFlags,
@@ -259,28 +205,34 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		seed = refreshed.Session
 	}
-	if complete && (source != seedSourceDraft || *printOnly) {
-		artifacts, err = elicitor.RenderArtifacts(seed)
-	} else {
-		artifacts, err = elicitor.Run(context.Background(), input, out, seed, elicitor.Options{
-			ExampleDir:           exampleDir,
-			NoLLM:                *noLLM || !usingLLM,
-			Extractor:            extractor,
-			DraftPath:            draftPath,
-			TranscriptPath:       transcriptPath,
-			DisableAIDraft:       source == seedSourceDraft,
-			VerifyOnly:           complete && source == seedSourceDraft,
-			DefaultMode:          defaultMode,
-			ReviewRepair:         *reviewRepair,
-			LocalSources:         localSources,
-			BrowserSources:       browserSources,
+	complete := completeSession(seed)
+	// Explicit fast seeded mode retains the existing deterministic defaulting
+	// semantics. Reuse the neutral elicitor with a private empty reader and no
+	// persistence paths; an unanswered required slot still returns a frontier.
+	if !complete && strings.TrimSpace(*fromExample) != "" && defaultMode == authoring.PromptDefaultsSilent && (*yes || *printOnly) {
+		normalized, normalizeErr := elicitor.Run(context.Background(), strings.NewReader(""), io.Discard, seed, elicitor.Options{
+			ExampleDir: exampleDir, NoLLM: true, DisableAIDraft: true, DefaultMode: defaultMode, AutoApprove: true,
+			LocalSources: localSources, BrowserSources: browserSources, BrowserVerifications: append([]string(nil), browserVerificationFlags...), BrowserRegistries: append([]string(nil), browserRegistryFlags...), SourceRoots: authorSourceRoots, NetworkPolicy: networkPolicy,
+		})
+		if normalizeErr == nil && !normalized.Incomplete {
+			seed = normalized.Session
+			complete = completeSession(seed)
+		}
+	}
+	if !complete {
+		return runAgentAuthor(agentAuthorOptions{
+			ExampleDir: exampleDir, FromExample: *fromExample, AnswersFile: *answersFile,
+			NoTranscript: true, JSONOutput: *jsonOutput, ReportPath: *reportPath,
+			PromptMode: *promptMode, DefaultMode: defaultMode, NoLLM: true,
+			LocalSources: localSources, BrowserSources: browserSources,
 			BrowserVerifications: append([]string(nil), browserVerificationFlags...),
 			BrowserRegistries:    append([]string(nil), browserRegistryFlags...),
-			SourceRoots:          authorSourceRoots,
-			NetworkPolicy:        networkPolicy,
-			AutoApprove:          *yes,
-		})
+			SourceRoots:          authorSourceRoots, NetworkPolicy: networkPolicy,
+			BrowserAuthoring: browserAuthoring,
+		}, out, errOut)
 	}
+
+	artifacts, err = elicitor.RenderArtifacts(seed)
 	if *printOnly {
 		if err != nil {
 			fmt.Fprintln(errOut, err)
@@ -288,20 +240,6 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		printArtifacts(out, artifacts)
 		return 0
-	}
-	if err == nil && complete && source != seedSourceDraft {
-		fmt.Fprintln(out, "\n----- complete authoring proposal -----")
-		elicitor.PrintProposal(out, artifacts)
-		if !*yes {
-			approved, approvalErr := confirmProposalApproval(input, out)
-			if approvalErr != nil {
-				fmt.Fprintln(errOut, approvalErr)
-				return 1
-			}
-			if !approved {
-				return 0
-			}
-		}
 	}
 	if errors.Is(err, elicitor.ErrCanceled) {
 		if deleteErr := elicitor.DeleteDraft(draftPath); deleteErr != nil {
@@ -325,42 +263,17 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			return 1
 		}
 	}
-	fmt.Fprintf(out, "icot: wrote %s\n", projectPath)
+	fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", projectPath)
 	if artifacts.Incomplete {
-		fmt.Fprintf(out, "icot: wrote %s\n", filepath.Join(exampleDir, "workflows", "intent.draft.hcl"))
+		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", filepath.Join(exampleDir, "workflows", "intent.draft.hcl"))
 	} else {
-		fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", intentPath)
 	}
 	if transcriptPath != "" {
-		fmt.Fprintf(out, "icot: wrote %s\n", transcriptPath)
+		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", transcriptPath)
 	}
 	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
-}
-
-func confirmProposalApproval(in io.Reader, out io.Writer) (bool, error) {
-	reader, ok := in.(*bufio.Reader)
-	if !ok {
-		reader = bufio.NewReader(in)
-	}
-	for {
-		fmt.Fprint(out, "Type approve to write the proposal, or cancel: ")
-		value, err := reader.ReadString('\n')
-		value = strings.ToLower(strings.TrimSpace(value))
-		switch value {
-		case "approve":
-			return true, nil
-		case "cancel", "q", "quit":
-			return false, nil
-		}
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return false, io.ErrUnexpectedEOF
-			}
-			return false, err
-		}
-		fmt.Fprintln(out, "Please type approve or cancel.")
-	}
 }
 
 type agentAuthorOptions struct {

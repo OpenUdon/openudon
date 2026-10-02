@@ -2,6 +2,7 @@ package authoringcli
 
 import (
 	"fmt"
+	"github.com/OpenUdon/openudon/internal/registrationdraft"
 	"io"
 )
 
@@ -10,10 +11,16 @@ import (
 // evaluation retains its existing explicit provider configuration.
 func RunExpert(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
-		fmt.Fprintln(out, "Usage: openudon authoring <lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval> [options]")
+		fmt.Fprintln(out, "Usage: openudon authoring <draft|browser-plan|registration-draft|lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval> [options]")
 		return 0
 	}
 	switch args[0] {
+	case "registration-draft":
+		return registrationdraft.RunCommand(args[1:], in, out, errOut)
+	case "draft":
+		return RunDraft(args[1:], out, errOut)
+	case "browser-plan":
+		return runBrowserAuthoring(append([]string{"plan"}, args[1:]...), out, errOut)
 	case "lint":
 		return runLint(args[1:], out, errOut)
 	case "reconcile":

@@ -1,4 +1,4 @@
-package ui
+package registrationdraft
 
 import (
 	"crypto/sha256"
@@ -117,11 +117,11 @@ type RetainedQueryParameter struct {
 	Value string `json:"value"`
 }
 
-func buildRegistrationDraft(request registrationDraftRequest, start registrationAuthoringStartRequest, observation registrationauthorsession.Observation, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
+func buildRegistrationDraft(request registrationDraftRequest, start Start, observation registrationauthorsession.Observation, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
 	return buildRegistrationDraftHistory(request, start, observation, nil, nil, now)
 }
 
-func buildRegistrationDraftHistory(request registrationDraftRequest, start registrationAuthoringStartRequest, observation registrationauthorsession.Observation, history []registrationauthorsession.Observation, previews []registrationauthorsession.PreviewRecord, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
+func buildRegistrationDraftHistory(request registrationDraftRequest, start Start, observation registrationauthorsession.Observation, history []registrationauthorsession.Observation, previews []registrationauthorsession.PreviewRecord, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
 	typed := start.ProfileVersion == "1.1" || start.ProfileVersion == "1.2"
 	protocol := registrationauthorsession.ProtocolV3
 	if start.ProfileVersion == "1.2" {
@@ -482,3 +482,34 @@ func retainedQueryDisclosures(profile *browserregistration.Profile) []RetainedQu
 	}
 	return result
 }
+
+// Start contains only structural source authority. It has no listener, token,
+// application revision or UI transport state.
+type Start struct {
+	ProfileVersion string   `json:"profile_version"`
+	Origins        []string `json:"origins"`
+	ProfileID      string   `json:"profile_id"`
+	URL            string   `json:"url"`
+}
+
+// Public aliases expose the single neutral profile-definition builder to
+// capture supervisors and expert callers; they preserve existing wire fields.
+type Request = registrationDraftRequest
+type Slot = registrationDraftSlot
+type Flow = registrationDraftFlow
+type Step = registrationDraftStep
+type Success = registrationDraftSuccess
+type SuccessLocator = registrationDraftSuccessLocator
+type CallControls = registrationDraftCallControls
+
+const SuccessProofOperatorReviewedDeferred = registrationSuccessProofOperatorReviewedDeferred
+const AccessibilityDisclosure = registrationAccessibilityDisclosure
+
+func Build(request Request, start Start, observation registrationauthorsession.Observation, history []registrationauthorsession.Observation, previews []registrationauthorsession.PreviewRecord, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
+	return buildRegistrationDraftHistory(request, start, observation, history, previews, now)
+}
+func ValidBindingName(binding string) bool { return validRegistrationDraftBindingName(binding) }
+
+var ErrBindingsInvalid = errRegistrationDraftBindingsInvalid
+
+func ValidSymbolName(value string) bool { return registrationDraftSymbol.MatchString(value) }

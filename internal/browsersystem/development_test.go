@@ -74,7 +74,7 @@ func TestDevelopmentCachePreservesIdentityAndRefusesInvalidEvidence(t *testing.T
 	}
 }
 func TestDevelopmentStageSelectionIsClosed(t *testing.T) {
-	if id, err := developmentStage("smoke", ""); err != nil || id != "registration_ui_handoff" {
+	if id, err := developmentStage("smoke", ""); err != nil || id != "registration_capture_handoff" {
 		t.Fatal("default")
 	}
 	for _, pair := range [][2]string{{"live", ""}, {"smoke", "https://www.w8m.com"}, {"fast", "registration_ui"}, {"qualify", ""}} {
@@ -89,7 +89,7 @@ func TestDevelopmentStageSelectionIsClosed(t *testing.T) {
 
 func TestOnlyInProcessTransactionsUseCustomCache(t *testing.T) {
 	for _, id := range inventory("loopback") {
-		expected := id == "registration_ui_handoff" || id == "bap_bcp_transaction"
+		expected := id == "registration_capture_handoff" || id == "bap_bcp_transaction"
 		if cacheableDevelopmentStage(id) != expected {
 			t.Fatal("unsupported build environment cached", id)
 		}

@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/registrationprofile"
-	icotui "github.com/OpenUdon/openudon/internal/authoringui"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
+	"github.com/OpenUdon/openudon/internal/capturequalification"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
@@ -162,45 +162,53 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	if err != nil {
 		return evidence, fmt.Errorf("BRP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))
 	}
-	qualifiedUI, err := icotui.RunRegistrationQualification(ctx, icotui.RegistrationQualificationOptions{
-		Typed: true, Verification: true,
-		RepoRoot: environment.RepoRoot, BrowsertoolsExecutable: executor.browsertools,
+	application := filepath.Join(executor.root, "openudon")
+	if err := browsercheck.Build(ctx, "openudon", application, func(output string) error {
+		if !runSilent(ctx, buildDeadline, environment.RepoRoot, []string{"go", "build", "-o", output, "./cmd/openudon"}, qualificationGoBuildEnvironment()) {
+			return errors.New("build OpenUdon")
+		}
+		return nil
+	}); err != nil {
+		return evidence, errors.New("BRP public application build failed")
+	}
+	qualifiedCapture, err := capturequalification.RunRegistration(ctx, capturequalification.RegistrationOptions{
+		Executable: application, RepoRoot: environment.RepoRoot,
 		ExampleDir: exampleDir, PrivateRoot: privateRoot, ScratchParent: scratch, StoreDir: store, Scope: "qualification/brp",
-		ProfileID: "qualification_brp", InitialURL: fixture.URL(), Origin: fixture.Origin(), Now: func() time.Time { return time.Now().UTC() },
+		ProfileID: "qualification_brp", InitialURL: fixture.URL(), Origin: fixture.Origin(), Environment: qualificationCaptureEnvironment(),
 	})
 	if err != nil {
-		return evidence, fmt.Errorf("BRP iCoT wizard qualification: %w", err)
+		return evidence, fmt.Errorf("BRP public capture qualification: %w", err)
 	}
-	if qualifiedUI.Snapshot.Transaction == nil || qualifiedUI.Snapshot.Preparation == nil || qualifiedUI.Snapshot.Promotion == nil || !qualifiedUI.RetainedQuery {
-		return evidence, errors.New("BRP iCoT wizard qualification failed")
+	if !qualifiedCapture.RetainedQuery || !qualifiedCapture.VerificationRefused || !qualifiedCapture.VerificationGranted {
+		return evidence, errors.New("BRP capture qualification failed")
 	}
 	authoringNetwork := fixture.Evidence()
 	if len(authoringNetwork.Methods) != 2 || authoringNetwork.Methods[0] != http.MethodGet || authoringNetwork.Methods[1] != http.MethodHead ||
 		authoringNetwork.MutationRequests != 0 || authoringNetwork.AccountCreated {
 		return evidence, errors.New("BRP producer exceeded its application GET/HEAD authority")
 	}
-	reviewed := *qualifiedUI.Snapshot.Transaction
-	if reviewed.Version != browsertransaction.VersionV4 || reviewed.Session != "" || reviewed.State != browsertransaction.StatePromoted ||
+	reviewed := qualifiedCapture.Transaction
+	if reviewed.Version != browsertransaction.VersionV4 || reviewed.Session != "" || reviewed.State != browsertransaction.StateReviewed ||
 		reviewed.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV4 {
-		return evidence, errors.New("BRP iCoT transaction-v4 transition failed")
+		return evidence, errors.New("BRP reviewed capture-v4 transition failed")
 	}
 	promoted, err := packagepipeline.ReadCurrent(ctx, store)
 	if err != nil {
 		return evidence, errors.New("BRP promoted package is unavailable")
 	}
-	runtimeAuthority, err := registrationQualificationAuthority(promoted, qualifiedUI.CanonicalProfile)
+	runtimeAuthority, err := registrationQualificationAuthority(promoted, qualifiedCapture.CanonicalProfile)
 	if err != nil {
 		return evidence, errors.New("BRP promoted registration authority is invalid")
 	}
 	selection := promoted.Selection()
 	if selection.PriorGenerationSHA256 != baseline.Selection().SelectedGenerationSHA256 || selection.PriorGenerationSHA256 == "" ||
-		qualifiedUI.Snapshot.Promotion.PriorGenerationSHA256 != selection.PriorGenerationSHA256 ||
-		qualifiedUI.Snapshot.Promotion.SelectionSHA256 != selection.SelectionSHA256 {
+		qualifiedCapture.Selection.PriorGenerationSHA256 != selection.PriorGenerationSHA256 ||
+		qualifiedCapture.Selection.SelectionSHA256 != selection.SelectionSHA256 {
 		return evidence, errors.New("BRP qualification prior generation was not preserved")
 	}
 	inspection, err := packagepipeline.InspectSelected(ctx, store, selection.SelectionSHA256)
-	if err != nil || taggedQualificationSHA256(inspection.PackageSHA256) != taggedQualificationSHA256(qualifiedUI.Snapshot.Preparation.PackageSHA256) ||
-		taggedQualificationSHA256(inspection.HandoffSHA256) != taggedQualificationSHA256(qualifiedUI.Snapshot.Preparation.HandoffSHA256) {
+	if err != nil || taggedQualificationSHA256(inspection.PackageSHA256) != taggedQualificationSHA256(qualifiedCapture.Prepared.PackageSHA256) ||
+		taggedQualificationSHA256(inspection.HandoffSHA256) != taggedQualificationSHA256(qualifiedCapture.Prepared.HandoffSHA256) {
 		return evidence, errors.New("BRP selected package review failed")
 	}
 	packageAt = time.Now().UTC().Round(0)
@@ -311,8 +319,8 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	submitApproved := runEvidence.Browser != nil && runEvidence.Browser.Protocol == "v6" &&
 		len(runEvidence.Browser.ApprovedRegistration) == 1 && runEvidence.Browser.ApprovedRegistration[0] == runtimeAuthority.operation
 	evidence = BRPQualificationEvidence{
-		ProducerResultSHA256: taggedQualificationSHA256(reviewed.Provenance.ResultSHA256), TransactionSHA256: taggedQualificationSHA256(qualifiedUI.Snapshot.TransactionSHA256),
-		PreparationSHA256: taggedQualificationSHA256(qualifiedUI.Snapshot.Preparation.PreparationSHA256), QualificationSHA256: taggedQualificationSHA256(qualifiedUI.Snapshot.Preparation.QualificationSHA256),
+		ProducerResultSHA256: taggedQualificationSHA256(reviewed.Provenance.ResultSHA256), TransactionSHA256: taggedQualificationSHA256(qualifiedCapture.TransactionSHA256),
+		PreparationSHA256: taggedQualificationSHA256(qualifiedCapture.Prepared.ManifestSHA256), QualificationSHA256: taggedQualificationSHA256(qualifiedCapture.Qualified.QualificationSHA256),
 		GenerationSHA256: taggedQualificationSHA256(selection.SelectedGenerationSHA256), SelectionSHA256: taggedQualificationSHA256(selection.SelectionSHA256),
 		PackageSHA256: taggedQualificationSHA256(selection.PackageSHA256), HandoffSHA256: taggedQualificationSHA256(inspection.HandoffSHA256),
 		WorkflowSHA256: taggedQualificationSHA256(workflowSHA256), AttestationSHA256: taggedQualificationSHA256(attestationSHA256),
@@ -464,7 +472,7 @@ func (fixture *registrationQualificationFixture) serveHTTP(writer http.ResponseW
 	if request.Method == http.MethodHead {
 		return
 	}
-	_, _ = writer.Write([]byte(icotui.SyntheticVerificationRegistrationForm))
+	_, _ = writer.Write([]byte(capturequalification.SyntheticVerificationRegistrationForm))
 }
 
 func (fixture *registrationQualificationFixture) URL() string {
@@ -543,4 +551,16 @@ func registrationQualificationRuntimeEnvironment(udonPath string) []string {
 		}
 	}
 	return values
+}
+
+// Only synthetic qualification inherits the explicit development tool/display
+// allowlist. Provider credentials and arbitrary environment never reach capture.
+func qualificationCaptureEnvironment() []string {
+	var environment []string
+	for _, name := range []string{"HOME", "PATH", "DISPLAY", "XAUTHORITY", "CHROME_DEVEL_SANDBOX", "PLAYWRIGHT_BROWSERS_PATH", "LANG", "LC_ALL"} {
+		if value := os.Getenv(name); value != "" {
+			environment = append(environment, name+"="+value)
+		}
+	}
+	return append(environment, "GOWORK=off", "GOPROXY=off", "GOSUMDB=off", "GOENV=off", "GOTOOLCHAIN=local")
 }

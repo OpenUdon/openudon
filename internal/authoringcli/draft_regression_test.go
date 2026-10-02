@@ -26,27 +26,6 @@ import (
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-func TestMainPreviewEOFCancelsWithoutWriting(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader(testProjectInput(false)), &stdout, &stderr)
-	if code == 0 {
-		t.Fatalf("Main succeeded with EOF at preview\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
-		t.Fatalf("EOF wrote project.md or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
-		t.Fatalf("EOF wrote intent.hcl or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, ".icot", "session.yaml")); err != nil {
-		t.Fatalf("EOF should preserve draft session: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
-	}
-	if !strings.Contains(stderr.String(), "needs input") {
-		t.Fatalf("stderr missing needs-input diagnostic:\n%s", stderr.String())
-	}
-}
-
 func TestBackupProjectCreatesDistinctBackups(t *testing.T) {
 	dir := t.TempDir()
 	projectPath := filepath.Join(dir, "project.md")
@@ -130,7 +109,7 @@ func TestBrowserRegistryLookupApprovalUsesSavedDecision(t *testing.T) {
 func TestAgentJSONNeedsInputWithoutWriting(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "agent")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("agent returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -151,7 +130,7 @@ func TestAgentJSONCompleteSessionWritesArtifacts(t *testing.T) {
 	example := filepath.Join(dir, "agent-complete")
 	sessionPath := writeCompleteRuntimeSession(t, dir)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("agent complete returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -198,10 +177,10 @@ func TestCompleteAndAgentAuthoringBlockInactiveBrowserSource(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			example := filepath.Join(dir, test.name)
-			args := []string{"--example", example, "--answers", sessionPath, "--browser-profile", "expired=" + profilePath, "--no-llm", "--no-transcript"}
+			args := []string{"--example", example, "--answers", sessionPath, "--browser-profile", "expired=" + profilePath, "--no-llm", "--no-transcript", "--print"}
 			args = append(args, test.extra...)
 			var stdout, stderr bytes.Buffer
-			if code := Main(args, strings.NewReader(""), &stdout, &stderr); code == 0 || !strings.Contains(stderr.String(), "browser source discovery is incomplete") {
+			if code := RunExpert(append([]string{"draft"}, args...), strings.NewReader(""), &stdout, &stderr); code == 0 || !strings.Contains(stderr.String(), "browser source discovery is incomplete") {
 				t.Fatalf("Main code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 			}
 			if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
@@ -228,7 +207,7 @@ func TestAgentJSONBlocksRenderableLowDecisionEvidence(t *testing.T) {
 	session.Interview.Evidence = append(session.Interview.Evidence, publicinterview.Evidence{ID: "evidence.low-output", Kind: publicinterview.EvidenceRecommendation, Summary: "The output mapping was inferred with low confidence.", Value: "ticket=render_report.received_body", Source: "llm:low-confidence", References: []string{"intent.outputs.ticket"}})
 	sessionPath := writeSessionJSON(t, dir, session)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("agent returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -248,7 +227,7 @@ func TestAgentJSONLoadsCompleteDraft(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "agent-draft")
 	draftPath := writeCompleteDraft(t, example)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("agent draft returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -276,7 +255,7 @@ func TestAgentReportWriteFailureReturnsError(t *testing.T) {
 		t.Fatalf("write not-dir file: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json", "--report", filepath.Join(notDir, "report.json")}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--answers", sessionPath, "--agent", "--json", "--report", filepath.Join(notDir, "report.json")}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("agent code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -307,7 +286,7 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 			}
 			exampleDir := filepath.Join(outRoot, name)
 			var stdout, stderr bytes.Buffer
-			code := Main([]string{"--example", exampleDir, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, strings.NewReader(""), &stdout, &stderr)
+			code := RunExpert([]string{"draft", "--example", exampleDir, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				assertSeedBuildOutcome(t, policy, "icot_fail", nil, strings.TrimSpace(stderr.String()))
 				return
@@ -391,7 +370,7 @@ func TestLintJSONReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"lint", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"lint", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("lint json returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -407,7 +386,7 @@ func TestLintJSONReport(t *testing.T) {
 func TestScorecardSingleFixture(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -436,7 +415,7 @@ func TestScorecardSingleFixture(t *testing.T) {
 func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard-variants")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("scorecard variants returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -480,12 +459,12 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 func TestReportVerifyScorecard(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard")
 	var scoreOut, scoreErr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
 	if code != 0 {
 		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", filepath.Join(outDir, "scorecard.json")}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"report", "verify", "--file", filepath.Join(outDir, "scorecard.json")}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), scorecardReportVersion) {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -505,7 +484,7 @@ func TestReportVerifyScorecard(t *testing.T) {
 func TestReportVerifyRejectsDigestMismatch(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard")
 	var scoreOut, scoreErr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
 	if code != 0 {
 		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
 	}
@@ -522,7 +501,7 @@ func TestReportVerifyRejectsDigestMismatch(t *testing.T) {
 		t.Fatalf("close scorecard: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "digest mismatch") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -531,7 +510,7 @@ func TestReportVerifyRejectsDigestMismatch(t *testing.T) {
 func TestReportVerifyRejectsVariantTopIssueMismatch(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard")
 	var scoreOut, scoreErr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
 	if code != 0 {
 		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
 	}
@@ -554,7 +533,7 @@ func TestReportVerifyRejectsVariantTopIssueMismatch(t *testing.T) {
 		t.Fatalf("rewrite tampered scorecard: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "does not match expected/observed outcome") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -563,7 +542,7 @@ func TestReportVerifyRejectsVariantTopIssueMismatch(t *testing.T) {
 func TestReportVerifyRejectsRetentionMismatch(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "scorecard")
 	var scoreOut, scoreErr bytes.Buffer
-	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	code := RunExpert([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
 	if code != 0 {
 		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
 	}
@@ -581,7 +560,7 @@ func TestReportVerifyRejectsRetentionMismatch(t *testing.T) {
 		t.Fatalf("rewrite tampered scorecard: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "retention metadata") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -770,7 +749,7 @@ func TestMissingDetailVariantTopIssues(t *testing.T) {
 
 func TestVariantsValidateCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"variants", "validate", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"variants", "validate", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("variants validate returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -785,7 +764,7 @@ func TestVariantsValidateCommand(t *testing.T) {
 
 func TestVariantsCoverageCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"variants", "coverage", "--root", filepath.Join("..", "..", "examples", "eval"), "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"variants", "coverage", "--root", filepath.Join("..", "..", "examples", "eval"), "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("variants coverage returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -841,7 +820,7 @@ func TestVariantsCoverageRejectsMissingClass(t *testing.T) {
 		t.Fatalf("write variants: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"variants", "coverage", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"variants", "coverage", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("variants coverage code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -881,7 +860,7 @@ func TestVariantsValidateRejectsUnknownClearSlot(t *testing.T) {
 		t.Fatalf("write variants: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("variants validate code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -919,7 +898,7 @@ func TestVariantsValidateRejectsMissingExpectedTopIssue(t *testing.T) {
 		t.Fatalf("write variants: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("variants validate code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -983,7 +962,7 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 
 	outDir := filepath.Join(t.TempDir(), "authoring-eval")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("authoring-eval returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1012,7 +991,7 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 		t.Fatalf("authoring eval result = %#v", result)
 	}
 	var verifyOut, verifyErr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", filepath.Join(outDir, "authoring-eval.json")}, strings.NewReader(""), &verifyOut, &verifyErr)
+	code = RunExpert([]string{"report", "verify", "--file", filepath.Join(outDir, "authoring-eval.json")}, strings.NewReader(""), &verifyOut, &verifyErr)
 	if code != 0 || !strings.Contains(verifyOut.String(), authoringEvalReportVersion) {
 		t.Fatalf("authoring eval report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, verifyOut.String(), verifyErr.String())
 	}
@@ -1027,7 +1006,7 @@ func TestReportVerifyRejectsAuthoringEvalRetentionMismatch(t *testing.T) {
 
 	outDir := filepath.Join(t.TempDir(), "authoring-eval")
 	var authorOut, authorErr bytes.Buffer
-	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &authorOut, &authorErr)
+	code := RunExpert([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &authorOut, &authorErr)
 	if code != 0 {
 		t.Fatalf("authoring-eval returned code %d\nstdout:\n%s\nstderr:\n%s", code, authorOut.String(), authorErr.String())
 	}
@@ -1045,7 +1024,7 @@ func TestReportVerifyRejectsAuthoringEvalRetentionMismatch(t *testing.T) {
 		t.Fatalf("rewrite tampered authoring eval report: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "retention metadata") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1060,7 +1039,7 @@ func TestAuthoringEvalClassifiesProviderTimeout(t *testing.T) {
 
 	outDir := filepath.Join(t.TempDir(), "authoring-eval")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("authoring-eval code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1086,7 +1065,7 @@ func TestAuthoringEvalScansGeneratedArtifactsForCredentials(t *testing.T) {
 
 	outDir := filepath.Join(t.TempDir(), "authoring-eval")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("authoring-eval code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1159,12 +1138,12 @@ func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
 func TestRepairDryRunJSON(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "repair")
 	var setupOut, setupErr bytes.Buffer
-	code := Main([]string{"--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--no-llm", "--no-transcript", "--yes"}, strings.NewReader(""), &setupOut, &setupErr)
+	code := RunExpert([]string{"draft", "--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--no-llm", "--no-transcript", "--yes"}, strings.NewReader(""), &setupOut, &setupErr)
 	if code != 0 {
 		t.Fatalf("setup failed code %d\nstdout:\n%s\nstderr:\n%s", code, setupOut.String(), setupErr.String())
 	}
 	var stdout, stderr bytes.Buffer
-	code = Main([]string{"repair", "--example", example, "--dry-run", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code = RunExpert([]string{"repair", "--example", example, "--dry-run", "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("repair dry-run returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1189,7 +1168,7 @@ func TestRepairAddsDependsOnFromStepReference(t *testing.T) {
 		t.Fatalf("initial send_report = %#v", initialSend)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"repair", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"repair", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("repair returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1433,146 +1412,10 @@ func qualityFailureDetails(report *synthesize.QualityReport) string {
 	return strings.Join(out, "; ")
 }
 
-func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("Render a local summary report from a runtime input\n"), &stdout, &stderr)
-	if code == 0 {
-		t.Fatalf("first Main unexpectedly succeeded\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
-	}
-	draftPath := filepath.Join(example, ".icot", "session.yaml")
-	if _, err := os.Stat(draftPath); err != nil {
-		t.Fatalf("draft missing after EOF: %v", err)
-	}
-	stdout.Reset()
-	stderr.Reset()
-	code = Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("render_report\napprove\n"), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("resume failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, "project.md")); err != nil {
-		t.Fatalf("project.md missing after resume: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
-		t.Fatalf("intent.hcl missing after resume: %v", err)
-	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after save: %v", err)
-	}
-}
-
-func TestCompleteDraftResumeCancelDeletesDraftWithoutWriting(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	draftPath := writeCompleteDraft(t, example)
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("cancel\n"), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("cancel failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
-		t.Fatalf("cancel wrote project.md or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
-		t.Fatalf("cancel wrote intent.hcl or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
-	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after cancel: %v", err)
-	}
-}
-
-func TestCompleteDraftResumeSaveWritesAndDeletesDraft(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	draftPath := writeCompleteDraft(t, example)
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("save\n"), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
-		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
-			t.Fatalf("%s missing after save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
-		}
-	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after save: %v", err)
-	}
-}
-
-func TestPromptModeFastRequiresCompleteDraftApproval(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	draftPath := writeCompleteDraft(t, example)
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader("approve\n"), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("fast save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
-		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
-			t.Fatalf("%s missing after fast save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
-		}
-	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after fast save: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "Type approve, edit <slot>, explain <assumption-id>, or cancel") {
-		t.Fatalf("stdout omitted forced proposal approval:\n%s", stdout.String())
-	}
-}
-
-func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	draftPath := writeCompleteDraft(t, example)
-	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("approve\n"), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("normal save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
-		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
-			t.Fatalf("%s missing after normal save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
-		}
-	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after normal save: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "Type approve, edit <slot>, explain <assumption-id>, or cancel [approve]:") {
-		t.Fatalf("stdout missing forced proposal approval prompt:\n%s", stdout.String())
-	}
-}
-
-func TestPromptModeFastWritesManualDraftFromOpeningOnly(t *testing.T) {
-	example := filepath.Join(t.TempDir(), "guided")
-	var stdout, stderr bytes.Buffer
-	input := "Render a local summary report from a runtime input\nguided_project\napprove\n"
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(input), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("fast manual draft failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
-		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
-			t.Fatalf("%s missing after fast manual draft: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
-		}
-	}
-	for _, unexpected := range []string{
-		"icot: running without LLM extraction",
-		"Workflow timeout seconds (blank for none):",
-		"Workflow name [",
-		"Use OpenAPI/API steps?",
-		"Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel",
-	} {
-		if strings.Contains(stdout.String(), unexpected) {
-			t.Fatalf("stdout printed auto-accepted prompt %q:\n%s", unexpected, stdout.String())
-		}
-	}
-	if !strings.Contains(stdout.String(), "Workflow goal:") {
-		t.Fatalf("stdout missing required no-default prompt:\n%s", stdout.String())
-	}
-}
-
 func TestPromptModeRejectsUnknownValue(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--prompt-mode", "turbo"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--print", "--example", example, "--prompt-mode", "turbo"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("Main exit code = %d, want 2\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1784,7 +1627,7 @@ func TestMainAttachesExplicitBrowserVerificationReport(t *testing.T) {
 	session.BrowserSession = "none"
 	sessionPath := writeSessionJSON(t, t.TempDir(), session)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{
+	code := RunExpert([]string{"draft",
 		"--example", example, "--answers", sessionPath, "--browser-profile", "status=" + profilePath,
 		"--browser-verification", reportPath, "--yes", "--no-llm", "--no-transcript",
 	}, strings.NewReader(""), &stdout, &stderr)
@@ -1863,7 +1706,7 @@ func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	draftPath := writeCompleteDraft(t, example)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--print", "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--print", "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("print failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1884,7 +1727,7 @@ func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
 func TestNoTranscriptSkipsLocalTranscript(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--no-transcript", "--prompt-mode", "fast"}, strings.NewReader(testProjectInput(false)+"approve\n"), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--yes", "--no-llm", "--no-transcript", "--prompt-mode", "fast"}, strings.NewReader(testProjectInput(false)+"approve\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("Main failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1914,20 +1757,12 @@ func TestProviderFromEnvHonorsOpenUdonProviderOverride(t *testing.T) {
 	}
 }
 
-func TestCompleteDraftEditsReplaceSeededPolicyFields(t *testing.T) {
+func TestNeutralSeedEditsReplacePolicyFields(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Old safety note", "Old fallback note")
-	input := strings.Join([]string{
-		"edit credentials",
-		"new_token",
-		"edit safety",
-		"New safety note",
-		"edit fallback",
-		"New fallback note",
-		"save",
-	}, "\n") + "\n"
+	writeCompleteDraftWithPolicy(t, example, []string{"new_token"}, "New safety note", "New fallback note")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader(input), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--yes", "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("policy edit failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1948,11 +1783,12 @@ func TestCompleteDraftEditsReplaceSeededPolicyFields(t *testing.T) {
 	}
 }
 
-func TestCompleteDraftCredentialsNoneClearsSeededBindings(t *testing.T) {
+func TestNeutralSeedCredentialsNoneClearsBindings(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Sandbox proof runs only", "Stop on errors")
+	writeCompleteDraftWithPolicy(t, example, nil, "Sandbox proof runs only", "Stop on errors")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("edit credentials\nnone\nsave\n"), &stdout, &stderr)
+	code := RunExpert([]string{"draft", "--example", example, "--yes", "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("credential clear failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1996,7 +1832,7 @@ func TestReconcileRegeneratesProjectOnlyAndPreservesPolicy(t *testing.T) {
 		t.Fatalf("write project: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"reconcile", "--example", example, "--yes"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"reconcile", "--example", example, "--yes"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("reconcile failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -2043,7 +1879,7 @@ func TestReconcileProjectIncludesNestedIntentDetails(t *testing.T) {
 		t.Fatalf("write project: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"reconcile", "--example", example, "--print"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"reconcile", "--example", example, "--print"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("reconcile print failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -2083,7 +1919,7 @@ func TestLintDriftWarnsForNestedIntentFieldsAndRuntimeApprovals(t *testing.T) {
 		t.Fatalf("write intent: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"lint", "--example", example}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"lint", "--example", example}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("lint drift should exit zero, got %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -2125,7 +1961,7 @@ func TestLintDriftWarnsButExitsZero(t *testing.T) {
 		t.Fatalf("write intent: %v", err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"lint", "--example", example}, strings.NewReader(""), &stdout, &stderr)
+	code := RunExpert([]string{"lint", "--example", example}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("lint drift should exit zero, got %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}

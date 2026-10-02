@@ -29,7 +29,7 @@ jobs:
           fi
 
       - name: Build iCoT standalone before tests
-        run: GOWORK=off go build ./internal/icot ./cmd/icot
+        run: GOWORK=off go build ./cmd/openudon ./cmd/udon-runner
 
       - name: Download public dependencies
         run: GOWORK=off go mod download
@@ -79,7 +79,7 @@ jobs:
           if [ "$GOOS" = "windows" ]; then
             EXT=".exe"
           fi
-          for COMMAND in openudon icot udon-runner; do
+          for COMMAND in openudon udon-runner; do
             GOWORK=off CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
               go build -trimpath \
                 -o "/tmp/${COMMAND}-${TARGET}${EXT}" \

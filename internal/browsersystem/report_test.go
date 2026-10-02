@@ -67,9 +67,13 @@ func currentLoopbackFailureReport(t *testing.T, version string) *Report {
 			t.Fatal(err)
 		}
 	}
+	firstID := loopbackStages[0]
+	if version == CurrentVersion {
+		firstID = neutralLoopbackStages[0]
+	}
 	r := &Report{
 		Toolchains: Toolchains{Go: lock.GoVersion, Node: "24.13.0"}, Version: version,
-		Suite: "loopback", Status: "fail", FailureStage: loopbackStages[0], Baseline: lock,
+		Suite: "loopback", Status: "fail", FailureStage: firstID, Baseline: lock,
 		PlaywrightGo: "v0.6201.0", NetworkClaim: "application_request_allowlists_not_network_wide_containment",
 	}
 	for _, name := range []string{"openudon", "browsertools", "uws", "udon", "browserdriver"} {
@@ -94,7 +98,7 @@ func currentLoopbackFailureReport(t *testing.T, version string) *Report {
 	for _, component := range build.Components {
 		r.Sources = append(r.Sources, Source{Name: "udon_build_" + component.Name, Commit: component.Commit, SHA256: strings.Repeat("c", 64)})
 	}
-	r.Passes = []Pass{{Number: 1, Stages: []Stage{{ID: loopbackStages[0], Status: "fail"}}}}
+	r.Passes = []Pass{{Number: 1, Stages: []Stage{{ID: firstID, Status: "fail"}}}}
 	return r
 }
 
@@ -395,12 +399,34 @@ func TestOutputCannotEnterWorkspaceThroughRootAlias(t *testing.T) {
 }
 
 func TestCurrentV5NativeReportRequiresM45AndUWS112Baseline(t *testing.T) {
-	r := currentLoopbackFailureReport(t, CurrentVersion)
+	r := currentLoopbackFailureReport(t, CurrentV5Version)
 	if err := Validate(r); err != nil {
 		t.Fatal(err)
 	}
 	r.Version = CurrentV4Version
 	if Validate(r) == nil {
 		t.Fatal("new native baseline accepted as old qualification")
+	}
+}
+
+func TestNeutralV6ReportDoesNotRelabelHistoricalUIGates(t *testing.T) {
+	r := currentLoopbackFailureReport(t, CurrentVersion)
+	if err := Validate(r); err != nil {
+		t.Fatal(err)
+	}
+	r.Version = CurrentV5Version
+	if Validate(r) == nil {
+		t.Fatal("neutral selectors relabeled as old UI evidence")
+	}
+	old := currentLoopbackFailureReport(t, CurrentV5Version)
+	if err := Validate(old); err != nil {
+		t.Fatal(err)
+	}
+	old.Version = CurrentVersion
+	if Validate(old) == nil {
+		t.Fatal("old UI selectors relabeled as neutral evidence")
+	}
+	if len(neutralLoopbackStages) != 13 {
+		t.Fatal("neutral native repeat inventory lost coverage")
 	}
 }

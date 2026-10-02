@@ -33,7 +33,8 @@ const (
 	CurrentV3ReportVersion = "openudon.browser-integration-eval.v3"
 	CurrentV4ReportVersion = "openudon.browser-integration-eval.v4"
 	CurrentV5ReportVersion = "openudon.browser-integration-eval.v5"
-	ReportVersion          = "openudon.browser-integration-eval.v6"
+	CurrentV6ReportVersion = "openudon.browser-integration-eval.v6"
+	ReportVersion          = "openudon.browser-integration-eval.v7"
 	StatusPass             = "pass"
 	StatusFail             = "fail"
 	StatusSkipped          = "skipped"
@@ -359,7 +360,7 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion && report.Version != CurrentV5ReportVersion && report.Version != CurrentV4ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
+	if report.Version != ReportVersion && report.Version != CurrentV6ReportVersion && report.Version != CurrentV5ReportVersion && report.Version != CurrentV4ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
 		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {
@@ -970,7 +971,7 @@ func uws112Gates() []gate {
 	})
 	return gates
 }
-func defaultGates() []gate { return uws112Gates() }
+func defaultGates() []gate { return neutralGates() }
 
 func gateDeadline(spec gate) time.Duration {
 	switch spec.Kind {
@@ -1629,3 +1630,31 @@ func defaultString(value, fallback string) string {
 }
 
 var _ io.Writer = (*boundedBuffer)(nil)
+
+// neutralGates preserves the v1-v6 readers/selectors, while current source no
+// longer contains a UI dependency. Both neutral public capture modes are also
+// required by native qualification v6.
+func neutralGates() []gate {
+	gates := uws112Gates()
+	for i := range gates {
+		spec := &gates[i]
+		if spec.ID == "icot-ui-capture-boundary" {
+			spec.Args = []string{"go", "list", "-deps", "./internal/browsercapture", "./internal/registrationdraft"}
+			spec.Assertions = []string{"neutral capture and structural draft own no authoring UI or retired iCoT implementation"}
+			spec.Forbidden = append(spec.Forbidden, "github.com/OpenUdon/openudon/internal/authoringui")
+		}
+		if spec.ID == "openudon-authoring" {
+			tests := []string{"NeutralDraftRefusesUnreviewedPublicationAndReturnsIncompleteFrontier", "NeutralDraftPreservesPrintSeedAndExplicitPublication", "NeutralDraftHelpNamesOnlyCurrentEntry"}
+			for index, arg := range spec.Args {
+				if arg == "-run" && index+1 < len(spec.Args) {
+					spec.Args[index+1] = strings.TrimSuffix(spec.Args[index+1], ")") + "|" + strings.Join(tests, "|") + ")"
+					break
+				}
+			}
+			for _, name := range tests {
+				spec.RequiredPasses = append(spec.RequiredPasses, "Test"+name)
+			}
+		}
+	}
+	return gates
+}

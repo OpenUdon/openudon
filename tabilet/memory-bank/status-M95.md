@@ -20,7 +20,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | Item | State | Notes |
 | --- | --- | --- |
 | M95.1 — Verify consumer migration and dispositions | `[+]` | Exact W28 source/build/qualification/closure and U07/Gate5B/23 retained dispositions verified. Existing native/neutral seams mapped; closed draft and current neutral qualification still require M95.2–.4. Historical artifacts and authority preserved. |
-| M95.2 — Remove iCoT code and surfaces | `[ ]` | Delete only retired OpenUdon entry points/assets/planner and remaining Authoring icot use after dependencies pass. |
+| M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
 | M95.3 — Update CI and release gates | `[ ]` | Remove obsolete standalone/UI/variants iCoT gates and release binary; keep equivalent neutral evaluation and qualification gates. |
 | M95.4 — Qualify legacy packages and retained gates | `[ ]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
 | M95.5 — Document, review and publish | `[ ]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
@@ -385,3 +385,69 @@ Authoring icot imports absent; check-doc-memory and git diff --check passed.
 No new evolution version: implementation advances the approved retirement
 boundary, not a changed direction or capability disposition. Task1 completes
 inspection only; every subsequent implementation/qualification row pending.
+
+M95.1 source/reconciliation publication independently verified at
+c6b590cf0642bd81a5802fa860e3a6b48f2287c4. M95.2 is now the sole in-progress
+row across the combined goal. Establish and check closed seeded draft/plan and
+neutral qualification replacements before deleting their callers/transports.
+No live/model/native run is started by this implementation transition.
+
+### M95.2 neutral replacement preparation — in progress
+
+Added closed `openudon authoring draft` and non-executing `browser-plan`;
+scorecard callers now use the noninteractive draft path. Missing/partial input
+returns the existing structured frontier without terminal reads or publication;
+print is read-only and publication requires --yes. Focused tests caught JSON
+stdout contamination by a progress preamble; corrected and rerun passed.
+
+Moved the single pure registration field-definition builder and its tests into
+`internal/registrationdraft`, with temporary forwarding glue in the old UI until
+replacement qualification is ready. The neutral registration-draft command
+retains typed/conditional fields, reviewed query disclosure, symbolic bindings
+and explicit deferred success proof; it starts no browser and writes no package.
+Existing builder and unsafe-source checks passed, plus old UI consumer-focused
+checks while its transport is still present. A first new command compile error
+was fixed before successful focused checks; neither failed run is acceptance.
+
+No iCoT transport or asset has yet been deleted; native/report selector and
+actual public capture/package qualification replacements remain in progress.
+Temporary forwarding and test fixture glue must be removed with the old UI,
+never committed as a second implementation. No task2 commit/qualification or
+whole-milestone review is claimed. Source worktree changes belong to this owner.
+
+M95.2 focused development smoke first attempt `/var/tmp/openudon-m95-neutral-smoke-1ozuganu`: failed at120s, display joined/auth removed. Second diagnostic attempt `/var/tmp/openudon-m95-neutral-smoke-opzu0771` reached public capture imported frame22, exposing a harness EOF handshake error: after the terminal result the caller must close input before draining stdout/Wait. Fixed in the same neutral qualification owner; neither attempt is accepted qualification and no operation/receipt is replayed. New focused run uses a new disposable workspace. Whole review remains0/10.
+
+### M95.2 verified removal — 2026-10-02
+
+Removed cmd/icot, internal/icot, authoringui/assets and legacy terminal/UI/control
+adapters. One pure registration builder moved to registrationdraft; actual public
+capture/browser-author/package adapters replace old UI qualification helpers.
+No source is copied from Authoring and no sibling is changed. Native current v6
+and integration v7 preserve old version selectors/locks/readers. Scenario/journey
+v5 and UWS1.12/M45 closure stay unchanged. Development v2 separates dirty-source
+smoke from clean frozen qualification and binds actual current dependency inputs.
+Minimal CI/build removals are prerequisites here; M95.3 completes operator/gate
+migration before qualification. No removal acceptance or final adoption is claimed.
+
+Development attempts are retained, not relabeled as frozen qualification. Failed
+registration attempts 1ozuganu/opzu0771 reached an EOF handshake defect; after the
+fix, 6cpjky85/beluohr3/irtwnf8j exposed the package root restriction. The caller now
+runs actual package CLI commands from the containing root rather than weakening
+native containment. Every display joined/auth removed. Successful registration
+8q04ittm: binary40811ab168e8aa99dce6f6154422f70f4ddfe5644cfd9c1e11987cb804cab0a5,
+11.604seconds; authenticated bu0p9l1q:
+5cc8c917788a446f3abf1199df84184cb861ea83117b2a3660d250a262905156,
+11.108seconds. Both private roots are under /var/tmp/openudon-m95-*. Actual capture
+issued decisions/refusal/grant, typed inputs/TOTP, reviewed receipts and independent
+native package selection passed. These occurred before final UI deletion and are
+honestly development evidence; M95.4 must execute final frozen source freshly.
+
+Task2 verification log /var/tmp/openudon-m95-task2-check.log: make check, go vet,
+focused race (authoringcli/browsercapture/browserpackage/registrationdraft/
+capturequalification/browsertransaction engine/browsersystem/browserintegrationeval),
+unchanged W28 native v5 report verification, check-doc-memory and diff-check passed.
+Retained reference seed matrix passed without caller terminal reads; print/partial
+inputs make no state writes. Whole review remains0/10. Evolution checked: this
+advances the already approved retirement boundary, no new version/horizon.
+
+Task2 log SHA256 `82f8808757c1b2dacc7f6b0df0be6266483a02f870ea898fcde26adb59e9f6d1`. Final renamed neutral draft files and current report packages passed focused unit checks; documentation refinements preserve reusable core policy and literal superseded wording. check-doc-memory and diff-check passed on the final task unit.

@@ -943,11 +943,11 @@ func TestCLIAndEngineArtifactParity(t *testing.T) {
 	fixture := runtimeFixture(t)
 	cliDir := filepath.Join(t.TempDir(), "cli")
 	engineDir := filepath.Join(t.TempDir(), "engine")
-	command := exec.Command("go", "run", "./cmd/icot", "--example", cliDir, "--from-example", fixture, "--no-llm", "--yes")
+	command := exec.Command("go", "run", "./cmd/openudon", "authoring", "draft", "--example", cliDir, "--from-example", fixture, "--no-llm", "--yes")
 	command.Dir = repoRoot(t)
 	command.Stdin = strings.NewReader("")
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("run terminal iCoT: %v\n%s", err, output)
+		t.Fatalf("run neutral draft: %v\n%s", err, output)
 	}
 	engine, _, err := Open(context.Background(), Config{ExampleDir: engineDir, FromExample: fixture, NetworkPolicy: "never"})
 	if err != nil {

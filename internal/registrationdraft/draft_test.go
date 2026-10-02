@@ -1,4 +1,4 @@
-package ui
+package registrationdraft
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ func TestBuildRegistrationDraftProducesCanonicalV2ProfileAndDisclosure(t *testin
 	request := validRegistrationDraftRequest()
 	canonical, candidates, bindings, disclosure, err := buildRegistrationDraft(
 		request,
-		registrationAuthoringStartRequest{Origins: []string{"https://app.example.test"}},
+		Start{Origins: []string{"https://app.example.test"}},
 		registrationDraftObservation(),
 		time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC),
 	)
@@ -67,7 +67,7 @@ func TestBuildRegistrationDraftAcceptsPortableSymbolicBindingsRegardlessOfEntrop
 
 	canonical, _, bindings, _, err := buildRegistrationDraft(
 		request,
-		registrationAuthoringStartRequest{Origins: []string{"https://app.example.test"}},
+		Start{Origins: []string{"https://app.example.test"}},
 		registrationDraftObservation(),
 		time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC),
 	)
@@ -167,7 +167,7 @@ func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *tes
 		t.Run(test.name, func(t *testing.T) {
 			request := validRegistrationDraftRequest()
 			test.mutate(&request)
-			if _, _, _, _, err := buildRegistrationDraft(request, registrationAuthoringStartRequest{Origins: []string{"https://app.example.test"}}, registrationDraftObservation(), time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC)); err == nil {
+			if _, _, _, _, err := buildRegistrationDraft(request, Start{Origins: []string{"https://app.example.test"}}, registrationDraftObservation(), time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC)); err == nil {
 				t.Fatal("unsafe registration draft was accepted")
 			}
 		})

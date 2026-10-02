@@ -152,7 +152,7 @@ func runScorecardFixture(seedDir, outDir string) scorecardResult {
 	_ = os.RemoveAll(workspace)
 	result.ExampleDir = workspace
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", workspace, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunDraft([]string{"--example", workspace, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, &stdout, &stderr)
 	if code != 0 {
 		result.ObservedOutcome = "icot_fail"
 		result.Detail = strings.TrimSpace(stderr.String())
@@ -371,7 +371,7 @@ func runNeedsInputVariant(fixture, fixtureName string, variant evalpkg.Authoring
 		return result
 	}
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", workspace, "--answers", sessionPath, "--agent", "--json", "--no-transcript"}, strings.NewReader(""), &stdout, &stderr)
+	code := RunDraft([]string{"--example", workspace, "--answers", sessionPath, "--agent", "--json", "--no-transcript"}, &stdout, &stderr)
 	if code != 0 {
 		result.ObservedOutcome = "icot_fail"
 		result.FailureFamily = failureFamilyForDetail(stderr.String())

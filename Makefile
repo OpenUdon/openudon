@@ -1,4 +1,4 @@
-.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification browser-capture-check eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -18,7 +18,7 @@ OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/
 OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT ?= eval/runs/browser-transaction-qualification-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, browser-capture-check, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -26,10 +26,10 @@ test:
 vet:
 	$(GO) vet ./...
 
-standalone-icot-build:
-	GOWORK=off $(GO) build ./internal/icot ./cmd/icot
+standalone-build:
+	GOWORK=off $(GO) build ./cmd/openudon ./cmd/udon-runner
 
-check: standalone-icot-build test siblings apitools-boundary
+check: standalone-build test siblings apitools-boundary
 
 apitools-boundary:
 	$(GO) run ./cmd/openudon check-apitools-boundary
@@ -38,7 +38,7 @@ readiness:
 	$(GO) run ./cmd/openudon readiness --run-gates --out eval/readiness/local.json
 
 release-check:
-	$(MAKE) standalone-icot-build
+	$(MAKE) standalone-build
 	$(GO) test ./...
 	$(GO) vet ./...
 	$(MAKE) check
@@ -49,7 +49,7 @@ release-saas-check:
 	$(MAKE) browser-integration-check
 	$(MAKE) browser-scenario-loopback
 	$(MAKE) browser-scenario-journey
-	$(MAKE) icot-ui-browser-check
+	$(MAKE) browser-capture-check
 	$(MAKE) eval-seed-build
 	$(MAKE) icot-variants-validate
 	$(MAKE) icot-variants-coverage
@@ -109,7 +109,7 @@ browser-transaction-adversarial:
 	$(GO) test -count=1 ./internal/registrationattestation ./internal/udonrunner ./internal/udonreport -run '^(TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact|TestReadOutsideRepoRejectsUnsafePathModeAndDrift|TestDecodeRejectsValuesUnknownFieldsAndLifecycleDrift|TestBrowserRegistrationEvidenceRejectsExecutorConstruction|TestDockerBrowserRegistrationCarriesOnlyV4NamesAndApprovals|TestDecodeRequiresTypedV3FailureAndNoSuccessCode)$$'
 	$(GO) test -count=1 ./internal/synthesize -run '^(TestValidateBrowserRegistrationReviewRejectsTamper|TestBrowserRegistrationProfileRejectsPIIAndSecretShapedValues|TestValidatePackagedBrowserProfileRejectsRawOrSecretShapedFields|TestNoSecretsQualityReportsOnlyArtifactPaths)$$'
 	$(GO) test -count=1 ./internal/browsertransactioneval ./internal/browserscenario -run '^(TestReportRejectsContractDriftFailureAndDependencyMismatch|TestVerifyFileRejectsTamperUnknownMissingDuplicateNoncanonicalAndSymlink|TestCompatibilityLockRejectsDirtyOrDriftedSibling|TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth)$$'
-	$(GO) test -count=1 ./internal/authoringcli ./internal/authoringui -run '^(TestBrowserTransactionTerminalDenialCancellationExpiryAndUsage|TestBrowserTransactionTerminalIndeterminateRecoveryUsesExactSharedState|TestV4BrowserTransactionResourceAndV3RouteClosure|TestBrowserTransactionTransportBoundsAndTypedErrors|TestConcurrentSameRevisionMutationHasOneWinner)$$'
+	$(GO) test -count=1 ./internal/browsercapture ./internal/browserpackage ./internal/registrationdraft
 	cd "$${OPENUDON_BROWSERTOOLS_REPO:-../browsertools}" && $(GO) test -count=1 ./registrationauthorsession ./registrationauthorworker ./registrationauthorresult ./registrationauthor ./capture -run '^(TestStrictDecoderRejectsDuplicateTrailingDeepAndUnknownFields|TestProtocolAndPhaseMismatchesFailClosed|TestBackendFailureAndCancellationReturnFixedDiagnostics|TestFinishRequiresCleanBoundedNetworkSummary|TestCancellationInterruptsBlockedOwnedInputAndClosesBrowser|TestOversizedProtocolLineFailsWithoutEcho|TestSessionInterfaceHasNoMutationOrStateExportSurface|TestRunCancellationInterruptsReadAndClosesSession|TestWorkerSourceExposesNoPlaywrightOrEnvironmentSurface|TestVerifyRejectsEveryBoundIdentityAndSafetyMutation|TestDecodeRejectsUnclosedDuplicateUnknownDeepAndSensitiveInput|TestReadPrivateExactRejectsSymlinkModeAndTamper|TestBuildRejectsObservationAndSelectionDrift|TestChromeSandboxHelperRejectsUserControlledAndNoncanonicalPaths|TestPlaywrightRegistrationHasNoInputSubmitOrStateAPI|TestRegistrationNetworkGuardAllowsOnlyApprovedGETAndHEAD|TestRegistrationNetworkGuardBoundsAndCloseAccounting|TestValidateRegistrationBrowserRequestIsExactAndFinite|TestRegistrationURLFactsRejectsDisclosureAndQuery)$$'
 
 browser-transaction-qualification:
@@ -127,15 +127,10 @@ browser-scenario-public:
 	$(GO) run ./cmd/openudon browser-scenario-eval --suite public --allow-network --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
 
-icot-ui-browser-check:
+browser-capture-check:
 	@test "$${OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX:-}" != "1" \
-		|| { echo "icot-ui-browser-check: sandbox-disable override is forbidden; use icot-ui-browser-check-unsandboxed for diagnostics"; exit 1; }
-	@test -n "$$($(GO) test -tags=icot_ui_browser -list '^TestPhaseCBrowser' ./internal/authoringui | grep '^TestPhaseCBrowser')" \
-		|| { echo "icot-ui-browser-check: no TestPhaseCBrowser tests found (build tag or file missing)"; exit 1; }
-	OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1 $(GO) test -tags=icot_ui_browser ./internal/authoringui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
-
-icot-ui-browser-check-unsandboxed:
-	OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1 $(GO) test -tags=icot_ui_browser ./internal/authoringui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
+	 || { echo "browser-capture-check: sandbox-disable override is forbidden"; exit 1; }
+	$(GO) test -tags=browser_system_qualification ./internal/capturequalification -run '^TestNeutral(Registration|Authenticated)PublicCapturePackage$$' -count=1 -timeout=6m -v
 
 eval-seed-build:
 	$(GO) test ./internal/authoringcli -run TestEvalReferenceSeedBuildMatrix -count=1
@@ -202,7 +197,7 @@ browser-system-current-check:
 
 # Feature iteration: unit results use Go's normal dependency-aware cache.
 OPENUDON_SMOKE_OUT ?= /tmp/openudon-smoke-$(shell /usr/bin/date -u +%Y%m%dT%H%M%S%N).json
-OPENUDON_SMOKE_STAGE ?= registration_ui_handoff
+OPENUDON_SMOKE_STAGE ?= registration_capture_handoff
 OPENUDON_SMOKE_CACHE ?= $(HOME)/.cache/openudon-browser-development
 OPENUDON_SMOKE_REUSE ?= false
 .PHONY: fast smoke qualify
@@ -210,7 +205,7 @@ fast:
 	$(GO) test ./...
 	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
 smoke:
-	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
+	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
 qualify: browser-system-check
 
 # Explicit provider-free, disposable loopback qualification of accepted Udon M44.

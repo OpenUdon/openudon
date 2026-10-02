@@ -1462,9 +1462,10 @@ func runBrowserSystemComponent(args []string) {
 func runBrowserSystemDev(args []string) {
 	fs := flag.NewFlagSet("browser-system-dev", flag.ExitOnError)
 	mode := fs.String("mode", "smoke", "fast or synthetic smoke; never runtime qualification")
-	stage := fs.String("stage", "", "one closed qualification stage; default registration_ui_handoff")
+	stage := fs.String("stage", "", "one closed development stage; default registration_capture_handoff")
 	root := fs.String("repo-root", ".", "OpenUdon source root")
 	udon := fs.String("udon-repo", "", "exact prepared Udon checkout")
+	modules := fs.String("browserdriver-node-modules", "", "installed lock-matched Browserdriver modules; never installed by this command")
 	out := fs.String("out", "", "new development report outside source workspaces")
 	cache := fs.String("cache", "", "private development cache outside source workspaces")
 	reuse := fs.Bool("reuse", false, "explicitly reuse matching successful smoke younger than 24 hours")
@@ -1474,7 +1475,7 @@ func runBrowserSystemDev(args []string) {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	_, err := browsersystem.RunDevelopment(ctx, browsersystem.DevelopmentOptions{Mode: *mode, Stage: *stage, Root: *root, UdonRepo: *udon, Out: *out, Cache: *cache, Reuse: *reuse, Progress: os.Stderr})
+	_, err := browsersystem.RunDevelopment(ctx, browsersystem.DevelopmentOptions{Mode: *mode, Stage: *stage, Root: *root, UdonRepo: *udon, BrowserdriverNodeModules: *modules, Out: *out, Cache: *cache, Reuse: *reuse, Progress: os.Stderr})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-dev:", err)
 		os.Exit(1)

@@ -352,6 +352,9 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if o.Suite != "offline" && o.Suite != "loopback" || o.Out == "" {
 		return nil, errors.New("suite_and_output_required")
 	}
+	if o.Suite == "loopback" && stack != browserscenario.StackCurrent {
+		return nil, errors.New("legacy_UI_execution_retired_use_current_stack_or_historical_verifier")
+	}
 	if stack == browserscenario.StackCurrent && o.Suite != "loopback" {
 		return nil, errors.New("current_stack_requires_loopback")
 	}
@@ -495,17 +498,17 @@ func runStage(ctx context.Context, root, udonRoot, stack, browserdriverNodeModul
 	case "driver_unit":
 		return nodeTests(ctx, sibling("browserdriver"), false, browserdriverNodeModules)
 	case "application_lifecycle":
-		return goTests(ctx, root, []string{"-race", "./internal/authoringui", "./internal/browserauthor", "./internal/processgroup"}, nil, false)
-	case "ui_browser":
-		return goTests(ctx, root, []string{"-tags=icot_ui_browser", "./internal/authoringui", "-run", "^TestPhaseCBrowser", "-timeout=5m"}, []string{"OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1"}, true)
-	case "registration_ui":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemRealRegistrationUI$", "-timeout=6m"}, nil, true)
-	case "supervised_control":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedControl$", "-timeout=6m"}, nil, true)
-	case "supervised_registration_package":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedRegistrationPackage$", "-timeout=6m"}, nil, true)
-	case "supervised_authenticated_package":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedAuthenticatedPackage$", "-timeout=6m"}, nil, true)
+		return goTests(ctx, root, []string{"-race", "./internal/browsercapture", "./internal/browserauthor", "./internal/processgroup"}, nil, false)
+	case "capture_protocol":
+		return goTests(ctx, root, []string{"-race", "./internal/browsercapture", "./internal/browserpackage", "./internal/registrationdraft"}, nil, false)
+	case "registration_definitions":
+		return goTests(ctx, root, []string{"./internal/registrationdraft", "./internal/browserauthor", "-run", "Registration|Typed|Verification", "-timeout=5m"}, nil, false)
+	case "capture_lifecycle":
+		return goTests(ctx, root, []string{"-race", "./internal/browsercapture", "./internal/browserauthor", "./internal/processgroup", "./internal/browsertransaction/engine", "-timeout=6m"}, nil, false)
+	case "public_registration_package":
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/capturequalification", "-run", "^TestNeutralRegistrationPublicCapturePackage$", "-timeout=6m"}, nil, true)
+	case "public_authenticated_package":
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/capturequalification", "-run", "^TestNeutralAuthenticatedPublicCapturePackage$", "-timeout=6m"}, nil, true)
 	case "udon_browser_contract":
 		return udonGoTests(ctx, udonRoot, stack, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./pkg/registrationinput", "./internal/sourceloader", "-skip", "TestPrivateFormLiveUIStartApplyAndSubmit"}, nil, true)
 	case "udon_browser_cli":
@@ -517,7 +520,7 @@ func runStage(ctx context.Context, root, udonRoot, stack, browserdriverNodeModul
 			return nil, err
 		}
 		return browserscenario.LoadQualificationBuildInputLockForStack(stack)
-	case "bap_bcp_transaction", "registration_ui_handoff":
+	case "bap_bcp_transaction", "registration_capture_handoff":
 		executable, err := os.Executable()
 		if err != nil {
 			return nil, errors.New("component_executable")
@@ -596,7 +599,7 @@ func RunComponent(ctx context.Context, root, udonRoot, stack, browserdriverNodeM
 	switch id {
 	case "bap_bcp_transaction":
 		return browserscenario.RunBAPBCPQualification(ctx, options)
-	case "registration_ui_handoff":
+	case "registration_capture_handoff":
 		return browserscenario.RunBRPQualification(ctx, options)
 	}
 	return nil, errors.New("unknown_component")

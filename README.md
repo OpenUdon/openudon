@@ -7,15 +7,18 @@ OpenUdon is the public UWS workflow authoring, review, package, and executor-han
 directly or under optional external orchestration, and it hands approved packages to a
 trusted executor boundary such as the `udon` runtime.
 
-iCoT UI is OpenUdon's primary interactive authoring entry point across API,
-authenticated-browser, and runtime-handoff sources; terminal commands remain
-expert and automation fallbacks. One distributed `icot` executable handles the
-operator flow, but it privately stabilizes and re-executes itself as an
-isolated Browsertools worker process for Playwright acquisition. Browsertools
-owns that Chromium context, browser safety policy, profile synthesis, and the
-shared validation library; the iCoT engine and HTTP server never initialize
-Playwright in-process. Production runtime replay belongs to Udon and
-Browserdriver.
+OpenUdon is a CLI and artifact tool. Kinet owns interactive authoring, chat and
+browser UI. Use `openudon authoring draft` for explicit seeded/local drafts,
+`authoring browser-plan` for inert capture planning, and
+[`authoring registration-draft`](docs/registration-draft.md) for pure typed
+registration definitions. Expert evaluation commands remain available.
+`browser-capture` supervises an isolated Browsertools worker through exact
+issued decisions; `browser-author` and `package` handle reviewed receipts and
+native preparation/promotion. Browsertools owns acquisition and safety;
+Udon and Browserdriver own separately approved runtime replay. The iCoT terminal,
+UI/control and release binary have been removed; historical package artifacts
+and versioned report readers remain supported. M95 final qualification and
+consumer adoption are recorded separately in each owner's ledger.
 See Browsertools' [canonical OpenUdon integration
 reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-integration.md).
 
