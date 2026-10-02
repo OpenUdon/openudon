@@ -818,3 +818,42 @@ func TestCurrentHandoffRequiresModernAuthenticationAuthorityEvidence(t *testing.
 	}
 	t.Fatal("missing handoff gate")
 }
+
+func TestNeutralDraftBoundaryScansPureOwnerAndRetainsLiveDependencyRefusal(t *testing.T) {
+	var found bool
+	for _, spec := range neutralGates() {
+		if spec.ID != "icot-ui-capture-boundary" {
+			continue
+		}
+		found = true
+		if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/registrationdraft"}) {
+			t.Fatalf("wrong neutral owner: %v", spec.Args)
+		}
+		for _, path := range []string{"github.com/OpenUdon/browsertools/capture", "github.com/OpenUdon/browsertools/adapter/playwright", "github.com/OpenUdon/openudon/internal/authoringui", "github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot"} {
+			output := CommandOutput{Stdout: path + "\n"}
+			result := evaluateGate(spec, output, browserscenario.CompatibilityLock{})
+			if result.Status != StatusFail {
+				t.Fatalf("forbidden dependency admitted: %s %#v", path, result)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("neutral boundary omitted")
+	}
+}
+
+func TestNeutralPublicCLIDependencyClosureExcludesRetiredTransports(t *testing.T) {
+	cmd := exec.Command("go", "list", "-deps", "../../cmd/openudon")
+	cmd.Env = environmentWithOverrides(os.Environ(), map[string]string{"GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off"})
+	data, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range strings.Fields(string(data)) {
+		for _, retired := range []string{"github.com/OpenUdon/openudon/internal/authoringui", "github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot", "github.com/OpenUdon/authoring/icotcli"} {
+			if name == retired || strings.HasPrefix(name, retired+"/") {
+				t.Fatalf("retired transport reachable: %s", name)
+			}
+		}
+	}
+}

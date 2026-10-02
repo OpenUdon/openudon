@@ -556,3 +556,33 @@ selecting the required corrected qualification. This is not automatic fallback
 or reuse of a consumed operation. Whole review remains0/10.
 
 Affected smokematrix and releaseevidence suites passed uncached in0.437/0.289seconds. Final cleanup has one owner per root, with no shared ignored parent or suppressed cleanup errors. Only test fixtures change; the current source guard is not relaxed. Required corrected selection remains fresh offline/integration/native with the same25–35minute estimate, clean exact source and all prior failure records preserved.
+
+Cleanup-only source independently published at
+fe4a55eedbbf699bd090e8dbc9ea3a3b5aae6ee4. Select the corrected required
+frozen qualification from this exact commit; first assert current cleanliness
+after the two formerly leaking suites. Native browsers were never launched in
+the failed53.886second preflight; no completed seed is replayed.
+
+Corrected frozen run /var/tmp/openudon-m95-qualified-ryjt_hd_ atfe4a55e passed
+full make check and allfour current offline v6 gates plus independent verifier.
+Integration v7 passed16 required gates/failed1/optional3 unrequested; stopped
+before any display/browser/native stage. Failed boundary inherited the old UI's
+Browsertools prohibition but scanned browsercapture, the M93-approved embedded
+worker owner. Keep that native dispatch; apply the full forbidden list to the
+pure registrationdraft seam and retain authoringengine's separate capture/
+Playwright/iCoT prohibition. This corrects the gate's owner, not a policy bypass
+or new worker dependency. Actual Go dependency scan and forbidden-import
+regressions must pass before fresh exact-source qualification resumes. Historical
+v1–v6 gate selectors/readers remain unchanged. Preserve the failed report and
+passing offline context without relabeling; no browser seed has been consumed.
+
+Focused integration regressions passed. Actual pure registrationdraft closure
+contains no forbidden capture/Playwright/UI/iCoT imports; the new actual public
+CLI dependency-closure regression separately excludes retired OpenUdon and
+Authoring transports while preserving the approved native worker. First new
+regression compile attempt used the wrong private evaluator function name;
+corrected to evaluateGate before successful checks. Gate version changes only
+current v7; frozen older selectors/readers and all existing prohibited imports
+remain intact. Commit/refreeze then select the required current offline, full
+integration17 and native39 qualification; no native browser stage has launched
+in either retained failed preflight. Whole review remains0/10.

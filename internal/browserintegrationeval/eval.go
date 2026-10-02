@@ -1639,8 +1639,8 @@ func neutralGates() []gate {
 	for i := range gates {
 		spec := &gates[i]
 		if spec.ID == "icot-ui-capture-boundary" {
-			spec.Args = []string{"go", "list", "-deps", "./internal/browsercapture", "./internal/registrationdraft"}
-			spec.Assertions = []string{"neutral capture and structural draft own no authoring UI or retired iCoT implementation"}
+			spec.Args = []string{"go", "list", "-deps", "./internal/registrationdraft"}
+			spec.Assertions = []string{"neutral structural draft has no Browsertools capture, Playwright adapter, authoring UI or retired iCoT implementation"}
 			spec.Forbidden = append(spec.Forbidden, "github.com/OpenUdon/openudon/internal/authoringui")
 		}
 		if spec.ID == "openudon-authoring" {
