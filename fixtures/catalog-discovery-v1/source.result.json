@@ -1,0 +1,21 @@
+{
+  "command": "step.source.add",
+  "diagnostics": [],
+  "kind": "result",
+  "result": {
+    "manifest_path": "expected/api-source-manifest.json",
+    "manifest_sha256": "sha256:fbaa204e4d36e0aff7cf948bd074b2d5f1fb3e7f94a55bb33a822f2f938cefd9",
+    "provenance_path": "expected/catalog-sources/adc9a58e7b77801870c010fa6b7e773f44be0251f910aeafaca59bfbc9d3d6c3/provenance.json",
+    "sources": [
+      {
+        "candidate_source_id": "src-4a5d183667b7ddffac247ea2",
+        "package_path": "openapi/notes.json",
+        "sha256": "sha256:11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+        "source_id": "notes",
+        "source_kind": "openapi"
+      }
+    ]
+  },
+  "status": "completed",
+  "version": "openudon.step-source-catalog.v1"
+}

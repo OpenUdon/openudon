@@ -1,0 +1,12 @@
+{
+  "version": "openudon.step-pending.v1",
+  "kind": "result",
+  "command": "step.pending",
+  "status": "completed",
+  "diagnostics": [],
+  "result": {
+    "step_id": "report",
+    "write_outcome": "written",
+    "intent_sha256": "sha256:91dd6320b27d1646cf02f0a82f0015e1472a986fb9a4deb385ab604499733962"
+  }
+}

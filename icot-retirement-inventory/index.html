@@ -1,0 +1,2371 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/icot-retirement-inventory/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>iCoT journey and consumer inventory (M91) - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#icot-journey-and-consumer-inventory-m91" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              iCoT journey and consumer inventory (M91)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../compatibility/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compatibility
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring-retirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Current CLI Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registration-draft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pure Registration Definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-capture-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public Browser Capture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-package-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Native Browser Package Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.md Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical iCoT UI Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authenticated-browser-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authenticated Browser Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-profile-transactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Profile Transactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-corpus-and-provider-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Corpus And Provider Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-session-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Session Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-transcript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Transcripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../enterprise-authoring-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Authoring And Execution Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-seed-build-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Seed/Build Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product-smoke-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Smoke Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-integration-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Integration Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-scenario-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scenario Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#decision-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retained-journeys-and-proposed-replacements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retained journeys and proposed replacements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extraction-seams-verified-in-current-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extraction seams verified in current code
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-record-for-each-retained-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance record for each retained entry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inventory-approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventory approval
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m951-verified-migration-map-2026-10-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M95.1 verified migration map — 2026-10-02
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m95-final-replacement-evidence-map-2026-10-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M95 final replacement evidence map — 2026-10-02
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="icot-journey-and-consumer-inventory-m91">iCoT journey and consumer inventory (M91)</h1>
+<h2 id="decision-boundary">Decision boundary</h2>
+<p>This is the M91.1 inventory for the confirmed Stage 5 goal. It describes current
+capabilities and proposed replacement ownership, not implemented replacements.
+All capabilities remain available during 5A. No additional capability is
+proposed for discontinuation. M95 removes the old iCoT entry points only after
+Gate 5B, W8M W28 adoption, and evidence for each replacement. The retained human
+inventory-disposition checkpoint in Kinet's launch reference still applies;
+automatic Git publication approval does not approve removals or Gate 5B.</p>
+<p>Baseline source: <code>e12a6488b86cafddb9298c7917de84fbc1cc85ff</code>; inventory
+inspection also includes approved Stage 5 planning and prerequisite closure.
+E21/P07/P08 are retired without reopening their task rows or review counters.
+P08's v11 selection is current; P07's v10 preparation result retains its
+historical scope. Udon M45's published source/build is recorded in M92, whose
+adoption remains pending. W8M W27 retains its own owner and live-operation gates.</p>
+<h2 id="retained-journeys-and-proposed-replacements">Retained journeys and proposed replacements</h2>
+<p>The identifiers below identify inventory entries, not milestone IDs. “Replace”
+means replace the entry point while retaining its behavior. Each owner must
+supply exact replacement commands/protocols and checks before M95 can close.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Capability and current source</th>
+<th>Disposition</th>
+<th>Replacement owner and required evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J01</td>
+<td>Terminal project brief, outcome, boundaries and intent authoring: <code>cmd/icot</code>, <code>internal/icot/icot.go</code>, <code>internal/projectwizard</code></td>
+<td>Replace entry; retain authoring</td>
+<td>Kinet W08/W10/U07 with existing OpenUdon step/build/package commands. Prove exact proposal confirmation and rejected proposals do not publish ledger/package writes.</td>
+</tr>
+<tr>
+<td>J02</td>
+<td>Seeded answers, from-example, print-only/noninteractive reports, prompt modes, local drafts and transcripts: <code>internal/icot/elicitor</code>, <code>internal/authoring</code></td>
+<td>Retain reusable logic; replace interactive entry</td>
+<td>M91.3 extracts neutral records/discovery; Kinet owns its conversation and persistence. M95 must map print/report and seed/replay cases to explicit commands or review an additional disposition; no silent loss. Existing <code>.icot</code> artifacts remain readable.</td>
+</tr>
+<tr>
+<td>J03</td>
+<td>Dependency frontier, readiness, missing bindings, decision evidence, deferral and bounded repair: <code>internal/icot/elicitor</code>, <code>internal/icot/engine</code></td>
+<td>Retain semantics; replace interaction</td>
+<td>M91.2–M91.3 and Kinet W08/W10. Preserve atomic frontier validation, cancellation, readiness errors, hypothetical/pending labels and repair bounds in deterministic fixtures. Public UWS owns execution semantics.</td>
+</tr>
+<tr>
+<td>J04</td>
+<td>Transactional file planning, digest recheck, rollback, indeterminate recovery and redacted review: <code>internal/icot/artifactwriter</code>, <code>internal/authoring</code>, <code>internal/packagepipeline</code></td>
+<td>Retain; extract shared implementation</td>
+<td>M91.2; step source/bind and browser imports consume neutral code. Prove byte-equivalent artifacts, zero-write conflict/refusal, symlink containment and exact recovery identity; no second writer implementation.</td>
+</tr>
+<tr>
+<td>J05</td>
+<td>Expert <code>step source add</code>, <code>step candidates</code>, <code>step bind</code>, <code>step check</code>, <code>flow-review</code>: <code>internal/stepauthoring</code></td>
+<td>Retain existing public commands</td>
+<td>M91.2–M91.3 remove iCoT implementation dependencies. Existing versioned step conformance fixtures and command JSON remain byte-identical.</td>
+</tr>
+<tr>
+<td>J06</td>
+<td>Explicit local source roots, native source selection, security alternatives and source refresh: <code>internal/icot/elicitor</code>, <code>internal/sourcecatalog</code></td>
+<td>Retain; extract</td>
+<td>M91.3 and M94. Retain source provenance, root bounds, credential aliases, provider constraints and freshness checks. APItools owns metadata interpretation.</td>
+</tr>
+<tr>
+<td>J07</td>
+<td>Catalog planner sessions, corpus/provider discovery and opt-in remote lookup: <code>internal/icot/elicitor/catalog_plan.go</code>, <code>internal/sourcecatalog</code></td>
+<td>Retain; replace caller</td>
+<td>M91.3/M94 and Kinet W10. Consume published APItools M81/M80; preserve insufficient/ambiguous/blocked outcomes, explicit network consent and digest-bound export. Never turn an incomplete lookup into proof of absence.</td>
+</tr>
+<tr>
+<td>J08</td>
+<td>Static browser profiles/registries, guided bundles, virtual sources and attached verification: <code>internal/icot/elicitor</code>, <code>internal/browserverify</code></td>
+<td>Retain; extract shared helpers</td>
+<td>M91.3/M91.4 and M93. Preserve profile identity, allowed origins, dependency traversal, source freshness and independent result validation. Mock browser output is not page replay evidence.</td>
+</tr>
+<tr>
+<td>J09</td>
+<td>Non-executing browser-authoring plan/handoff: <code>internal/icot/browser_authoring.go</code>, <code>internal/icot/browserauthor</code></td>
+<td>Replace entry; retain handoff</td>
+<td>M91.4/M93 commands and Kinet W09. Prove that planning grants no browser action, account mutation or runtime approval.</td>
+</tr>
+<tr>
+<td>J10</td>
+<td>Authenticated browser capture, reviewed goal/dashboard/origin, human sign-in and MFA including TOTP: <code>internal/icot/browser_author_live.go</code>, <code>internal/icot/browserauthor</code>, Browsertools author worker</td>
+<td>Replace entry; retain full journey</td>
+<td>M91.4/M93 versioned capture, Kinet W09/M19/U07, W8M W28/W29. Demonstrate the authenticated/TOTP journey visibly at M93.5 and freshly in consumer qualification. Keep private codes/credentials outside application payloads and logs.</td>
+</tr>
+<tr>
+<td>J11</td>
+<td>Registration capture, public wizard definitions, verification approvals and registration authority: <code>internal/icot/browserauthor</code>, <code>internal/browsertransaction</code>, <code>internal/icot/ui</code></td>
+<td>Replace entry; retain full journey</td>
+<td>M91.4/M93, Kinet W09/M19/U07 and W8M W28/W29. Demonstrate registration separately from authenticated capture. W8M's cancelled production-registration operation is not reopened.</td>
+</tr>
+<tr>
+<td>J12</td>
+<td>Reduced observations, navigation/preview, issued action IDs/revisions, blocked-script diagnostics and disclosure consent</td>
+<td>Retain capture protections</td>
+<td>M93/Kinet W09. Cover stale or mismatched decisions, exact origins, deadlines, bounded POSTs, consent, human-guided default and value-free diagnostics for both modes. Source: <code>internal/icot/browserauthor</code>, <code>internal/icot/browser_author_live.go</code>.</td>
+</tr>
+<tr>
+<td>J13</td>
+<td>Browser package transaction review/prepare/promote/recover: <code>internal/icot/browser_transaction_terminal.go</code>, <code>internal/browsertransaction</code>, <code>internal/packagepipeline</code></td>
+<td>Replace entry; retain transaction engine</td>
+<td>M91.2/M91.4/M93 and Kinet W09. Retain digest/revision binding, explicit action approval, indeterminate recovery, atomic package selection and cancellation.</td>
+</tr>
+<tr>
+<td>J14</td>
+<td>Bundled Browsertools workers, subprocess groups, readiness, timeouts and teardown: <code>internal/icot/browser_worker.go</code>, <code>internal/processgroup</code></td>
+<td>Retain; move dispatch</td>
+<td>M91.4/M93 adds the worker under <code>openudon</code>; iCoT uses the same implementation until M95. Prove no orphan workers, no public listeners and no private executor import.</td>
+</tr>
+<tr>
+<td>J15</td>
+<td>Loopback UI and application/control APIs: <code>internal/icot/ui</code>, <code>internal/icot/ui.go</code>, <code>docs/application-control.md</code></td>
+<td>Replace old transports; retain user capability</td>
+<td>Kinet W08–W10/M19/U07 and M93 capture protocol. M95 removes old UI/control endpoints only after replacement session, state, approval, concurrency, cancellation and recovery checks. Versioned historical evidence retains its original meaning.</td>
+</tr>
+<tr>
+<td>J16</td>
+<td>Lint, drift/reconcile, bounded mapping/output/dependency repair, review/report generation: <code>internal/icot/lint.go</code>, <code>repair.go</code>, <code>reconcile_replay.go</code>, <code>report.go</code></td>
+<td>Retain; expose through neutral commands</td>
+<td>M91.2/M91.5 then M95. Map each expert command and preserve fixture outcomes, report schemas/digests and no-write modes before removal.</td>
+</tr>
+<tr>
+<td>J17</td>
+<td>Provider-free reliability scorecards, variants validation/coverage, deterministic replay and reference seed matrix: <code>internal/icot/scorecard.go</code>, <code>variants.go</code>, <code>internal/eval</code>, <code>internal/icotreport</code></td>
+<td>Retain evaluation; replace command caller</td>
+<td>M91.5. Run the same fixture corpus and compare expected classes, counts, results and verification. Preserve immutable reports and distinguish historical evidence from new qualification.</td>
+</tr>
+<tr>
+<td>J18</td>
+<td>Optional real-model authoring/replay evaluation and provider/model configuration: <code>internal/icot/authoring_eval.go</code>, <code>reconcile_replay.go</code>, <code>internal/workflowintent/provider_client.go</code></td>
+<td>Retain explicit evidence path; replace command caller</td>
+<td>M91.5/M95, with Kinet's configured provider on the consumer path. Fake/model-free tests are default; inventory approval and source publication authorize no billable or live provider run.</td>
+</tr>
+<tr>
+<td>J19</td>
+<td>Approval-template, build/assess/package/promote, trusted sandbox dry/real execution and evidence on legacy packages: <code>internal/trustedrunner</code>, <code>internal/udonrunner</code>, <code>internal/udonreport</code></td>
+<td>Retain existing OpenUdon entry points</td>
+<td>M92 pending refusal and Kinet W08/W10/M20. Legacy declared versions and historical <code>.icot</code> files stay intact; no rewrite grants new approval. Preserve report v1–v5 meanings and explicit real-run authority.</td>
+</tr>
+<tr>
+<td>J20</td>
+<td>Browser 1.10 persistent v11 dispatch, older v10 pairing and registration exclusions: P08, <code>internal/trustedrunner/browser.go</code>, <code>internal/udonrunner/browser.go</code></td>
+<td>Retain exact runtime boundary</td>
+<td>M91.4/M91.6/M95. Verify supported/inactive/mixed profile choices and exact local/container arguments. Udon and Browserdriver own runtime semantics.</td>
+</tr>
+<tr>
+<td>J21</td>
+<td>Native integration/scenario/journey qualification and E23/E24 actual tool/source/namespace bindings: <code>internal/browsersystem</code>, <code>internal/browserscenario</code>, <code>internal/browserintegrationeval</code></td>
+<td>Retain; rebase helpers</td>
+<td>M91.4/M91.6/M95. Preserve frozen readers/locks and current-stack inputs; extraction changes source identity and needs actual new qualification. Kinet's fixed-M90 script does not qualify M91; W08 later qualifies adopted M92.</td>
+</tr>
+<tr>
+<td>J22</td>
+<td>W8M authenticated/TOTP and registration packets, constrained destination, aliases, claims, deadlines, diagnostics and teardown</td>
+<td>Replace authoring launch; retain consumer authority</td>
+<td>Kinet M19 and W8M W28/W29. Inspect <code>browser-workflows/check/internal/authoringcontract</code> and W8M <code>browser-workflows/check/internal/operating/author.go</code>; independently validate result/package identity. Kinet never runs W8M prepare/verify-registration/count operations. Preserve W27's consumed outcomes and ownership transfer rule.</td>
+</tr>
+<tr>
+<td>J23</td>
+<td>Release binaries, standalone builds, test/docs/tutorial and qualification command references: <code>.github/workflows</code>, <code>Makefile</code>, <code>docs</code></td>
+<td>Retain gates/docs; replace iCoT entry references</td>
+<td>M91.5/M91.6/M95. Publish and test replacement commands before removing the iCoT binary/embedded UI; no release gate quietly loses coverage.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="extraction-seams-verified-in-current-code">Extraction seams verified in current code</h2>
+<ul>
+<li><code>stepauthoring/source.go</code> and <code>bind.go</code> import iCoT's artifactwriter;
+  <code>stepauthoring/flow_review.go</code> imports its elicitor review. Move shared code
+  once and rebase callers; keep package transactions and review checks intact.</li>
+<li><code>browserscenario</code> imports iCoT scenario/diagnostic/transaction/UI helpers.
+  Qualification coverage must migrate with those helpers, including both
+  capture modes and preserved report readers.</li>
+<li><code>internal/authoring/{types,interactive,progressive_lifecycle}.go</code> imports
+  Authoring's <code>icot</code>. Its readiness/question aliases already have neutral
+  upstream counterparts in <code>session</code>/<code>readiness</code>, while progressive interactive
+  adapters remain intertwined with the terminal loop. M91.3 must separate
+  transport-specific adapters from neutral consumers and reuse public Authoring
+  primitives; copying the generic loop would create duplicate implementation.</li>
+<li><code>internal/eval/authoring_variants.go</code> consumes report/corpus code, and the
+  Makefile still invokes iCoT for scorecards, variants, replay and lint.
+  Preserve those noninteractive expert/evaluation capabilities explicitly.</li>
+<li><code>internal/icot/browser_worker.go</code> dispatches Browsertools workers. Moving
+  it must preserve both registration and authenticated workers and private
+  environment/action bounds; moving only UI assets is insufficient.</li>
+</ul>
+<h2 id="acceptance-record-for-each-retained-entry">Acceptance record for each retained entry</h2>
+<p>Before M95 closes, augment each entry with exact replacement command/protocol,
+accepted producer revision, conformance fixture or test, and downstream
+qualification where required. A pending implementation is not a replacement
+pass. No unchecked entry becomes discontinued by default. Changes to these
+retained dispositions require explicit user review. Gate 5B also requires all
+5A milestones accepted/published and both capture journeys demonstrated.</p>
+<p>M91.1's inventory review is separate from the later milestone deep review and
+Gate 5B. The proposed inventory currently has 23 retained/replaced entries and
+zero proposed capability discontinuations. Approving it permits extraction
+under M91's existing scope; it does not accept unfinished replacement evidence.</p>
+<h2 id="inventory-approval">Inventory approval</h2>
+<p>The user explicitly approved all 23 dispositions before extraction. Later
+Gate 5B, human-visible qualification and each entry's replacement evidence
+remain required. No additional capability discontinuation was approved.</p>
+<h2 id="m951-verified-migration-map-2026-10-02">M95.1 verified migration map — 2026-10-02</h2>
+<p>Consumer acceptance: W8M executed source46accdb39f57597c3dd50640e8c2b2f13a834e69,
+acceptance7cbea4933adf6a8c55864ddb6257e8d33edd0950, closurefd571ef0db8ab438a33cf454dd859f0fbb91fc5d;
+Kinet U07 applicationd3589d4742272b3d024328192768374da4c0c637; OpenUdon M96
+applicationeed683f27d448ca96af90e7bc5987967a6cd0335. Complete actual build/proof
+identities and private evidence digests are in status-M95.md. Gate5B and all23
+dispositions are approved; zero extra discontinuations. This table records
+existing seams and required removal checks; planned entries are not passing
+replacement evidence. Final M95.4/.5 must supply its new qualified revision.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Actual replacement / retained implementation</th>
+<th>Verification owner before closure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J01</td>
+<td>Kinet workflow jobs/chat, OpenUdon step/build/package</td>
+<td>Kinet U07/W28 accepted; M95 retained package checks</td>
+</tr>
+<tr>
+<td>J02</td>
+<td>Neutral authoring/elicitor records; planned closed <code>openudon authoring draft</code> for seeded/from-example/print/report/prompt modes</td>
+<td>M95.2 draft conformance, noninteractive no-input refusal and legacy draft bytes</td>
+</tr>
+<tr>
+<td>J03</td>
+<td><code>internal/authoringengine</code>, <code>elicitor</code>, step pending/check; Kinet conversation</td>
+<td>Native readiness/frontier/refusal tests and neutral draft checks</td>
+</tr>
+<tr>
+<td>J04</td>
+<td><code>internal/artifactwriter</code>, <code>packagepipeline</code>, step source/bind</td>
+<td>Atomic/rollback/symlink/optimistic guard and package recovery tests</td>
+</tr>
+<tr>
+<td>J05</td>
+<td><code>openudon step source add/candidates/bind/check</code>, <code>flow-review</code></td>
+<td>Existing step v1 conformance and real-main dispatch</td>
+</tr>
+<tr>
+<td>J06</td>
+<td><code>internal/sourcecatalog</code>, step source add/discover/provision</td>
+<td>Source root/provenance/credential alias/freshness tests</td>
+</tr>
+<tr>
+<td>J07</td>
+<td><code>openudon step discover/provision</code>, APItools native catalog, neutral elicitor planner records</td>
+<td>M94 accepted contracts; draft/source import and five-outcome conformance</td>
+</tr>
+<tr>
+<td>J08</td>
+<td>Browser profiles/registry/verification helpers in elicitor/browserverify</td>
+<td>Profile traversal/identity/refusal tests; mock versus actual evidence labels</td>
+</tr>
+<tr>
+<td>J09</td>
+<td>Existing browserauthoring.Plan; planned expert non-executing plan entry</td>
+<td>M95.2 public plan read-only/no-action test</td>
+</tr>
+<tr>
+<td>J10</td>
+<td><code>openudon browser-capture</code>, Kinet capture/external sessions</td>
+<td>M93/M96/U07/W28 both-mode/TOTP accepted; fresh neutral producer qualification</td>
+</tr>
+<tr>
+<td>J11</td>
+<td>Same public capture with registration protocol and explicit authority</td>
+<td>Separate verification refusal/approval, no production registration reopened</td>
+</tr>
+<tr>
+<td>J12</td>
+<td><code>internal/browsercapture</code>, <code>browserauthor</code>, <code>browserauthoring</code></td>
+<td>Issued action/revision/deadline/origin/disclosure/stale-decision tests</td>
+</tr>
+<tr>
+<td>J13</td>
+<td><code>openudon browser-author plan/apply</code>, <code>package prepare/promote/inspect/reconcile</code>; Kinet exact decisions</td>
+<td>Native writer/package recovery and lost-output fixtures</td>
+</tr>
+<tr>
+<td>J14</td>
+<td><code>openudon __browsertools-worker</code>, <code>internal/processgroup</code></td>
+<td>Worker dispatch, bounded environment, joined teardown</td>
+</tr>
+<tr>
+<td>J15</td>
+<td>Kinet embedded UI/public jobs/external v1; no OpenUdon listener needed</td>
+<td>U07/W28 current controls/recovery accepted; M95 removal/dependency exclusion</td>
+</tr>
+<tr>
+<td>J16</td>
+<td><code>openudon authoring lint/reconcile/repair/report</code></td>
+<td>Retained exact reports and mutation/no-write tests</td>
+</tr>
+<tr>
+<td>J17</td>
+<td><code>openudon authoring scorecard/variants/replay-eval</code> and eval corpus</td>
+<td>M95.2 closed draft path; deterministic classes/counts/report verification</td>
+</tr>
+<tr>
+<td>J18</td>
+<td><code>openudon authoring authoring-eval/replay-eval</code>, explicit existing provider configuration</td>
+<td>Fake/model-free tests; no paid/live provider run authorized</td>
+</tr>
+<tr>
+<td>J19</td>
+<td><code>openudon build/assess/approval-template/run/package</code></td>
+<td>Legacy packages/.icot unchanged and real external executor checks</td>
+</tr>
+<tr>
+<td>J20</td>
+<td><code>internal/trustedrunner</code>, <code>udonrunner</code> supported v10/v11 dispatch</td>
+<td>Exact profile/protocol pairing, local/container args and executor boundaries</td>
+</tr>
+<tr>
+<td>J21</td>
+<td>Retained historical readers; planned neutral current native/scenario/integration selectors</td>
+<td>M95.2–.4 new source-bound qualification; no old UI gate silently omitted</td>
+</tr>
+<tr>
+<td>J22</td>
+<td>W8M constrained Kinet packets, independent native/result selection</td>
+<td>W28 accepted both modes/counts; W29 final pins independently qualified later</td>
+</tr>
+<tr>
+<td>J23</td>
+<td>Two retained release binaries openudon/udon-runner; neutral expert and capture gates</td>
+<td>M95.3 CI/release/docs checks and M95.4 actual frozen qualification</td>
+</tr>
+</tbody>
+</table>
+<p>Historical inventory source references above are preserved as baseline evidence.
+M95 does not delete historical package .icot/session/transcript artifacts, alter
+old report schemas/locks or retire Authoring/udon-ui. No capability is silently
+dropped because its old transport is removed.</p>
+<h2 id="m95-final-replacement-evidence-map-2026-10-02">M95 final replacement evidence map — 2026-10-02</h2>
+<p>This additive map preserves the approved historical inventory above. No extra
+capability is discontinued. The first review-fix revision was
+<code>8ce4dd2ac7d74a656c7fecbe0bc42d2fa459e4c5</code>; its extra agent flag refusal was
+corrected during review2. Final exact application and closing acceptance are
+recorded separately in M95's ledger. Native browser application qualification is honestly
+bound to <code>bb9863ed097a56460082640668f7cc0a121002ac</code>, CLI SHA256
+<code>dfb0e9f0764aecf7ee448d5c6d19adea6945bf79244123231c5f39524176ece3</code>.
+The later application delta only refuses conflicting draft print/publication
+flags; its focused/full/offline/integration results are separate. Native
+owners, entry, fixtures, locks and modules are unchanged; the original native
+report is never relabeled as a run at the final revision.</p>
+<p>Full native v6:39/39 in three fresh complete passes, independently verified;
+integration v7:17 required passed,3 optional unrequested; offline v6:4 passed.
+Original qualification summary SHA256
+<code>ea80c3d40ce3c544f33845e931d50dc17cb8a318e466ba9fd9c04ef6b601e201</code>.
+Final full/default and integration, legacy CLI and closing-review results are
+recorded in the permanent M95 record when accepted. Existing U07/W28 migration
+is accepted evidence; final Kinet M20 and W8M W29 remain pending consumer gates.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Replacement command/protocol</th>
+<th>Actual fixture/check and downstream boundary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>J01</td>
+<td>Kinet chat/jobs plus <code>openudon step</code>, build/package</td>
+<td>Accepted Kinet U07/W28 exact proposal and no-write refusals; M95 full step/package tests. M20/W29 requalify final pins.</td>
+</tr>
+<tr>
+<td>J02</td>
+<td><code>authoring draft --answers/--from-example --print/--agent</code>; explicit <code>--yes</code> publication</td>
+<td><code>authoringcli/draft_test.go</code> seed corpus, no terminal reads, frontier, no-write print/conflict and transcript checks; retained session schemas. Kinet owns new conversation persistence.</td>
+</tr>
+<tr>
+<td>J03</td>
+<td>Neutral <code>authoringengine</code>, elicitor and public step check/pending</td>
+<td>Full authoringengine/elicitor/stepauthoring readiness, pending/deferral, evidence and bounded repair tests; no implicit execution.</td>
+</tr>
+<tr>
+<td>J04</td>
+<td>Neutral artifactwriter/packagepipeline and browser-package commands</td>
+<td>Full atomic/rollback/symlink/conflict tests; browserpackage lost-output, cancellation and exact native receipt tests; no copied writer.</td>
+</tr>
+<tr>
+<td>J05</td>
+<td><code>step source add</code>, <code>step candidates</code>, <code>step bind</code>, <code>step check</code>, <code>flow-review</code></td>
+<td>Full stepauthoring conformance and cmd/openudon dispatch tests; versioned fixtures retained.</td>
+</tr>
+<tr>
+<td>J06</td>
+<td><code>step source add/discover/provision</code>, neutral sourcecatalog/elicitor</td>
+<td>Full source-root, provenance, digest, credential-alias, freshness and inactive-browser-source refusal tests.</td>
+</tr>
+<tr>
+<td>J07</td>
+<td><code>step discover/provision</code>, native APItools catalog records</td>
+<td>M94 accepted five-outcome/source-import fixtures; full catalog/step tests at M95. No implicit remote lookup or incomplete negative.</td>
+</tr>
+<tr>
+<td>J08</td>
+<td>Elicitor/browserverify profiles, registry and guided verification</td>
+<td>Full traversal, profile identity/expiry and source validation; current integration/native suite separately proves actual browser behavior.</td>
+</tr>
+<tr>
+<td>J09</td>
+<td><code>authoring browser-plan</code></td>
+<td>authoringcli expert conformance and browserauthoring tests: inert handoff, no writer/browser/runtime authority.</td>
+</tr>
+<tr>
+<td>J10</td>
+<td><code>browser-capture</code> authenticated mode, <code>browser-author</code>, package lifecycle</td>
+<td>Fresh native v6 <code>public_authenticated_package</code>, actual login/TOTP/goal/dashboard and selected native package; M20/W29 actual final consumer gates pending.</td>
+</tr>
+<tr>
+<td>J11</td>
+<td>Same public commands with registration mode; <code>authoring registration-draft</code></td>
+<td>Fresh native <code>registration_capture_handoff</code> and <code>public_registration_package</code>: typed field/history, verification refusal/grant, review/finish/import; no production registration.</td>
+</tr>
+<tr>
+<td>J12</td>
+<td>Issued capture action/revision/digest protocol</td>
+<td>Full browsercapture action replay, changed observation, deadline, disclosure and value-free diagnostic tests; both actual native modes.</td>
+</tr>
+<tr>
+<td>J13</td>
+<td>Browser-author plan/apply; package prepare/promote/inspect/recover</td>
+<td>Full browserpackage/browsertransaction/packagepipeline conformance, partial-write/recovery refusal and exact selection; native BAP/BCP transaction and both packages.</td>
+</tr>
+<tr>
+<td>J14</td>
+<td>Public capture worker/processgroup owner</td>
+<td>Native lifecycle/teardown, private TCP-disabled display join/auth deletion; full cancellation/stream/processgroup tests.</td>
+</tr>
+<tr>
+<td>J15</td>
+<td>Kinet owner sessions/jobs/UI; public OpenUdon capture/package</td>
+<td>U07/W28 accepted session/approval/reconnect; full capture and integration boundary checks. No OpenUdon UI/control listener remains. M20/W29 final transport adoption pending.</td>
+</tr>
+<tr>
+<td>J16</td>
+<td><code>authoring lint/reconcile/repair/report</code></td>
+<td>Full expert regression/replay/report tests; reconcile requires explicit publication, print stays read-only. Historical schema labels remain readable.</td>
+</tr>
+<tr>
+<td>J17</td>
+<td><code>authoring scorecard/variants/replay-eval</code> and make aliases</td>
+<td>Provider-free retained corpus103/103,0failed/unsafe; variants validation/coverage and reference-seed/replay fake checks. Original reports retain identity.</td>
+</tr>
+<tr>
+<td>J18</td>
+<td>Explicit <code>authoring authoring-eval/replay-eval</code></td>
+<td>Fake-provider/model-configuration tests and real main dispatch; no billable provider run selected. Closed draft rejects model-extraction options with replacement command.</td>
+</tr>
+<tr>
+<td>J19</td>
+<td>Existing build/assess/approval-template/run/package</td>
+<td>Actual declared1.11 public rebuild/assess/exact sandbox approval/dry-run with executor.invoked=false; opaque .icot bytes/modes unchanged. M20 owns final Kinet accept check.</td>
+</tr>
+<tr>
+<td>J20</td>
+<td>Existing trustedrunner/udonrunner v11 dispatch</td>
+<td>Full supported/inactive/mixed profile and argument tests; native Udon browser contract/CLI stages at exact M45 closure. Older paired readers/locks unchanged.</td>
+</tr>
+<tr>
+<td>J21</td>
+<td>Current native v6/integration v7; earlier readers unchanged</td>
+<td>Fresh39 native stages,17 integration gates and independent verification; old W28 v5 independent verification only, no historical re-execution/relabel.</td>
+</tr>
+<tr>
+<td>J22</td>
+<td>Kinet external-authoring v1 and W8M authoringcontract</td>
+<td>Accepted U07/W28 packet/owner/destination/TOTP/native result inspection; producer strict capture/package conformance. M20 and W29 qualify actual final binaries; W27/live authority unchanged.</td>
+</tr>
+<tr>
+<td>J23</td>
+<td>Two CLI release binaries, neutral Make/CI/docs gates</td>
+<td>All12 Linux/macOS/Windows builds, strict docs/memory, retained corpus; locally executed CI16-repo/14-replacement preparation and conflict/token-persistence refusal. No remote CI/tag/release claimed.</td>
+</tr>
+</tbody>
+</table>
+<p>Replacing terminal/UI transports transfers interaction to Kinet. It does not
+remove neutral authoring/evaluation, rewrite .icot histories, grant runtime
+approval, retire Authoring/udon-ui, or accept final downstream qualifications.</p>
+<p>Final M95 producer acceptance: <code>c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0</code>,
+review3 passed, no open P1/P2. Final guard rejects only <code>--print --report</code>;
+agent mode retains read-only reporting, including <code>--print --yes</code>. All23 entries
+retain dispositions/distinct actual contexts; final M20/W29 adoption pending.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

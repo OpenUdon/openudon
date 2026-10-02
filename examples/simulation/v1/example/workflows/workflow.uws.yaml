@@ -1,0 +1,23 @@
+info:
+    description: Preview a report
+    title: report
+    version: 1.0.0
+operations: []
+uws: 1.12.0
+workflows:
+    - description: Preview a report
+      steps:
+        - description: Obtain a report
+          pending:
+            effect: read
+            inputs:
+                type: object
+            outputs:
+                properties:
+                    text:
+                        type: string
+                type: object
+            purpose: Obtain a report
+          stepId: report
+      type: sequence
+      workflowId: main

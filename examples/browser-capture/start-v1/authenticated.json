@@ -1,0 +1,20 @@
+{
+  "version": "openudon.browser-capture-start.v1",
+  "mode": "authenticated",
+  "absolute_seconds": 600,
+  "operator_idle_seconds": 180,
+  "authentication": {
+    "profile_id": "member",
+    "url": "https://members.example.test/login",
+    "dashboard_url": "https://members.example.test/dashboard",
+    "goal_url": "https://members.example.test/status",
+    "goal": "Review member status",
+    "origins": [
+      "https://members.example.test"
+    ],
+    "goal_role": "heading",
+    "goal_context": "main",
+    "goal_label": "Status",
+    "after_authentication": "ask_after_authentication"
+  }
+}

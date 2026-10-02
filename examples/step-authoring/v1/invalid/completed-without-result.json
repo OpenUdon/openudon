@@ -1,0 +1,7 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.check",
+  "status": "completed",
+  "diagnostics": []
+}

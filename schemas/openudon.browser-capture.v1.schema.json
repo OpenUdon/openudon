@@ -1,0 +1,1344 @@
+{
+  "$defs": {
+    "authorresultContext": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "parent": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "parent",
+        "origin"
+      ],
+      "type": "object"
+    },
+    "authorsessionApproval": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "candidateId": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "postBudget": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "authorsessionCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "matches": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "role": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "matches"
+      ],
+      "type": "object"
+    },
+    "authorsessionCheckpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateId": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "challengeKinds": {
+          "items": {
+            "maxLength": 262144,
+            "type": "string"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "inputKind": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "authorsessionObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/authorsessionCandidate"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "context": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "contexts": {
+          "additionalProperties": {
+            "$ref": "#/$defs/authorresultContext"
+          },
+          "maxProperties": 131072,
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "diagnostics": {
+          "items": {
+            "maxLength": 262144,
+            "type": "string"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "origin": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "path",
+        "context",
+        "contexts",
+        "candidates",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "authorsessionOutputRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateId": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "locatorMode": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidateId",
+        "key",
+        "type",
+        "locatorMode"
+      ],
+      "type": "object"
+    },
+    "browserauthorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "approval_id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "candidate_id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "challenge_kind": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "context": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "authenticated",
+            "focus_human_input",
+            "click",
+            "navigate_get",
+            "observe",
+            "approve",
+            "deny",
+            "continue",
+            "confirm"
+          ]
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/authorsessionOutputRequest"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "post_budget": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "url": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "browsercaptureAction": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/browsercaptureCommand"
+        },
+        "command_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "command_sha256",
+        "command"
+      ],
+      "type": "object"
+    },
+    "browsercaptureAuthenticatedView": {
+      "additionalProperties": false,
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/authorsessionApproval"
+        },
+        "checkpoint": {
+          "$ref": "#/$defs/authorsessionCheckpoint"
+        },
+        "observation": {
+          "$ref": "#/$defs/authorsessionObservation"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "browsercaptureCancellation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "authenticated"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "registration"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "registration"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "authentication"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "event_id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "authenticated",
+            "registration"
+          ]
+        },
+        "revision": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "session_id": {
+          "pattern": "^capture-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "type": {
+          "const": "cancel"
+        },
+        "version": {
+          "const": "openudon.browser-capture.v1"
+        }
+      },
+      "required": [
+        "version",
+        "session_id",
+        "mode",
+        "revision",
+        "event_id",
+        "type"
+      ],
+      "type": "object"
+    },
+    "browsercaptureCommand": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "authentication"
+          ]
+        },
+        {
+          "required": [
+            "registration"
+          ]
+        },
+        {
+          "required": [
+            "disclose_observation"
+          ]
+        }
+      ],
+      "properties": {
+        "authentication": {
+          "$ref": "#/$defs/browserauthorResponse"
+        },
+        "disclose_observation": {
+          "type": "boolean"
+        },
+        "registration": {
+          "$ref": "#/$defs/browsercaptureRegistrationCommand"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "browsercaptureDecision": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "authenticated"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "registration"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "registration"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "authentication"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "action_id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "approved": {
+          "type": "boolean"
+        },
+        "command_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "authenticated",
+            "registration"
+          ]
+        },
+        "revision": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "session_id": {
+          "pattern": "^capture-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "type": {
+          "const": "decide"
+        },
+        "version": {
+          "const": "openudon.browser-capture.v1"
+        }
+      },
+      "required": [
+        "version",
+        "session_id",
+        "mode",
+        "revision",
+        "event_id",
+        "type",
+        "action_id",
+        "command_sha256",
+        "approved"
+      ],
+      "type": "object"
+    },
+    "browsercaptureEvent": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "authenticated"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "registration"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "registration"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "authentication"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "proposal"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "action"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "action"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "authenticated"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "view": {
+                "not": {
+                  "required": [
+                    "registration"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "registration"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "view": {
+                "not": {
+                  "required": [
+                    "authentication"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/browsercaptureAction"
+        },
+        "deadline": {
+          "format": "date-time",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "authenticated",
+            "registration"
+          ]
+        },
+        "revision": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "session_id": {
+          "pattern": "^capture-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "state",
+            "observation",
+            "approval_required",
+            "human_checkpoint",
+            "preview",
+            "diagnostic",
+            "result",
+            "disclosure",
+            "proposal"
+          ]
+        },
+        "version": {
+          "const": "openudon.browser-capture.v1"
+        },
+        "view": {
+          "$ref": "#/$defs/browsercaptureView"
+        }
+      },
+      "required": [
+        "version",
+        "session_id",
+        "mode",
+        "revision",
+        "event_id",
+        "type",
+        "deadline",
+        "view"
+      ],
+      "type": "object"
+    },
+    "browsercaptureProposal": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "authenticated"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "registration"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "registration"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "command": {
+                  "required": [
+                    "authentication"
+                  ]
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/browsercaptureCommand"
+        },
+        "event_id": {
+          "pattern": "^ref-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "authenticated",
+            "registration"
+          ]
+        },
+        "revision": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "session_id": {
+          "pattern": "^capture-[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "type": {
+          "const": "propose"
+        },
+        "version": {
+          "const": "openudon.browser-capture.v1"
+        }
+      },
+      "required": [
+        "version",
+        "session_id",
+        "mode",
+        "revision",
+        "event_id",
+        "type",
+        "command"
+      ],
+      "type": "object"
+    },
+    "browsercaptureRegistrationCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "candidate_ids": {
+          "items": {
+            "maxLength": 262144,
+            "type": "string"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "cleanup_disposition": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "credential_bindings": {
+          "items": {
+            "$ref": "#/$defs/browsertransactionCredentialBinding"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "flow": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "method": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "preview": {
+          "$ref": "#/$defs/registrationauthorsessionPreviewRequest"
+        },
+        "profile": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "step_candidates": {
+          "items": {
+            "maxLength": 262144,
+            "type": "string"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "type": {
+          "enum": [
+            "observe",
+            "navigate",
+            "preview",
+            "approve_verification",
+            "review",
+            "finish",
+            "close"
+          ]
+        },
+        "url": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/browserregistrationHumanVerification"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "browsercaptureRegistrationView": {
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "$ref": "#/$defs/registrationauthorsessionBounds"
+        },
+        "observation": {
+          "$ref": "#/$defs/registrationauthorsessionObservation"
+        },
+        "preview": {
+          "$ref": "#/$defs/registrationauthorsessionPreviewRecord"
+        },
+        "verification_authority": {
+          "$ref": "#/$defs/browserregistrationHumanVerification"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "browsercaptureResult": {
+      "additionalProperties": false,
+      "properties": {
+        "effect": {
+          "enum": [
+            "read",
+            "write"
+          ]
+        },
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "transaction_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "profile_id",
+        "transaction_sha256",
+        "effect"
+      ],
+      "type": "object"
+    },
+    "browsercaptureView": {
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "authentication",
+          "registration"
+        ]
+      },
+      "properties": {
+        "authentication": {
+          "$ref": "#/$defs/browsercaptureAuthenticatedView"
+        },
+        "diagnostic": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "phase": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "registration": {
+          "$ref": "#/$defs/browsercaptureRegistrationView"
+        },
+        "result": {
+          "$ref": "#/$defs/browsercaptureResult"
+        },
+        "state": {
+          "maxLength": 64,
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "browserregistrationHumanVerification": {
+      "additionalProperties": false,
+      "properties": {
+        "activation": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/browserregistrationVerificationDependencies"
+        },
+        "provider": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "submissionURL": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "widgetBinding": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "activation",
+        "widgetBinding",
+        "submissionURL",
+        "dependencies"
+      ],
+      "type": "object"
+    },
+    "browserregistrationVerificationDependencies": {
+      "additionalProperties": false,
+      "properties": {
+        "maxRequests": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "policy": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "timeoutMs": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "policy",
+        "maxRequests",
+        "maxResponseBytes",
+        "timeoutMs"
+      ],
+      "type": "object"
+    },
+    "browsertransactionCredentialBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "slot": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "binding"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionBounds": {
+      "additionalProperties": false,
+      "properties": {
+        "maxCandidates": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxObservations": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxRequests": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "navigationTimeoutMs": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalTimeoutMs": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "navigationTimeoutMs",
+        "totalTimeoutMs",
+        "maxRequests",
+        "maxResponseBytes",
+        "maxObservations",
+        "maxCandidates"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/registrationauthorsessionControlMetadata"
+        },
+        "id": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "matches": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "role": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/registrationauthorsessionVerificationObservation"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "matches"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionControlMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "maxLength": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maximum": {
+          "maximum": 1.7976931348623157e+308,
+          "minimum": 0,
+          "type": "number"
+        },
+        "minLength": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minimum": {
+          "maximum": 1.7976931348623157e+308,
+          "minimum": 0,
+          "type": "number"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/registrationauthorsessionPublicOption"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/registrationauthorsessionCandidate"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "diagnostics": {
+          "items": {
+            "maxLength": 262144,
+            "type": "string"
+          },
+          "maxItems": 131072,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "generation": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "origin": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "origin",
+        "path",
+        "candidates",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionPreviewRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "nextGeneration": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "request": {
+          "$ref": "#/$defs/registrationauthorsessionPreviewRequest"
+        }
+      },
+      "required": [
+        "request",
+        "nextGeneration"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionPreviewRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "candidateId": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "generation": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "option": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "purpose": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidateId",
+        "generation",
+        "action",
+        "purpose"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionPublicOption": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "type": "object"
+    },
+    "registrationauthorsessionVerificationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "activation": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "coverage": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "submissionURL": {
+          "maxLength": 262144,
+          "type": "string"
+        },
+        "widgetBinding": {
+          "maxLength": 262144,
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "activation",
+        "submissionURL",
+        "widgetBinding",
+        "coverage"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://openudon.dev/schemas/openudon.browser-capture.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Bounded transient capture protocol. Aggregate NDJSON byte limit is 262144; issued references and controller semantics are additionally checked at runtime.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/browsercaptureProposal"
+    },
+    {
+      "$ref": "#/$defs/browsercaptureDecision"
+    },
+    {
+      "$ref": "#/$defs/browsercaptureCancellation"
+    },
+    {
+      "$ref": "#/$defs/browsercaptureEvent"
+    }
+  ],
+  "title": "openudon.browser-capture.v1"
+}

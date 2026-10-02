@@ -1,0 +1,20 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.source.add",
+  "status": "completed",
+  "diagnostics": [],
+  "result": {
+    "sources": [
+      {
+        "source_id": "weather",
+        "candidate_source_id": "src-5493cb89e4300b540fdce897",
+        "source_kind": "openapi",
+        "package_path": "openapi/weather.yaml",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "manifest_path": "expected/api-source-manifest.json",
+    "manifest_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

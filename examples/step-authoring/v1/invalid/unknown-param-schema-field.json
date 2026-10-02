@@ -1,0 +1,14 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "request",
+  "command": "step.check",
+  "step_id": "list_projects",
+  "contract": {
+    "id": "list_projects",
+    "purpose": "List projects visible to the configured account",
+    "inputs": { "type": "object", "properties": {}, "typo": true },
+    "outputs": { "type": "object", "properties": {} },
+    "effect": "read"
+  },
+  "intent_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

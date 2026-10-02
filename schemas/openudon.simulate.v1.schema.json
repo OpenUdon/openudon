@@ -1,0 +1,236 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "tier",
+    "status",
+    "package_unchanged",
+    "hypothetical",
+    "values_policy",
+    "steps",
+    "would_be_requests",
+    "diagnostics"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.simulate.v1"
+    },
+    "tier": {
+      "const": "simulation"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "blocked"
+      ]
+    },
+    "uws_version": {
+      "type": "string",
+      "maxLength": 32
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "package_unchanged": {
+      "type": "boolean"
+    },
+    "hypothetical": {
+      "type": "boolean"
+    },
+    "values_policy": {
+      "const": "all preview scalar values and object field names redacted"
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "binding",
+          "effect",
+          "simulation_outcome",
+          "response_provenance"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+          },
+          "binding": {
+            "enum": [
+              "bound",
+              "pending"
+            ]
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "write",
+              "unknown"
+            ]
+          },
+          "simulation_outcome": {
+            "enum": [
+              "simulated",
+              "not_started",
+              "failed",
+              "skipped"
+            ]
+          },
+          "response_provenance": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 4,
+            "items": {
+              "enum": [
+                "fixture",
+                "example",
+                "synthesized",
+                "unavailable"
+              ]
+            }
+          },
+          "browser_evidence": {
+            "const": "mocked contract only; page state not verified"
+          },
+          "outputs": {}
+        }
+      }
+    },
+    "would_be_requests": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "effect",
+          "endpoint_status",
+          "response_provenance"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+          },
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "write",
+              "unknown"
+            ]
+          },
+          "endpoint_status": {
+            "enum": [
+              "bound",
+              "unresolved"
+            ]
+          },
+          "response_provenance": {
+            "enum": [
+              "fixture",
+              "example",
+              "synthesized",
+              "unavailable"
+            ]
+          },
+          "would_be_request": {},
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "endpoint_status": {
+                  "const": "unresolved"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "operation_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "would_be_request"
+                    ]
+                  }
+                ]
+              }
+            },
+            "else": {
+              "required": [
+                "operation_id"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "package_sha256",
+          "uws_version"
+        ],
+        "properties": {
+          "package_unchanged": {
+            "const": true
+          },
+          "diagnostics": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.simulate.v1.schema.json",
+  "title": "openudon.simulate.v1"
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": "openudon.catalog-conformance-provenance/v1",
+  "apitools_source": "fb132631c9827eae5f2ec4503d03f21eabfb4113",
+  "raw_fixture_provenance": "../../../cmd/openudon/testdata/catalog-root/provenance.json",
+  "generation": "Actual native discovery and OpenUdon catalog source command using freshly built registered synthetic indexes. Ambiguous variant adds a second real read operation and updates real registration identities; incomplete variant omits configured root. No real provider or account evidence. Permanent conformance tests compare each pair with the real main dispatcher.",
+  "files": [
+    {
+      "path": "ambiguous.report.json",
+      "sha256": "935b2fdf1ec12995a38046bdf9baa86a75dadb25dcb27cfafa4f0181cd7e9922"
+    },
+    {
+      "path": "ambiguous.request.json",
+      "sha256": "1fc59e441953e04fe647d3f3254cba9768ace1376a8da1a62ac01f3b9bb634f5"
+    },
+    {
+      "path": "blocked.report.json",
+      "sha256": "bd76db249419f661e3e8edac1184ddd2ace5be75c38d63fe8d52fd2b6df10522"
+    },
+    {
+      "path": "blocked.request.json",
+      "sha256": "3d13f24fa3530639d6100904756ec24251a0d34191a396fe5c8e33a4fe32412d"
+    },
+    {
+      "path": "insufficient_evidence.report.json",
+      "sha256": "adf9a707b4a81adc2e0f8d68e836ab0af986906a5764f68c46e10a21ce077ec6"
+    },
+    {
+      "path": "insufficient_evidence.request.json",
+      "sha256": "1fc59e441953e04fe647d3f3254cba9768ace1376a8da1a62ac01f3b9bb634f5"
+    },
+    {
+      "path": "match.report.json",
+      "sha256": "9da9a2926acb257950a5b3f3f496b0ecc3a9c765185914dafd46275e9ce5cce2"
+    },
+    {
+      "path": "match.request.json",
+      "sha256": "1fc59e441953e04fe647d3f3254cba9768ace1376a8da1a62ac01f3b9bb634f5"
+    },
+    {
+      "path": "no_qualifying_api.report.json",
+      "sha256": "ec782747a18a9423feed1ee2d947b1dad6a887d4696c057392797573b685245e"
+    },
+    {
+      "path": "no_qualifying_api.request.json",
+      "sha256": "11b4e34d5ad72c38df6e4a61d1f880826c986e717b60a025392e9b3b3988e7b3"
+    },
+    {
+      "path": "source.provenance.json",
+      "sha256": "4dad9ae219b571cfb5be068936a0998389bcb644a58fd2822be3bb321128d13e"
+    },
+    {
+      "path": "source.request.json",
+      "sha256": "368bdbc7d7b77d025bf8e2f17f9275c3bd9d4d65c49718bec414021712c8a2cc"
+    },
+    {
+      "path": "source.result.json",
+      "sha256": "4853896bdb05a32b1f960f1e385c873335334914dbf6c0908b673b095058c0ab"
+    }
+  ]
+}
