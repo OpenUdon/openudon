@@ -177,6 +177,12 @@ func (q *registrationInputQualification) Environment(environment []string) []str
 }
 func (q *registrationInputQualification) Continue() error {
 	bad := errors.New("registration private UI checkpoint qualification")
+	// Package verification and runtime startup precede the first input checkpoint.
+	// Wait for that checkpoint before touching fields disabled in ready/running.
+	// This remains bounded by the synthetic workflow's 120-second limit.
+	if q.button("Apply").WaitFor(playwright.LocatorWaitForOptions{Timeout: playwright.Float(120000)}) != nil {
+		return errors.New("registration private UI qualification: apply readiness")
+	}
 	for _, field := range []struct{ name, value string }{{"quantity", "0"}, {"ratio", "0.0000001"}} {
 		if q.page.Locator("#private-field-"+field.name).Fill(field.value) != nil {
 			return bad

@@ -1451,7 +1451,7 @@ func runBrowserSystemComponent(args []string) {
 	defer cancel()
 	value, err := browsersystem.RunComponent(ctx, *root, *udon, *stack, *browserdriverNodeModules, *id)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "browser-system-component: failed")
+		fmt.Fprintln(os.Stderr, "browser-system-component:", browsersystem.ComponentFailureCode(err))
 		os.Exit(1)
 	}
 	if json.NewEncoder(os.Stdout).Encode(value) != nil {

@@ -41,6 +41,10 @@ A private temporary display is a separate explicitly authorized operation.
 Retain Chromium sandboxing, closed child environments and joined PID/start-time
 owners. Failure streams stay bounded in owner-only diagnostic sidecars; unknown
 outcomes, cancelled workers or missing teardown are failures, not passing proof.
+Component failures print only fixed qualification phase codes. Dynamic executor
+errors, paths and private values are never printed. The synthetic private-input
+fixture waits for the actual Apply checkpoint before filling runtime fields;
+package startup does not substitute for readiness or extend workflow deadlines.
 
 ## Versioned readers
 

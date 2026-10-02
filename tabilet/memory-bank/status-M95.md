@@ -586,3 +586,48 @@ current v7; frozen older selectors/readers and all existing prohibited imports
 remain intact. Commit/refreeze then select the required current offline, full
 integration17 and native39 qualification; no native browser stage has launched
 in either retained failed preflight. Whole review remains0/10.
+
+Focused boundary correction independently published at
+62a8b594e74d31493f0656fa01c82264de2c265d. Select the corrected required
+frozen producer run at this exact source, preserving both previous pre-browser
+failures. Same25–35minute rationale/estimate; no native seed yet consumed and
+no automatic cache/qualification fallback. M95.4 remains sole in-progress row.
+
+### M95.4 native failure and bounded diagnosis — 2026-10-02
+
+Frozen run /var/tmp/openudon-m95-qualified-4cpsy2wp at
+62a8b594e74d31493f0656fa01c82264de2c265d passed full checks, offline
+v6 four gates and independent verification, integration v7 17/0failed/3optional
+and independent verification. Native pass1 completed all13 stages; pass2
+stopped at registration_capture_handoff after its first10 stages. No third pass
+or acceptance claimed. Failed native SHA256
+894b1a19ac0e36bc76f4affdebd548a05604e2b07897696a9b82c66bd3510cdf;
+integration SHA256656647cc43e744ddf08de2e81d8ed60a02f32506887c8735c291e8f361768a60.
+Whole attempt1134.364seconds; native912.568seconds. Private display joined and
+auth removed. Failure retained unchanged, no fallback or relabeled result.
+
+Select one fresh bounded development registration_capture_handoff diagnosis
+on that exact frozen source, expected1–4minutes. The development diagnostic
+retains the underlying closed component failure unavailable in the aggregate
+report. New private TCP-disabled display/authentication and verified teardown;
+no cache, full native replay, live target, model or account. This diagnostic
+cannot establish acceptance. M95.4 remains sole in-progress row; review0/10.
+
+Bounded diagnosis /var/tmp/openudon-m95-brp-diagnosis-pq7w1tgw passed
+in66.876seconds at the actual62a8b594 source; display joined/auth removed.
+Development report SHA2568c2f548948bf31068225b097fb8da908d10ca748a17ab0b3649f7d14e6805b62.
+It does not reproduce or explain the earlier native failure. Self-inspection
+found the private-input fixture fills disabled fields before the runtime's first
+Apply checkpoint, relying on a15-second browser timeout despite package/runtime
+startup work. Add an explicit bounded Apply-readiness wait; retain workflow
+deadlines/approval and exactly-one-POST policy. Add fixed component phase codes
+without dynamic paths, values or raw errors in public output. Verify diagnostics
+privacy regressions and one fresh affected development handoff before selecting
+a new exact-source full acceptance run. No earlier result is relabeled.
+
+Affected browsersystem/browserscenario/public CLI suites passed, including fixed
+phase privacy regressions; diff check passed. Self-review confirmed the wait
+changes only synthetic input sequencing, not executor approvals, workflow
+deadlines, submit counts or native report evidence. Publish/refreeze the focused
+correction, then run one bounded affected development handoff on exact source.
+Full acceptance remains pending regardless of that focused result.

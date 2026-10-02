@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
@@ -82,4 +83,29 @@ func retainFailureDiagnostic(out, stage string, cause error, progress io.Writer)
 			fmt.Fprintf(progress, "browser-system-eval: private diagnostic %q\n", path)
 		}
 	}
+}
+
+// ComponentFailureCode exposes only fixed qualification phases. Dynamic errors,
+// including executor paths and private input values, never enter CLI output.
+func ComponentFailureCode(cause error) string {
+	if cause == nil {
+		return "none"
+	}
+	message := cause.Error()
+	for _, entry := range []struct{ prefix, code string }{
+		{"BRP public capture qualification:", "registration_capture"},
+		{"BRP attested runtime execution failed", "registration_execution"},
+		{"registration private UI qualification: apply readiness", "registration_apply_readiness"},
+		{"registration private UI checkpoint qualification", "registration_checkpoint"},
+		{"registration private UI completion or artifact privacy failed", "registration_completion"},
+		{"registration private UI teardown", "registration_teardown"},
+		{"registration private UI qualification:", "registration_input_setup"},
+		{"BRP", "registration_package"},
+		{"BAP", "authenticated_package"},
+	} {
+		if strings.HasPrefix(message, entry.prefix) {
+			return entry.code
+		}
+	}
+	return "qualification_failed"
 }

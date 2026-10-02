@@ -183,3 +183,21 @@ func TestDiagnosticSnapshotWhileChildWriterRemainsActive(t *testing.T) {
 		t.Fatal("diagnostic snapshot aliases the active capture buffer")
 	}
 }
+
+func TestComponentFailureCodeNeverExposesDynamicError(t *testing.T) {
+	for _, tc := range []struct{ message, want string }{
+		{"BRP public capture qualification: private fixture /secret/value", "registration_capture"},
+		{"BRP attested runtime execution failed (secret): /private/token", "registration_execution"},
+		{"registration private UI qualification: apply readiness", "registration_apply_readiness"},
+		{"registration private UI qualification: /secret/value", "registration_input_setup"},
+		{"registration private UI checkpoint qualification", "registration_checkpoint"},
+		{"untrusted-secret-value", "qualification_failed"},
+	} {
+		if got := ComponentFailureCode(errors.New(tc.message)); got != tc.want {
+			t.Fatalf("fixed failure code = %q, want %q", got, tc.want)
+		}
+	}
+	if got := ComponentFailureCode(nil); got != "none" {
+		t.Fatal(got)
+	}
+}
