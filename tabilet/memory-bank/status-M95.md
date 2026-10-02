@@ -41,7 +41,7 @@ Lineage: Consumes M91 extraction and W28 migration without reopening their histo
 
 ## Closing review
 
-Persisted iteration count: 1/10. Iteration1 FINDINGS, 2026-10-02. M95-R1 (P2): combined --agent --print --yes can enter the agent publisher, bypassing print-only rendering; incomplete --print with --report can write a report. Reject conflicting print/output modes before source discovery or effects and add no-write regression. No acceptance; fix and affected verification precede iteration2.
+Persisted iteration count: 2/10. Iteration2 FINDINGS, 2026-10-02. M95-R1 (P2): combined --agent --print --yes can enter the agent publisher, bypassing print-only rendering; incomplete --print with --report can write a report. Reject conflicting print/output modes before source discovery or effects and add no-write regression. No acceptance; fix and affected verification precede iteration2.
 
 ## APItools producer reconciliation — 2026-09-30
 
@@ -771,3 +771,38 @@ remain. The final23-entry replacement map explicitly separates producer native
 bb9863, later early-refusal application8ce4dd2, and pending M20/W29 consumer
 acceptance. Publish this test/document/status-only reconciliation; run one clean
 frozen final regression selection, no native replay/fallback.
+
+### Whole review iteration2 STARTED — 2026-10-02
+
+Resume persisted review count2/10 after R1/R2 fixes and all affected frozen
+checks passed; examine the whole M95 scope again, not just these fixes.
+Final exact source94ef1d7f26120005e6b3d6be51c892032e4f9f71,
+frozen root /var/tmp/openudon-m95-review-final-huhpxlon: full default make check,
+offline4/integration17 and independent verifiers passed; original nativev6
+and historical W28v5 independently verified, not re-executed or relabeled.
+Legacy1.11 public rebuild/assessment/exact sandbox approval/dry-run and .icot
+bytes/modes passed on the final exact CLI. Protected native owners/fixtures/
+locks/modules equal qualifiedbb9863. Strict owner docs/memory/diff passed.
+Final regression summary SHA2561593a95f736d332af5885857d5578f21e540ba056689d2b956df5a17c5139de8; CLI SHA256a1d4529c44663240ee93848205959dcf6ed22a56ac11f8e49f8f6f2ae7e4ba76; build closure SHA2564561dc76c07b08a160235787616f830ed61bd6580319bce03247837140dc718a.
+
+Iteration2 finding M95-R3 (P2): reinspection of the complete runAgentAuthor
+and pre-M95 source proves agent mode NEVER publishes deliverables, including
+--yes. Iteration1's alleged agent publisher was an incorrect review statement;
+only incomplete --print --report reaches an actual write. The new prohibition
+of --agent --print --yes unnecessarily changed a retained read-only invocation;
+the added operator sentence describing agent publication is also incorrect.
+Correct both: reject only print with a report path; preserve complete/incomplete
+agent print with or without --yes, all with zero package writes. Preserve the
+incorrect earlier observation as corrected evidence, not proof of a real bug.
+Final full/default and affected CLI checks must pass; protected browser/gate/
+fixture/lock code stays unchanged, so existing nativebb9863 and integration94ef1d7
+remain separate valid contexts without another native/integration replay.
+
+M95-R3 focused CLI/authoring tests passed, preserving all four combinations
+of complete/incomplete agent-print with/without --yes and refusing only report
+output in print mode. Actual baseline repro at
+/var/tmp/openudon-m95-print-report-baseline-eu83jaw7 confirms bb9863 --print
+--report wrote a report with exit0, no package; this is the observed P2 defect.
+Commit corrected minimal guard and truthful evidence; final frozen full/default
+verification follows. Integration94ef1d7 and nativebb9863 retain actual scope;
+no protected native/gate/dependency differences, no new native replay selected.

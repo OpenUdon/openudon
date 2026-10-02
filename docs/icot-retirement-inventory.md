@@ -135,9 +135,10 @@ dropped because its old transport is removed.
 ## M95 final replacement evidence map — 2026-10-02
 
 This additive map preserves the approved historical inventory above. No extra
-capability is discontinued. Final application revision is
-`8ce4dd2ac7d74a656c7fecbe0bc42d2fa459e4c5`; closing acceptance remains separately
-recorded in M95's ledger. Native browser application qualification is honestly
+capability is discontinued. The first review-fix revision was
+`8ce4dd2ac7d74a656c7fecbe0bc42d2fa459e4c5`; its extra agent flag refusal was
+corrected during review2. Final exact application and closing acceptance are
+recorded separately in M95's ledger. Native browser application qualification is honestly
 bound to `bb9863ed097a56460082640668f7cc0a121002ac`, CLI SHA256
 `dfb0e9f0764aecf7ee448d5c6d19adea6945bf79244123231c5f39524176ece3`.
 The later application delta only refuses conflicting draft print/publication

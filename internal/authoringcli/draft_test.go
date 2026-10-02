@@ -128,7 +128,7 @@ func TestNeutralReconcileNeverReadsTerminalAndRequiresPublicationApproval(t *tes
 }
 
 func TestNeutralDraftPrintConflictsRefuseBeforeAnyWrites(t *testing.T) {
-	for _, extra := range [][]string{{"--agent", "--yes"}, {"--report", "report.json"}, {"--report", "report.json", "--yes"}} {
+	for _, extra := range [][]string{{"--report", "report.json"}, {"--report", "report.json", "--yes"}} {
 		t.Run(strings.Join(extra, "_"), func(t *testing.T) {
 			root := t.TempDir()
 			target := filepath.Join(root, "package")
@@ -153,11 +153,14 @@ func TestNeutralDraftPrintConflictsRefuseBeforeAnyWrites(t *testing.T) {
 }
 
 func TestNeutralDraftAgentPrintRetainsReadOnlyFrontier(t *testing.T) {
-	for _, complete := range []bool{false, true} {
+	for _, mode := range []struct{ complete, yes bool }{{false, false}, {true, false}, {false, true}, {true, true}} {
 		root := t.TempDir()
 		target := filepath.Join(root, "package")
 		args := []string{"--example", target, "--agent", "--print", "--json"}
-		if complete {
+		if mode.yes {
+			args = append(args, "--yes")
+		}
+		if mode.complete {
 			args = append(args, "--answers", writeCompleteRuntimeSession(t, root))
 		}
 		var out, errOut bytes.Buffer
