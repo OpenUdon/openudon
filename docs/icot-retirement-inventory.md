@@ -131,3 +131,54 @@ Historical inventory source references above are preserved as baseline evidence.
 M95 does not delete historical package .icot/session/transcript artifacts, alter
 old report schemas/locks or retire Authoring/udon-ui. No capability is silently
 dropped because its old transport is removed.
+
+## M95 final replacement evidence map — 2026-10-02
+
+This additive map preserves the approved historical inventory above. No extra
+capability is discontinued. Final application revision is
+`8ce4dd2ac7d74a656c7fecbe0bc42d2fa459e4c5`; closing acceptance remains separately
+recorded in M95's ledger. Native browser application qualification is honestly
+bound to `bb9863ed097a56460082640668f7cc0a121002ac`, CLI SHA256
+`dfb0e9f0764aecf7ee448d5c6d19adea6945bf79244123231c5f39524176ece3`.
+The later application delta only refuses conflicting draft print/publication
+flags; its focused/full/offline/integration results are separate. Native
+owners, entry, fixtures, locks and modules are unchanged; the original native
+report is never relabeled as a run at the final revision.
+
+Full native v6:39/39 in three fresh complete passes, independently verified;
+integration v7:17 required passed,3 optional unrequested; offline v6:4 passed.
+Original qualification summary SHA256
+`ea80c3d40ce3c544f33845e931d50dc17cb8a318e466ba9fd9c04ef6b601e201`.
+Final full/default and integration, legacy CLI and closing-review results are
+recorded in the permanent M95 record when accepted. Existing U07/W28 migration
+is accepted evidence; final Kinet M20 and W8M W29 remain pending consumer gates.
+
+| Entry | Replacement command/protocol | Actual fixture/check and downstream boundary |
+| --- | --- | --- |
+| J01 | Kinet chat/jobs plus `openudon step`, build/package | Accepted Kinet U07/W28 exact proposal and no-write refusals; M95 full step/package tests. M20/W29 requalify final pins. |
+| J02 | `authoring draft --answers/--from-example --print/--agent`; explicit `--yes` publication | `authoringcli/draft_test.go` seed corpus, no terminal reads, frontier, no-write print/conflict and transcript checks; retained session schemas. Kinet owns new conversation persistence. |
+| J03 | Neutral `authoringengine`, elicitor and public step check/pending | Full authoringengine/elicitor/stepauthoring readiness, pending/deferral, evidence and bounded repair tests; no implicit execution. |
+| J04 | Neutral artifactwriter/packagepipeline and browser-package commands | Full atomic/rollback/symlink/conflict tests; browserpackage lost-output, cancellation and exact native receipt tests; no copied writer. |
+| J05 | `step source add`, `step candidates`, `step bind`, `step check`, `flow-review` | Full stepauthoring conformance and cmd/openudon dispatch tests; versioned fixtures retained. |
+| J06 | `step source add/discover/provision`, neutral sourcecatalog/elicitor | Full source-root, provenance, digest, credential-alias, freshness and inactive-browser-source refusal tests. |
+| J07 | `step discover/provision`, native APItools catalog records | M94 accepted five-outcome/source-import fixtures; full catalog/step tests at M95. No implicit remote lookup or incomplete negative. |
+| J08 | Elicitor/browserverify profiles, registry and guided verification | Full traversal, profile identity/expiry and source validation; current integration/native suite separately proves actual browser behavior. |
+| J09 | `authoring browser-plan` | authoringcli expert conformance and browserauthoring tests: inert handoff, no writer/browser/runtime authority. |
+| J10 | `browser-capture` authenticated mode, `browser-author`, package lifecycle | Fresh native v6 `public_authenticated_package`, actual login/TOTP/goal/dashboard and selected native package; M20/W29 actual final consumer gates pending. |
+| J11 | Same public commands with registration mode; `authoring registration-draft` | Fresh native `registration_capture_handoff` and `public_registration_package`: typed field/history, verification refusal/grant, review/finish/import; no production registration. |
+| J12 | Issued capture action/revision/digest protocol | Full browsercapture action replay, changed observation, deadline, disclosure and value-free diagnostic tests; both actual native modes. |
+| J13 | Browser-author plan/apply; package prepare/promote/inspect/recover | Full browserpackage/browsertransaction/packagepipeline conformance, partial-write/recovery refusal and exact selection; native BAP/BCP transaction and both packages. |
+| J14 | Public capture worker/processgroup owner | Native lifecycle/teardown, private TCP-disabled display join/auth deletion; full cancellation/stream/processgroup tests. |
+| J15 | Kinet owner sessions/jobs/UI; public OpenUdon capture/package | U07/W28 accepted session/approval/reconnect; full capture and integration boundary checks. No OpenUdon UI/control listener remains. M20/W29 final transport adoption pending. |
+| J16 | `authoring lint/reconcile/repair/report` | Full expert regression/replay/report tests; reconcile requires explicit publication, print stays read-only. Historical schema labels remain readable. |
+| J17 | `authoring scorecard/variants/replay-eval` and make aliases | Provider-free retained corpus103/103,0failed/unsafe; variants validation/coverage and reference-seed/replay fake checks. Original reports retain identity. |
+| J18 | Explicit `authoring authoring-eval/replay-eval` | Fake-provider/model-configuration tests and real main dispatch; no billable provider run selected. Closed draft rejects model-extraction options with replacement command. |
+| J19 | Existing build/assess/approval-template/run/package | Actual declared1.11 public rebuild/assess/exact sandbox approval/dry-run with executor.invoked=false; opaque .icot bytes/modes unchanged. M20 owns final Kinet accept check. |
+| J20 | Existing trustedrunner/udonrunner v11 dispatch | Full supported/inactive/mixed profile and argument tests; native Udon browser contract/CLI stages at exact M45 closure. Older paired readers/locks unchanged. |
+| J21 | Current native v6/integration v7; earlier readers unchanged | Fresh39 native stages,17 integration gates and independent verification; old W28 v5 independent verification only, no historical re-execution/relabel. |
+| J22 | Kinet external-authoring v1 and W8M authoringcontract | Accepted U07/W28 packet/owner/destination/TOTP/native result inspection; producer strict capture/package conformance. M20 and W29 qualify actual final binaries; W27/live authority unchanged. |
+| J23 | Two CLI release binaries, neutral Make/CI/docs gates | All12 Linux/macOS/Windows builds, strict docs/memory, retained corpus; locally executed CI16-repo/14-replacement preparation and conflict/token-persistence refusal. No remote CI/tag/release claimed. |
+
+Replacing terminal/UI transports transfers interaction to Kinet. It does not
+remove neutral authoring/evaluation, rewrite .icot histories, grant runtime
+approval, retire Authoring/udon-ui, or accept final downstream qualifications.

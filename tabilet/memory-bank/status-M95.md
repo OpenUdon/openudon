@@ -753,3 +753,21 @@ browser source refusal and conflicting output zero-write checks. Runtime delta
 is four early validation lines only; all protected native owners/entry/fixtures,
 locks/modules match qualifiedbb9863. Commit this verified review fix, then
 freeze the final source for required offline/default/integration verification.
+
+Final frozen first regression /var/tmp/openudon-m95-review-final-l_4drobv
+at8ce4dd2 failed full make check only in the old release checkout assertion:
+TestBrowserScenarioWorkflowsUseLockedPrivateUdonCheckout expects the retired
+shell/action preparation, not the verified current16-repository Python closure.
+M95-R2 (P2 verification mismatch) discovered before review2. Preserve this failed
+context; align only the release assertion to exact v5 locks, complete closure,
+revision/dirty refusal and ephemeral/no-persistence credentials. Historical
+browser-scenario-public workflow assertions remain unchanged. No native runtime
+changes or new native selection; rerun frozen default/offline/integration after
+the focused CI regression passes.
+
+M95-R2 focused internal/eval tests passed with complete closure and ephemeral
+credential assertions; original browser-scenario-public historical requirements
+remain. The final23-entry replacement map explicitly separates producer native
+bb9863, later early-refusal application8ce4dd2, and pending M20/W29 consumer
+acceptance. Publish this test/document/status-only reconciliation; run one clean
+frozen final regression selection, no native replay/fallback.

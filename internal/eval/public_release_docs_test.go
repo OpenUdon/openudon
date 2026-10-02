@@ -120,6 +120,26 @@ func TestBrowserScenarioWorkflowsUseLockedPrivateUdonCheckout(t *testing.T) {
 		filepath.Join(".github", "workflows", "browser-scenario-public.yml"),
 	} {
 		workflow := readRepoFile(t, root, path)
+		if filepath.Base(path) == "release.yml" {
+			for _, want := range []string{
+				`current-compatibility-lock-v5.json`, `current-qualification-build-inputs-v5.json`,
+				`conflicting browser/executor source locks`, `len(closure["components"]) != 14 or len(selected) != 16`,
+				`GENELET_READ_TOKEN: ${{ secrets.GENELET_READ_TOKEN }}`,
+				`GIT_CONFIG_GLOBAL="/dev/null"`, `GIT_CONFIG_COUNT="1"`,
+				`GIT_CONFIG_VALUE_0="AUTHORIZATION: basic " + authorization`,
+				`actual != revision or dirty`, `"--detach", revision`,
+			} {
+				if !strings.Contains(workflow, want) {
+					t.Fatalf("%s missing current locked closure control %q", path, want)
+				}
+			}
+			for _, unsafe := range []string{`git config --global`, `git config --local`, `https://x-access-token:`} {
+				if strings.Contains(workflow, unsafe) {
+					t.Fatalf("%s persists source credentials: %q", path, unsafe)
+				}
+			}
+			continue
+		}
 		for _, want := range []string{
 			`for COMPONENT in browsertools browserdriver`,
 			`select(.name == "udon")`,
