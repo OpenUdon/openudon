@@ -18,7 +18,10 @@ visible journeys passed, review1 passed. M94 catalog discovery/provisioning is
 also accepted/published at application/test source
 `ee49fe433a4d476f8d28d3d888352293c490dfc6`, through
 `5a2a2643ff71831ae72cdeca57baf197c1afbf16`; full owner/native conformance and
-review1 passed. M96 is accepted/published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335`, through verified source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`; review1 passed and exact consumers are reconciled. Kinet M19 owns remaining delivery. M95 removal remains gated by Kinet U07, Gate5B and W8M W28.
+review1 passed. M96 is accepted/published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335`, through verified source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`; review1 passed and exact consumers are reconciled. Kinet M19/U07 and W8M W28 are accepted; Gate5B is approved. M95 removal is
+accepted at final application `c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`,
+publication `565f101439ffde86e4c4ef9e7a7fbbc1d16b4002`; review3 passed.
+Kinet M20 then W8M W29 own final exact-pin consumer adoption.
 Resolve completed prerequisites through the [history index](../docs/history/index.md).
 
 E24 completed [actual namespace binding](../docs/history/status-E24.md).
@@ -140,9 +143,9 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 
 ### Stage 5 coordination (approved planning, 2026-09-30)
 
-M91 and M96 are accepted published prerequisites. Kinet M19 owns remaining delivery; OpenUdon
-M95 remains gated target work; M92 pending/simulation, M93 supervised capture and M94
-catalog discovery/provisioning are accepted. The
+OpenUdon M91–M96 and Kinet M19/U07/W8M W28 are accepted published prerequisites.
+M95 removed only its own iCoT transports and retained all23 capabilities;
+remaining execution is Kinet M20, then W8M W29 final adoption. The
 canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
 publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 `docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's
@@ -151,8 +154,8 @@ publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 ```text
 Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91/M92/M93
 Completed also: OpenUdon M94/M96; Kinet A10/W08/W09/W10; W8M W27
-Remaining: Kinet M19 → U07
-→ explicit Gate 5B → W8M W28 → OpenUdon M95 → Kinet M20 → W8M W29
+Completed also: Kinet M19/U07, explicit Gate5B, W8M W28, OpenUdon M95
+Remaining: Kinet M20 → W8M W29
 ```
 
 - M91–M94 are additive (stage 5A). They retain registration and
@@ -162,20 +165,6 @@ Remaining: Kinet M19 → U07
   named authorization.
 - Before consuming an upstream revision, record its actual accepted source,
   publication and qualification evidence. Never invent a future hash.
-
-### M95 — Remove iCoT after consumer migration
-
-**Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
-
-**Scope and compatibility.** Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, application/registration control entry points, iCoT-only planner/reporting, release binary and obsolete CI gates. Remove OpenUdon's remaining Authoring icot dependency, not Authoring's packages. Retain neutral shared implementation, replacement commands, evaluation/scorecards and qualification coverage from M91. Retain build/assess/approval-template/run/package on legacy packages without editing historical .icot files. No unnoticed journey loss; extra discontinuations need approval. Preserve P07/P08 browser v11 dispatch and E23/E24 qualification inputs. Source history and old adopted binaries remain available.
-
-**Dependencies.** M91–M94 and M96 accepted/published; Kinet U07 acceptance; approved Gate 5B and inventory dispositions; W8M W28 accepted/published at exact Kinet/OpenUdon revisions.
-
-**Downstream.** Kinet M20, then W8M W29 final adoption. Earlier W28 qualification cannot qualify new M95 binaries.
-
-**Acceptance.** Verify W8M no longer launches iCoT, all inventory dispositions have evidence, no retained command/gate depends on removed code, and old packages still work. Run owner checks and required integration/browser qualification on frozen source, review with no open P1/P2, update install/startup/operator/tutorial docs and publish. Publication is producer acceptance; W29 separately qualifies final consumer pins.
-
-Status, task-sized commit units, review provenance and persisted review counter: [status-M95.md](status-M95.md).
 
 ## Memory Bank Index
 
@@ -234,7 +223,9 @@ external services.
 
 ## Active And Parked Tracks
 
-- Remaining approved work: M95 after Kinet M19/U07, explicit Gate5B and W8M W28; M96 is accepted/published and reconciled. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
+- No active OpenUdon implementation milestone remains. M95 is accepted/published
+  and retired; final Kinet M20/W8M W29 adoption remains in their own ledgers.
+  APItools M81/M80, Udon M45 and Authoring M29 stay accepted prerequisites.
 
 - Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
   evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
@@ -249,13 +240,14 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: approved Stage 5 M95; M96 is completed and retired. M94 supplies accepted catalog discovery/provisioning; M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
-  shared implementation; no capability removal is claimed. E21/P07/P08
+- Completed: approved Stage 5 M95 and M96 are retired. M94 supplies accepted catalog discovery/provisioning; M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
+  shared implementation; M95 removed terminal/UI/control/assets, retaining all23
+  capability dispositions. E21/P07/P08
   completed normal history retirement before M91, preserving all original
   task outcomes, qualification evidence and review counts. W8M owns its later
   adopted runtime, consumed attempts and separately gated live operations.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
-  separately approved scope and authority. Stage 5 M91–M95 now plans the
+  separately approved scope and authority. Stage 5 M91–M95 delivered the
   approved subset of S2b/S2d and OpenUdon S3; remaining candidates stay below. W8M's authorized
   read-only operation remains gated by its own acceptance and is not part of P07.
 - Completed history: use the single linked history index above for terminal
@@ -268,7 +260,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Active; consumer migration verified, removal/qualification pending |
 
 ## Requested Changes After Initialization
 

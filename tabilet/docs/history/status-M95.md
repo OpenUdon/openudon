@@ -1,3 +1,39 @@
+# Retired milestone M95 - Remove iCoT after consumer migration
+
+**Milestone.** M95
+**Outcome.** completed
+**Retired.** 2026-10-02
+**Source status.** tabilet/memory-bank/status-M95.md
+**Source specification.** tabilet/memory-bank/milestone.md#m95---remove-icot-after-consumer-migration
+**Evidence.** 565f101439ffde86e4c4ef9e7a7fbbc1d16b4002
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 3
+**Verification.** Retained23 entries mapped; full default/focused/vet/strict docs, all12 platform builds, provider-free103 corpus; native39/three fresh passes atbb9863, integration17/offline4 at94ef1d7 and independent verification; final minimal print-report refusal atc2f161d has separate full/default tests and unchanged native/gate/fixture/lock/module proof. Actual declared1.11 rebuild/assess/approval/dry-run retained opaque .icot bytes/modes. No native source/report relabel or real provider/target/deploy. Full actual identities and failed contexts below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, docs/authoring-retirement.md and docs/icot-retirement-inventory.md; exact Kinet M20/W8M W29 prerequisites reconciled at verified publications2409240/b2cf30f; final consumer adoption remains pending. Evolution v47 direction unchanged.
+
+## Milestone specification
+
+````markdown
+### M95 — Remove iCoT after consumer migration
+
+**Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
+
+**Scope and compatibility.** Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, application/registration control entry points, iCoT-only planner/reporting, release binary and obsolete CI gates. Remove OpenUdon's remaining Authoring icot dependency, not Authoring's packages. Retain neutral shared implementation, replacement commands, evaluation/scorecards and qualification coverage from M91. Retain build/assess/approval-template/run/package on legacy packages without editing historical .icot files. No unnoticed journey loss; extra discontinuations need approval. Preserve P07/P08 browser v11 dispatch and E23/E24 qualification inputs. Source history and old adopted binaries remain available.
+
+**Dependencies.** M91–M94 and M96 accepted/published; Kinet U07 acceptance; approved Gate 5B and inventory dispositions; W8M W28 accepted/published at exact Kinet/OpenUdon revisions.
+
+**Downstream.** Kinet M20, then W8M W29 final adoption. Earlier W28 qualification cannot qualify new M95 binaries.
+
+**Acceptance.** Verify W8M no longer launches iCoT, all inventory dispositions have evidence, no retained command/gate depends on removed code, and old packages still work. Run owner checks and required integration/browser qualification on frozen source, review with no open P1/P2, update install/startup/operator/tutorial docs and publish. Publication is producer acceptance; W29 separately qualifies final consumer pins.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M95.md](status-M95.md).
+
+````
+
+## Status record
+
+````markdown
 # Status M95 — Remove iCoT after consumer migration
 
 **State:** Completed, review3 passed, 2026-10-02; producer removal accepted, final M20/W29 adoption pending.
@@ -846,3 +882,6 @@ reconciles Kinet status-M20.md and W8M status-W29.md to actual identities before
 literal retirement/advancement. M20 owns actual legacy Kinet accept and final
 both-mode qualification; W29 owns supervised final seed/adoption, not completed
 here. Earlier W28 or M95 reports cannot claim new final consumer acceptance.
+
+Acceptance/qualification publication independently verified at565f101439ffde86e4c4ef9e7a7fbbc1d16b4002. Exact downstream reconciliation independently published: Kinet2409240bdd6e66fda209c68514e218a19c8b5c34 and W8Mb2cf30f8893fe13c91cec577430a215a6a3a67fa. Their own task rows remain pending; no final consumer acceptance or new seed authority is inferred.
+````
