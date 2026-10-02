@@ -23,7 +23,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
 | M95.3 — Update CI and release gates | `[+]` | Two CLI release builds on all six OS/architecture targets; neutral expert/scorecard/seed and actual draft-to-approved-dry-run passed. Strict docs, affected race and additive current offline/native gate checks passed; frozen qualification remains M95.4. |
 | M95.4 — Qualify legacy packages and retained gates | `[+]` | Frozen bb9863 current full/offline4/integration17/native39 and independent verifiers passed; declared legacy1.11 rebuild/assess/approval/dry-run preserved .icot bytes. Separate CI/doc-only correction qualified; no runtime evidence relabeled. |
-| M95.5 — Document, review and publish | `[ ]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
+| M95.5 — Document, review and publish | `[~]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
 
 ## Acceptance and verification
 
@@ -41,7 +41,7 @@ Lineage: Consumes M91 extraction and W28 migration without reopening their histo
 
 ## Closing review
 
-Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration1 FINDINGS, 2026-10-02. M95-R1 (P2): combined --agent --print --yes can enter the agent publisher, bypassing print-only rendering; incomplete --print with --report can write a report. Reject conflicting print/output modes before source discovery or effects and add no-write regression. No acceptance; fix and affected verification precede iteration2.
 
 ## APItools producer reconciliation — 2026-09-30
 
@@ -721,3 +721,35 @@ strict docs/memory/diff checks are recorded above. It changes no runtime code,
 module, fixture or lock and cannot relabelbb9863 qualification as a later commit.
 Task4 verification complete; whole acceptance/review/publication/downstream
 reconciliation remain M95.5.
+
+M95.4 independently published atc03221b059d7601e12e22f195cf0a0a1ce0d3c0c.
+M95.5 is sole in-progress row; whole review iteration1 is persisted STARTED
+before the full closing review. Exact qualified application remainsbb9863.
+
+### Whole review iteration1 finding M95-R1 (P2)
+
+Reviewed the full M95 diff, boundaries, native/legacy/CLI/evaluation/CI and
+current documents. RunDraft dispatches --agent before print handling, so an
+explicit --yes combined with --print reaches the publisher. Incomplete print
+can also enter report-file writing. Resolve by refusing --print combined with
+--agent --yes or --report before any reads/effects. Positive draft, capture, package,
+worker, executor and schema behavior remains unchanged. Preserve actual
+qualifiedbb9863 native context, never relabel it as containing this later fix.
+Verify the new refusal path and frozen full/default/integration on the final
+source, plus static unchanged-native-owner/fixture/lock equivalence. No expensive
+native replay is selected for an early closed-draft flag refusal; final M20/W29
+retain their own exact changed binary/native adoption gates.
+
+M95-R1 first regression run exposed an existing compatibility requirement:
+read-only --agent --print must retain source validation/frontier reporting.
+Narrow the refusal to --agent --print --yes and any --print --report; retain
+read-only agent/print and test both complete and incomplete frontiers, plus
+all conflicting modes before missing-source discovery. The failed overbroad
+first check is not acceptance evidence. No native owner/fixture/lock changes.
+
+M95-R1 corrected focused checks passed: go test ./internal/authoringcli
+./cmd/openudon, including complete/incomplete agent-print frontier, inactive
+browser source refusal and conflicting output zero-write checks. Runtime delta
+is four early validation lines only; all protected native owners/entry/fixtures,
+locks/modules match qualifiedbb9863. Commit this verified review fix, then
+freeze the final source for required offline/default/integration verification.

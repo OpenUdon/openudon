@@ -126,3 +126,50 @@ func TestNeutralReconcileNeverReadsTerminalAndRequiresPublicationApproval(t *tes
 		t.Fatalf("approved code=%d err=%s", code, errOut.String())
 	}
 }
+
+func TestNeutralDraftPrintConflictsRefuseBeforeAnyWrites(t *testing.T) {
+	for _, extra := range [][]string{{"--agent", "--yes"}, {"--report", "report.json"}, {"--report", "report.json", "--yes"}} {
+		t.Run(strings.Join(extra, "_"), func(t *testing.T) {
+			root := t.TempDir()
+			target := filepath.Join(root, "package")
+			report := filepath.Join(root, "report.json")
+			args := []string{"--print", "--example", target, "--from-example", filepath.Join(root, "missing-source")}
+			for _, arg := range extra {
+				if arg == "report.json" {
+					arg = report
+				}
+				args = append(args, arg)
+			}
+			var out, errOut bytes.Buffer
+			if code := RunDraft(args, &out, &errOut); code != 2 || !strings.Contains(errOut.String(), "--print cannot be combined") {
+				t.Fatalf("print conflict = %d / %s", code, errOut.String())
+			}
+			entries, err := os.ReadDir(root)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("print conflict wrote files: %v %v", entries, err)
+			}
+		})
+	}
+}
+
+func TestNeutralDraftAgentPrintRetainsReadOnlyFrontier(t *testing.T) {
+	for _, complete := range []bool{false, true} {
+		root := t.TempDir()
+		target := filepath.Join(root, "package")
+		args := []string{"--example", target, "--agent", "--print", "--json"}
+		if complete {
+			args = append(args, "--answers", writeCompleteRuntimeSession(t, root))
+		}
+		var out, errOut bytes.Buffer
+		if code := RunDraft(args, &out, &errOut); code != 0 {
+			t.Fatalf("agent print = %d / %s", code, errOut.String())
+		}
+		var report authorReport
+		if err := json.Unmarshal(out.Bytes(), &report); err != nil || report.Status != statusNeedsInput {
+			t.Fatalf("frontier lost: %v / %s", err, out.String())
+		}
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("agent print wrote package: %v", err)
+		}
+	}
+}

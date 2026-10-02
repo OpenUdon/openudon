@@ -22,7 +22,9 @@ consumer adoption remain separate ledger gates.
 
 ## Draft publication
 
-`--print` renders without state writes. Missing mandatory input returns the
+`--print` renders without state writes; combining it with `--agent --yes` or a
+`--report` output path is refused before effects. Read-only `--agent --print` retains its frontier report. Agent mode reports by default;
+its explicit `--yes` publication remains a separate operator choice. Missing mandatory input returns the
 existing structured frontier without publication. `--yes` explicitly authorizes
 publication of a complete seed; `--force` selects replacement source precedence,
 not execution authority. Fast from-example mode reuses existing deterministic

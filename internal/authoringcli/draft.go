@@ -77,6 +77,10 @@ func RunDraft(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 	{
+		if *printOnly && ((*agentMode && *yes) || strings.TrimSpace(*reportPath) != "") {
+			fmt.Fprintln(errOut, "openudon authoring draft: --print cannot be combined with --agent --yes or --report")
+			return 2
+		}
 		if fs.NArg() != 0 {
 			fmt.Fprintln(errOut, "openudon authoring draft: unexpected positional arguments")
 			return 2
