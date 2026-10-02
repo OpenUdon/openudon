@@ -24,7 +24,7 @@ func RunExpert(args []string, in io.Reader, out, errOut io.Writer) int {
 	case "lint":
 		return runLint(args[1:], out, errOut)
 	case "reconcile":
-		return runReconcile(args[1:], in, out, errOut)
+		return runReconcile(args[1:], out, errOut)
 	case "repair":
 		return runRepair(args[1:], out, errOut)
 	case "report":

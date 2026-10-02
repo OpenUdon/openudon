@@ -22,7 +22,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | M95.1 — Verify consumer migration and dispositions | `[+]` | Exact W28 source/build/qualification/closure and U07/Gate5B/23 retained dispositions verified. Existing native/neutral seams mapped; closed draft and current neutral qualification still require M95.2–.4. Historical artifacts and authority preserved. |
 | M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
 | M95.3 — Update CI and release gates | `[+]` | Two CLI release builds on all six OS/architecture targets; neutral expert/scorecard/seed and actual draft-to-approved-dry-run passed. Strict docs, affected race and additive current offline/native gate checks passed; frozen qualification remains M95.4. |
-| M95.4 — Qualify legacy packages and retained gates | `[ ]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
+| M95.4 — Qualify legacy packages and retained gates | `[~]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
 | M95.5 — Document, review and publish | `[ ]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
 
 ## Acceptance and verification
@@ -503,3 +503,37 @@ final-release-summary SHA256 `39a7ad1e2704e0863665432d2b6a642d3ec2a42fb95b7356f4
 corrected-release-summary SHA256 `325f4539fef02e2c5026ad60bd9301ba2c684992b6dae328680623ba390e1034`.
 
 remaining-release-summary SHA256 `37c546fe7bfce916e79fc874562e61e5d5eddacc61ca3a69390af9cc753db12b`.
+
+### M95.4 deliberate fresh frozen selection — 2026-10-02
+
+M95.3 independently published at cf4e25d22f62355a5b591cb082e5b5775ebe879f.
+M95.4 is the sole in-progress row. Frozen producer source is that exact task
+commit; status selection remains outside the clean clone. Required qualification
+uses all18 frozen repositories and exact tool/dependency inputs, offline native v6 four gates,
+integration v7, and native v6 loopback39 stages in three fresh passes. Both
+authenticated/TOTP and registration public package journeys and actual BRP
+execution are required. Estimated whole owner run25–35minutes; no live target,
+model, account, installer, listener exposure or deployment. Installed private
+TCP-disabled Xvfb with private temporary authentication is selected and joined.
+
+Rationale: M95 removes producer transports and changes native qualification
+inventory; prior M96/W28 binaries/reports cannot qualify this implementation.
+Focused development checks and cache reuse cannot establish full retained
+producer acceptance. The confirmed goal requires this fresh producer gate;
+select it once, retain any failure, stop without automatic cache/fresh fallback.
+Historical W28 v5 report will be independently read without relabeling or replay.
+Final M20/W29 consumer adoption remains separate.
+
+M95.4 pre-launch self-check found and corrected two transport leftovers:
+reconcile could still request overwrite input; it now requires --yes and never
+reads stdin. Closed draft claimed a terminal transcript without creating one;
+removed that claim, preserving historical histories and Kinet-owned conversation
+persistence. Explicit model/repair draft options now refuse and name retained
+expert evaluation rather than silently ignore them. Added zero-read/no-write
+regressions; current authoring guide no longer recommends removed iCoT.
+The prepared cf4e25d clone /var/tmp/openudon-m95-qualified-wgiawsyl was NOT
+executed; retain it as superseded preparation, never relabel as qualification.
+Commit and refreeze these corrections before the one required fresh run.
+Whole closing review remains0/10.
+
+Pre-launch corrections passed the full authoringcli reference/regression suite, strict Mkdocs, actual check-doc-memory and diff checks. The frozen fresh gate has not yet started; preserve qualified prior release platform checks as their actual earlier source, then execute full/default/offline/native/integration on the corrected source.

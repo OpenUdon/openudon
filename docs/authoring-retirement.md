@@ -27,7 +27,11 @@ existing structured frontier without publication. `--yes` explicitly authorizes
 publication of a complete seed; `--force` selects replacement source precedence,
 not execution authority. Fast from-example mode reuses existing deterministic
 elicitor defaults with a private empty reader, without model calls or autosave.
-Explicit expert evaluation retains fake-provider/default offline tests and
+Closed draft creates no terminal transcript and never claims one was written;
+existing `.icot` histories remain readable and consumer conversation persistence
+belongs to Kinet. Reconcile publication requires `--yes`, while `--print` is
+read-only. Model/repair options on closed draft refuse with the explicit expert
+evaluation replacements. Explicit expert evaluation retains fake-provider/default offline tests and
 separately invoked real-model evaluation. Native source, credential, rollback,
 optimistic conflict and safety rules remain unchanged.
 

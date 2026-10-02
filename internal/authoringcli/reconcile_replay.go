@@ -26,14 +26,14 @@ import (
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-func runReconcile(args []string, in io.Reader, out, errOut io.Writer) int {
-	fs := flag.NewFlagSet("icot reconcile", flag.ContinueOnError)
+func runReconcile(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("openudon authoring reconcile", flag.ContinueOnError)
 	fs.SetOutput(out)
 	example := fs.String("example", "", "Example directory containing workflows/intent.hcl")
-	yes := fs.Bool("yes", false, "Overwrite project.md without asking")
+	yes := fs.Bool("yes", false, "Explicitly approve publication of regenerated project.md")
 	printOnly := fs.Bool("print", false, "Print regenerated project.md without writing files")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot reconcile --example examples/<name> [--print] [--yes]\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon authoring reconcile --example examples/<name> [--print] [--yes]\n\n")
 		fmt.Fprintf(fs.Output(), "Regenerates project.md from workflows/intent.hcl while preserving existing project policy text.\n\n")
 		fs.PrintDefaults()
 	}
@@ -83,19 +83,9 @@ func runReconcile(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		return 0
 	}
-	input := bufio.NewReader(in)
-	if _, err := os.Stat(projectPath); err == nil && !*yes {
-		ok, err := confirm(input, out, fmt.Sprintf("Overwrite %s?", projectPath), false)
-		if err != nil {
-			fmt.Fprintln(errOut, err)
-			return 1
-		}
-		if !ok {
-			return 0
-		}
-	} else if err != nil && !os.IsNotExist(err) {
-		fmt.Fprintln(errOut, err)
-		return 1
+	if !*yes {
+		fmt.Fprintln(errOut, "openudon authoring reconcile: publication requires --yes; use --print for read-only review")
+		return 2
 	}
 	if err := writeGeneratedFilesAtomic([]generatedFile{{Path: projectPath, Content: artifacts.ProjectMD}}, true); err != nil {
 		fmt.Fprintln(errOut, err)

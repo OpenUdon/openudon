@@ -35,8 +35,8 @@ func RunDraft(args []string, out, errOut io.Writer) int {
 	fromExample := fs.String("from-example", "", "Seed answers from an existing example directory")
 	answersFile := fs.String("answers", "", "Path to an openudon.icot-session.v2 YAML or JSON file")
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
-	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
-	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. full asks every question; normal accepts defaults visibly; fast skips defaulted questions")
+	noTranscript := fs.Bool("no-transcript", false, "Compatibility flag; closed draft creates no terminal transcript")
+	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. closed seed default policy; fast applies safe deterministic defaults")
 	reviewRepair := fs.Bool("review-repair", false, "Experimental: apply up to two bounded repairs from pre-final flow review suggestions")
 	agentMode := fs.Bool("agent", false, "Return the noninteractive frontier/source/file-action report without writing deliverables")
 	jsonOutput := fs.Bool("json", false, "Write a structured JSON report to stdout")
@@ -89,6 +89,11 @@ func RunDraft(args []string, out, errOut io.Writer) int {
 			fmt.Fprintln(errOut, "openudon authoring draft: interactive network consent is unavailable; choose never or explicitly allow")
 			return 2
 		}
+	}
+
+	if *reviewRepair || *provider != "" || *model != "" || *temperature != 0.2 {
+		fmt.Fprintln(errOut, "openudon authoring draft: model extraction and review repair use explicit authoring-eval or replay-eval; closed draft only renders local seeds")
+		return 2
 	}
 
 	defaultMode, err := promptDefaultMode(*promptMode)
@@ -184,10 +189,6 @@ func RunDraft(args []string, out, errOut io.Writer) int {
 	if *printOnly {
 		draftPath = ""
 	}
-	transcriptPath := ""
-	if !*printOnly && !*noTranscript {
-		transcriptPath = filepath.Join(exampleDir, ".icot", "transcript.json")
-	}
 	authorSourceRoots := append([]string(nil), sourceRootFlags...)
 	if strings.TrimSpace(*fromExample) != "" && filepath.Clean(*fromExample) != filepath.Clean(exampleDir) {
 		authorSourceRoots = appendSeedSourceRoots(authorSourceRoots, *fromExample)
@@ -268,9 +269,6 @@ func RunDraft(args []string, out, errOut io.Writer) int {
 		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", filepath.Join(exampleDir, "workflows", "intent.draft.hcl"))
 	} else {
 		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", intentPath)
-	}
-	if transcriptPath != "" {
-		fmt.Fprintf(out, "openudon authoring draft: wrote %s\n", transcriptPath)
 	}
 	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
@@ -439,7 +437,7 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	}
 	_ = source
 	report.Status = statusNeedsInput
-	report.SuggestedAnswer = "Approve the complete proposal in an interactive run before writing deliverables."
+	report.SuggestedAnswer = "Review the complete proposal, then explicitly publish with openudon authoring draft --yes."
 	approvalIssue := elicitor.ReadinessIssue{Code: "proposal_approval_required", Severity: "blocking", Slot: elicitor.FinalApprovalNodeID(), Message: report.SuggestedAnswer, SuggestedAnswer: "approve"}
 	report.ReadinessIssues = append(report.ReadinessIssues, approvalIssue)
 	report.TopIssue = &approvalIssue

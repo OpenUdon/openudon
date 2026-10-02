@@ -14,7 +14,7 @@ type forbiddenDraftInput struct{}
 func (forbiddenDraftInput) Read([]byte) (int, error) { panic("neutral draft read terminal input") }
 
 func TestNeutralDraftRefusesUnreviewedPublicationAndReturnsIncompleteFrontier(t *testing.T) {
-	for _, args := range [][]string{{"--example", "DEST"}, {"--example", "DEST", "--yes", "--network", "ask"}, {"--example", "DEST", "--agent", "extra"}} {
+	for _, args := range [][]string{{"--example", "DEST"}, {"--example", "DEST", "--yes", "--network", "ask"}, {"--example", "DEST", "--agent", "extra"}, {"--example", "DEST", "--yes", "--review-repair"}, {"--example", "DEST", "--yes", "--provider", "fake"}} {
 		base := t.TempDir()
 		dst := filepath.Join(base, "example")
 		var out, errOut bytes.Buffer
@@ -85,5 +85,44 @@ func TestNeutralDraftRetainsFastSeedCorpusWithoutTerminalOrPrintWrites(t *testin
 		if _, err := os.Stat(dst); !os.IsNotExist(err) {
 			t.Fatal("seed default normalization wrote state", err)
 		}
+	}
+}
+
+func TestNeutralDraftDoesNotClaimUnwrittenTerminalTranscript(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "example")
+	var out, errOut bytes.Buffer
+	if code := RunExpert([]string{"draft", "--example", dst, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--prompt-mode", "fast", "--yes", "--no-llm"}, forbiddenDraftInput{}, &out, &errOut); code != 0 {
+		t.Fatalf("code=%d err=%s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "transcript.json") {
+		t.Fatal("claimed terminal transcript", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(dst, ".icot", "transcript.json")); !os.IsNotExist(err) {
+		t.Fatal("fabricated terminal transcript", err)
+	}
+}
+
+func TestNeutralReconcileNeverReadsTerminalAndRequiresPublicationApproval(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "example")
+	writeCompleteDraftWithPolicy(t, dst, []string{"sample_token"}, "Sample safety", "Sample fallback")
+	var out, errOut bytes.Buffer
+	if code := RunExpert([]string{"draft", "--example", dst, "--yes", "--no-llm"}, forbiddenDraftInput{}, &out, &errOut); code != 0 {
+		t.Fatalf("seed code=%d err=%s", code, errOut.String())
+	}
+	before, err := os.ReadFile(filepath.Join(dst, "project.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := RunExpert([]string{"reconcile", "--example", dst}, forbiddenDraftInput{}, &out, &errOut); code != 2 {
+		t.Fatalf("unapproved code=%d err=%s", code, errOut.String())
+	}
+	after, err := os.ReadFile(filepath.Join(dst, "project.md"))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("unapproved reconcile changed project", err)
+	}
+	if code := RunExpert([]string{"reconcile", "--example", dst, "--yes"}, forbiddenDraftInput{}, &out, &errOut); code != 0 {
+		t.Fatalf("approved code=%d err=%s", code, errOut.String())
 	}
 }
