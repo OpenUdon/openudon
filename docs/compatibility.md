@@ -54,7 +54,7 @@ every UWS source family or runtime selector it can review and package.
 
 ## Experimental Before v1
 
-The iCoT authoring CLI, LLM-assisted synthesis and repair, prompt wording,
+Neutral expert authoring, LLM-assisted synthesis and repair, prompt wording,
 provider and model behavior, catalog advice, eval/readiness/smoke commands,
 n8n bridge evidence, release helpers, and exact generated Markdown remain
 experimental. These surfaces may change between pre-1.0 releases while the
@@ -63,10 +63,11 @@ deterministic package and trusted-handoff boundary stays compatible.
 OpenUdon currently has no supported importable Go packages. The module's
 implementation packages remain internal, and v0.2 compatibility is a CLI and
 versioned-artifact contract. The browser-profile transaction therefore has a
-public JSON/schema boundary but no supported Go library API. The additive
-`icot browser-transaction` command and experimental iCoT API v4 expose the
-same internal lifecycle, but neither frontend is part of the stable v0.2 CLI
-or HTTP compatibility boundary. The replaced API v3 namespace is closed.
+public JSON/schema boundary but no supported Go library API. Current `browser-author` and `package` commands expose that lifecycle, while
+Kinet owns UI and conversation. The former iCoT terminal, UI/API/control and
+binary are retired; historical `.icot` artifacts and versioned report readers
+retain their exact meaning. Those removed experimental transports were not
+part of the stable v0.2 CLI/HTTP compatibility boundary.
 
 ## v1 Migration
 

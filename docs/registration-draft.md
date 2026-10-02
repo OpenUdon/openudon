@@ -24,7 +24,8 @@ retained structural query parameters and typed step/candidate relationships.
 Absent `--at`, the evidence time is current UTC. A deferred success proof is
 explicitly operator reviewed; it is never presented as an observed success.
 
-Use the shared `internal/registrationdraft` builder for in-process consumers.
+OpenUdon internal consumers use the single `internal/registrationdraft` builder.
+External consumers use the CLI; this is not a supported Go-library API.
 The public `browser-capture` command independently validates the resulting
 profile against its own current native observation/history/preview and issued
 review card. Import remains a separate exact decision. Ordinary browser

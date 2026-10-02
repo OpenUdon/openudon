@@ -1,5 +1,11 @@
 # Local iCoT UI Server
 
+> Historical iCoT transport documentation. M95 removes those entry points; use
+> [current authoring migration](authoring-retirement.md),
+> [public capture](browser-capture-protocol.md) and
+> [native package handoff](browser-package-handoff.md). Historical artifacts and
+> qualification readers retain their original meaning.
+
 `icot ui` is OpenUdon's primary interactive authoring and review surface for
 API and existing-account browser workflows. It serves one explicitly named
 workspace on `127.0.0.1`, uses the same transactional engines as terminal iCoT,

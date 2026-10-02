@@ -28,7 +28,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build iCoT standalone before tests
+      - name: Build public CLIs standalone before tests
         run: GOWORK=off go build ./cmd/openudon ./cmd/udon-runner
 
       - name: Download public dependencies

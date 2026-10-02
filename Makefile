@@ -1,4 +1,4 @@
-.PHONY: help test vet check standalone-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification browser-capture-check eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification browser-capture-check eval-seed-build authoring-scorecard authoring-replay-repair-check authoring-variants-validate authoring-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -18,7 +18,7 @@ OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/
 OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT ?= eval/runs/browser-transaction-qualification-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, standalone-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, browser-capture-check, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, browser-capture-check, eval-seed-build, authoring-scorecard, authoring-replay-repair-check, authoring-variants-validate, authoring-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -51,9 +51,9 @@ release-saas-check:
 	$(MAKE) browser-scenario-journey
 	$(MAKE) browser-capture-check
 	$(MAKE) eval-seed-build
-	$(MAKE) icot-variants-validate
-	$(MAKE) icot-variants-coverage
-	$(MAKE) icot-authoring-scorecard
+	$(MAKE) authoring-variants-validate
+	$(MAKE) authoring-variants-coverage
+	$(MAKE) authoring-scorecard
 	$(MAKE) validate-uws
 	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
 	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval
@@ -135,21 +135,21 @@ browser-capture-check:
 eval-seed-build:
 	$(GO) test ./internal/authoringcli -run TestEvalReferenceSeedBuildMatrix -count=1
 
-icot-authoring-scorecard:
-	$(GO) run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-	$(GO) run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+authoring-scorecard:
+	$(GO) run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/authoring-scorecard-local
+	$(GO) run ./cmd/openudon authoring report verify --file eval/runs/authoring-scorecard-local/scorecard.json
 
-icot-replay-repair-check:
+authoring-replay-repair-check:
 	rm -rf "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	mkdir -p "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	set -e; for fixture in $(OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES); do \
 		$(GO) run ./cmd/openudon authoring replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
 	done
 
-icot-variants-validate:
+authoring-variants-validate:
 	$(GO) run ./cmd/openudon authoring variants validate --root examples/eval
 
-icot-variants-coverage:
+authoring-variants-coverage:
 	$(GO) run ./cmd/openudon authoring variants coverage --root examples/eval
 
 product-smoke-check:
@@ -184,14 +184,12 @@ OPENUDON_BROWSER_SYSTEM_UDON_REPO ?= ../udon
 OPENUDON_BROWSER_SYSTEM_OUT ?= /tmp/openudon-browser-system
 OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES ?= $(OPENUDON_BROWSERDRIVER_NODE_MODULES)
 .PHONY: browser-system-check browser-system-current-check
-browser-system-check:
-	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite offline --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
-	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
-	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
-	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
+browser-system-check: browser-system-current-check
 
 browser-system-current-check:
 	@test -n "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" || { echo "set OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES to the supplied lock-matched read-only dependency directory"; exit 2; }
+	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --suite offline --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-offline.json"
+	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-offline.json"
 	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
 	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
 
@@ -206,7 +204,7 @@ fast:
 	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
 smoke:
 	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
-qualify: browser-system-check
+qualify: browser-system-current-check
 
 # Explicit provider-free, disposable loopback qualification of accepted Udon M44.
 .PHONY: report-v5-qualification

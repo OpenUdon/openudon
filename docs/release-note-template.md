@@ -60,8 +60,8 @@
 - `git diff --check`:
 - `make release-check`:
 - `make release-saas-check`:
-- `make icot-variants-validate`:
-- `make icot-authoring-scorecard`:
+- `make authoring-variants-validate`:
+- `make authoring-scorecard`:
 - `make product-smoke-check`:
 - `make product-smoke-live`:
 - `make release-evidence` provider-free local udon smoke:

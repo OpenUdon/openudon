@@ -18,7 +18,7 @@ package and trusted-handoff boundary.
 
 ## What OpenUdon Owns
 
-- Project briefs, templates, guided iCoT authoring, and eval fixtures.
+- Project briefs, templates, neutral authoring, and eval fixtures.
 - API-first UWS artifact generation from reviewed API sources, with verified Browsertools profiles
   as an explicit fallback for UI-only capabilities.
 - Review evidence, quality reports, approval templates, package digests, and handoff manifests.
@@ -43,7 +43,7 @@ project.md
 ## Operator Commands
 
 ```bash
-go run ./cmd/icot --example ./examples/<name>
+go run ./cmd/openudon authoring draft --from-example ./examples/eval/runtime-only-render --example .openudon-run/NEW --prompt-mode fast --no-llm --yes
 go run ./cmd/openudon synthesize --example ./examples/<name>
 go run ./cmd/openudon build --example ./examples/<name>
 go run ./cmd/openudon assess --example ./examples/<name>
@@ -51,8 +51,8 @@ go run ./cmd/openudon approval-template --example ./examples/<name> --state appr
 go run ./cmd/openudon run --example ./examples/<name> --tier sandbox --approval approvals/<name>.json --dry-run
 ```
 
-Use [Authoring](authoring.md) for the two authoring paths, [iCoT Corpus And Provider Roadmap](icot-corpus-and-provider-roadmap.md)
-for the next iCoT reliability direction, [Tutorial](tutorial-weather.md) for fixture-based
+Use [Authoring](authoring.md) for the two authoring paths, [Current Authoring Migration](authoring-retirement.md)
+for the retained neutral commands, [Tutorial](tutorial-weather.md) for fixture-based
 walkthroughs, [Enterprise Authoring And Execution Boundary](enterprise-authoring-execution.md) for
 the LLM-authoring/deterministic-execution product boundary, [SaaS Operator Release Path](saas-operator-release.md)
 for the provider-free release demo, and [Handoff](safety.md) for the review and execution boundary.

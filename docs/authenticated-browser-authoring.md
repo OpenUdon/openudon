@@ -1,5 +1,11 @@
 # Authenticated Goal-Directed Browser Authoring
 
+> Historical iCoT transport documentation. M95 removes those entry points; use
+> [current authoring migration](authoring-retirement.md),
+> [public capture](browser-capture-protocol.md) and
+> [native package handoff](browser-package-handoff.md). Historical artifacts and
+> qualification readers retain their original meaning.
+
 The iCoT UI is the primary existing-account browser-authoring surface;
 `icot browser-author live` remains its expert terminal fallback. Both launch
 an isolated Browsertools worker process and keep a single headed Chromium context alive

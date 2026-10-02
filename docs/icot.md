@@ -1,5 +1,11 @@
 # iCoT v2
 
+> Historical iCoT transport documentation. M95 removes those entry points; use
+> [current authoring migration](authoring-retirement.md),
+> [public capture](browser-capture-protocol.md) and
+> [native package handoff](browser-package-handoff.md). Historical artifacts and
+> qualification readers retain their original meaning.
+
 iCoT is OpenUdon's adaptive guided-authoring CLI. It turns a broad workflow
 request into one reviewed active boundary, a dependency-aware decision graph,
 and either a complete `workflows/intent.hcl` or an explicitly incomplete draft.

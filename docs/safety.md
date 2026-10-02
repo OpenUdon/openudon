@@ -62,15 +62,15 @@ tier checks before invoking udon.
   storage, captures, raw worker output, and live session material outside it.
   A BRP transaction has no session and its producer must remain GET/HEAD-only
   with no submit. Preparation and promotion record package facts only. The
-  `icot browser-transaction` and API v4 adapters accept only the public
-  transaction artifact, emit value-free snapshots, and require separate exact
+  native browser-author and package commands consume only reviewed
+  transaction/receipt artifacts, emit value-free snapshots, and require separate exact
   review/prepare/promote/recovery decisions; neither has a runtime operation.
 - During authenticated authoring, bundled and expert workers use the same
   typed controller. It validates reduced event fields and disclosure paths
-  before terminal, HTTP, or planner publication and requires a process-private
+  before public protocol or planner disclosure and requires a process-private
   attestation to bind the final trace, authentication proof, output requests,
   contexts, diagnostics, and approved-origin ledger before staging. That
-  attestation and all credential/challenge values have no artifact or HTTP
+  attestation and all credential/challenge values have no package or public-result
   representation.
 - Optional `browsertools.live-check.v1` and
   `browsertools.portability-check.v1` inputs must remain value-free, match the

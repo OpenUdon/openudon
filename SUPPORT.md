@@ -28,7 +28,7 @@ packages remain under `internal/`.
 
 ## Experimental Before v1
 
-The `icot` companion CLI, LLM-assisted synthesis and repair behavior, prompt
+The historical v0.1.0 `icot` companion CLI, LLM-assisted synthesis and repair behavior, prompt
 wording, provider/model integrations, catalog advice, eval and readiness
 commands, n8n bridge evidence, smoke matrices, release-evidence helpers, and
 exact generated prose may evolve between pre-1.0 releases.
@@ -41,8 +41,10 @@ executor implementation or provider.
 
 ## Platforms and Help
 
-Release archives target Linux, macOS, and Windows on amd64 and arm64. Each
-archive contains `openudon`, `icot`, and `udon-runner`.
+Release archives target Linux, macOS, and Windows on amd64 and arm64. The published v0.1.0
+archives contain `openudon`, `icot`, and `udon-runner`. Current source release
+builds contain only `openudon` and `udon-runner`; the retired interactive
+surfaces move to Kinet, with neutral expert commands retained.
 
 Questions and reproducible bugs may be filed in GitHub Issues. Support is
 community best effort; no uptime, response-time, provider-availability, or

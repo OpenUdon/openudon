@@ -357,24 +357,20 @@ lock contracts.
 
 ## Consolidated browser system engineering
 
-M79 adds one application-owned registration lifecycle shared by the UI and a
-supervised command interface, plus an unattended local qualification entry
-point. Browsertools remains an observer; approved actions and registration
-remain with Udon/Browserdriver. Synthetic qualification grants no real-target
-authority. Local qualification and review are complete; publication and
-operational adoption retain their separate boundaries.
+Native registration and authenticated capture retain a single supervised
+lifecycle behind public capture and package commands. M95 removes the old UI
+and application-control transports, retaining neutral qualification through
+those commands. Browsertools remains an observer; approved actions and
+registration remain with Udon/Browserdriver. Synthetic qualification grants no
+real-target authority. See [the replacement map](../../docs/authoring-retirement.md)
+and the frozen [M80 record](../docs/history/status-M80.md) for the old boundary.
 
-The opt-in application control flow lets operators review and promote BRP
-and BAP/BCP authoring in one application while trusted execution remains
-separate. See [architecture.md](architecture.md#icot-architecture) and
-[M80](../docs/history/status-M80.md) for its boundary and evidence.
-
-M81/W09 completes the local integration through the W8M-owned operating adapter
-and concrete synthetic target. OpenUdon supplies opt-in private human response
-input to the trusted runtime and native qualification of supervised BRP and
-BAP/BCP packages. Three complete W8M units pass independent source, runtime and
-receipt verification. W8M owns its target tests and separately authorized real
-registration/login/campaign work; generic authoring and qualification stay here.
+OpenUdon supplies opt-in private human response input to the trusted runtime
+and native qualification of supervised BRP and BAP/BCP packages. Historical
+M81/W09 evidence remains frozen at its recorded sources. W8M owns its target
+tests and separately authorized real registration/login/campaign work; generic
+authoring and qualification stay here. M95 producer qualification and M20/W29
+consumer adoption remain separate acceptance requirements.
 
 A private v2 registration attestation can represent one independently verified pre-submission failed attempt. Its owning operating application must separately approve and consume a persistent one-use recovery claim; OpenUdon neither infers no submission from failure nor issues recovery authority.
 
@@ -423,7 +419,8 @@ user approvals precede native actions and a separate profile import. Reviewed
 profiles do not grant workflow execution. M93 is qualified and user-accepted
 at application `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, with source publication
 `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; see its permanent history record.
-iCoT remains available during 5A. Kinet and W8M independently qualify adoption.
+M95 removes the old iCoT transports while retaining these native contracts.
+Kinet and W8M independently qualify adoption of the new producer revision.
 
 ## Scoped catalog discovery
 
@@ -444,4 +441,4 @@ security advice does not change runtime authorization or workflow behavior.
 
 ## Reviewed capture package authoring
 
-`browser-author plan/apply` provides reviewed native capture adoption without iCoT. Read-only catalog/preview and exact ordinary authoring confirmation are separate from capture import, package promotion and runtime execution. Both authenticated/TOTP and inert registration recipes retain native constraints; values stay symbolic. Partial writes or lost output require inspection and a fresh proposal, never automatic replay. Original capture receipt/start identities are required; unsigned local evidence is not new attestation authority. M96 is accepted/published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335` through source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`, review1 passed; [retired evidence](../docs/history/status-M96.md) preserves exact qualification. Kinet M19 delivery remains separately pending.
+`browser-author plan/apply` provides reviewed native capture adoption without iCoT. Read-only catalog/preview and exact ordinary authoring confirmation are separate from capture import, package promotion and runtime execution. Both authenticated/TOTP and inert registration recipes retain native constraints; values stay symbolic. Partial writes or lost output require inspection and a fresh proposal, never automatic replay. Original capture receipt/start identities are required; unsigned local evidence is not new attestation authority. M96 is accepted/published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335` through source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`, review1 passed; [retired evidence](../docs/history/status-M96.md) preserves exact qualification. Kinet M19, U07 and W8M W28 delivery are accepted; final M20/W29 adoption remains pending.

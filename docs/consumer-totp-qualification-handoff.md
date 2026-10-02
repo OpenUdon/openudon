@@ -18,7 +18,8 @@ title/instruction and check that the selected entry method works on the
 chosen display. A generic Password label can obscure a distinct MFA input.
 Never log secret values while diagnosing a prompt or MFA failure.
 
-The Browsertools [receiving record](../../browsertools/docs/consumer-totp-capture-handoff.md)
+The Browsertools receiving record (`../browsertools/docs/consumer-totp-capture-handoff.md`;
+its receipt revision is recorded in W27 history and is unavailable in this checkout)
 documents the existing producer and focused TOTP slot regression. OpenUdon's
 current `mfa-totp-scalars` scenario already exercises the generic integration;
 [scenario guidance](browser-scenario-eval.md) gives its bounded selector.
@@ -38,7 +39,7 @@ Credential-section prose can accidentally declare a kind token as a binding.
 For a synthetic reproduction, analyze a brief declaring `sample_identifier`,
 `sample_password` and `sample_seed`, then append ``(kind `totp_seed`)`` to the
 last binding line. `credentialBindingNames` in
-[plan.go](../internal/synthesize/plan.go) also declares `totp_seed`. Supplying
+[plan.go](https://github.com/OpenUdon/openudon/blob/68118634de49ef1ec48dbcd8824dd9467ea2650a/internal/synthesize/plan.go) also declares `totp_seed`. Supplying
 only the three intended variables therefore leaves an extra required variable.
 Use plain explanatory wording `(TOTP setup seed)` for the kind and compare
 the resulting declared/expected inventory with the exact workflow/profile.
@@ -62,7 +63,7 @@ detail; do not describe an offline reproduced error as a recovered original log.
 
 ## Reuse native evidence only on identical admitted inputs
 
-[E23](../tabilet/docs/history/status-E23.md) supplies the current-stack input v2
+[E23](https://github.com/OpenUdon/openudon/blob/68118634de49ef1ec48dbcd8824dd9467ea2650a/tabilet/docs/history/status-E23.md) supplies the current-stack input v2
 endpoint; E24 additionally binds process namespace membership. Inputs include
 the actual external dependency bundle, executable modes, tools, browsers,
 display/auth/runtime paths, environment and workstation state. A source-only
@@ -71,7 +72,7 @@ Record safe input hashes before long stages and recheck at the required
 boundaries. An empty ignored runtime directory can also violate native source
 cleanliness: use the native source guard, not a weaker Git-status approximation.
 
-Synthetic regressions in [current_inputs_test.go](../internal/browsersystem/current_inputs_test.go)
+Synthetic regressions in [current_inputs_test.go](https://github.com/OpenUdon/openudon/blob/68118634de49ef1ec48dbcd8824dd9467ea2650a/internal/browsersystem/current_inputs_test.go)
 cover missing/unsafe/cancelled inputs, changed bytes/modes and namespace
 membership. The consumer also checked exact production admission before its
 long seed, instead of relying only on fabricated passing reports.

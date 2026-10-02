@@ -105,7 +105,7 @@ func validToolchains(value Toolchains, lock browserscenario.CompatibilityLock) b
 
 func Validate(r *Report) error {
 	bad := errors.New("browser system report is invalid")
-	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV5Version && r.Version != CurrentV4Version && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV5Version || r.Version == CurrentV4Version || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
+	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV5Version && r.Version != CurrentV4Version && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentV5Version || r.Version == CurrentV4Version || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
 		return bad
 	}
 	stack := browserscenario.StackHistorical

@@ -708,7 +708,8 @@ or late containment failure. Registration now joins its protocol reader and
 private cleanup before closing its event stream. A native subprocess check
 holds private cleanup and proves the stream cannot close early. Private
 candidates stay in-process with no wire representation until independent
-M93.4 package admission. iCoT remains on the same native implementation.
+M93.4 package admission. M95 removes the old iCoT transports; the public
+capture and package commands retain the same native authority.
 
 
 M93.4 exposes a digest-approved reviewed start file and embeds the shared hidden

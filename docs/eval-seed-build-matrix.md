@@ -6,8 +6,8 @@ The eval corpus now carries an explicit offline seed/build contract in each
 The matrix covers this deterministic path:
 
 ```bash
-go run ./cmd/icot --no-llm --no-transcript --from-example ./examples/eval/<fixture> --example <tmp>/<fixture>
-go run ./cmd/openudon build --example <tmp>/<fixture>
+go run ./cmd/openudon authoring draft --no-llm --no-transcript --from-example ./examples/eval/<fixture> --example <tmp>/<fixture> --prompt-mode fast --yes
+go run ./cmd/openudon build --example <tmp>/<fixture> --prompt-mode fast --yes
 ```
 
 The repository test uses the same behavior through package APIs and writes only to a temporary
@@ -23,7 +23,7 @@ make eval-seed-build
 For iCoT reliability reporting, run the provider-free scorecard:
 
 ```bash
-go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
+go run ./cmd/openudon authoring scorecard --root examples/eval --out eval/runs/icot-scorecard-local
 ```
 
 The scorecard writes `openudon.icot-scorecard.v2` JSON with the expected outcome, observed outcome,
@@ -37,10 +37,10 @@ archive, and not requiring redaction before sharing.
 For M40 natural-language authoring coverage, include checked-in variant metadata:
 
 ```bash
-go run ./cmd/icot variants validate --root examples/eval
-go run ./cmd/icot variants coverage --root examples/eval
-go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+go run ./cmd/openudon authoring variants validate --root examples/eval
+go run ./cmd/openudon authoring variants coverage --root examples/eval
+go run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+go run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
 ```
 
 Variant files live at `examples/eval/*/reference/authoring-variants.json`. Positive variants reuse
@@ -57,11 +57,11 @@ Missing-detail variants may set `seed_from_reference` plus `clear_fields` or `cl
 deterministic path preserves the reviewed source/operation and removes only the intended
 business/request detail.
 
-`icot variants validate` is a fast metadata check for the same files. It catches schema errors,
+`openudon authoring variants validate` is a fast metadata check for the same files. It catches schema errors,
 unknown expected failure families, missing or unknown expected top issue metadata, duplicate IDs,
 and reference-seeded clear slots that no longer match the reviewed reference intent.
 
-`icot variants coverage` checks the same corpus by provider family and requires at least one
+`openudon authoring variants coverage` checks the same corpus by provider family and requires at least one
 positive, missing-detail, and unsafe-negative variant per provider family before the provider-free
 scorecard evidence is accepted.
 
@@ -69,10 +69,10 @@ This scorecard remains provider-free reference/variant package evidence. It does
 live LLM generated the workflow from the variant brief. For optional real authoring evidence, run:
 
 ```bash
-go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+go run ./cmd/openudon authoring authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 ```
 
-`icot authoring-eval` writes `openudon.icot-authoring-eval.v2` with provider/model, run ID,
+`openudon authoring authoring-eval` writes `openudon.icot-authoring-eval.v2` with provider/model, run ID,
 commit, command, prompt/readiness versions, LLM call count, generated paths, first failure family,
 drift counts, credential-scan status, and per-variant pass/fail. It also writes an
 `authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for
@@ -83,12 +83,12 @@ metadata marks authoring-eval reports as `local_ephemeral`, containing provider 
 archive, and requiring redaction review before sharing. Keep that report local/manual unless it has
 been reviewed for release-note evidence.
 
-The `make icot-authoring-scorecard` and `make release-saas-check` paths run scorecard verification
+The `make authoring-scorecard` and `make release-saas-check` paths run scorecard verification
 automatically. Optional real authoring-eval evidence remains local/manual; after generating it,
 verify the JSON and digest sidecar explicitly:
 
 ```bash
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
+go run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
 ```
 
 ## Policy Fields

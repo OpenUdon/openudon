@@ -10,7 +10,7 @@ GitHub Actions runs the public Go module with workspace mode disabled:
 
 ```bash
 test -z "$(grep -E '^[[:space:]]*replace[[:space:]]' go.mod)"
-GOWORK=off go build ./internal/icot ./cmd/icot
+GOWORK=off go build ./cmd/openudon ./cmd/udon-runner
 GOWORK=off go mod download
 GOWORK=off go vet ./...
 GOWORK=off go test ./... -count=1 -timeout=10m
@@ -66,12 +66,12 @@ make release-saas-check
 ```
 
 `release-saas-check` runs `release-check`, the required real-Chromium
-`icot-ui-browser-check`, `browser-integration-check`, the required network-free `browser-scenario-loopback` and
+`browser-capture-check`, `browser-integration-check`, the required network-free `browser-scenario-loopback` and
 `browser-scenario-journey`, `eval-seed-build`,
-`icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
+`authoring-variants-validate`, `authoring-variants-coverage`, `authoring-scorecard`, UWS validation,
 doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
 provider-free dry-run demo in
-[SaaS Operator Release Path](saas-operator-release.md). `icot-authoring-scorecard` generates the
+[SaaS Operator Release Path](saas-operator-release.md). `authoring-scorecard` generates the
 provider-free scorecard and then runs `icot report verify` against `scorecard.json`, including the
 digest sidecar and retention/share-safety metadata. The selected demo
 examples are:
@@ -105,17 +105,12 @@ resolve its exact SHA from the compatibility lock and disable checkout
 credential persistence; public Browsertools and Browserdriver checkouts remain
 anonymous.
 
-`icot-ui-browser-check` uses the test-only Playwright-Go harness against the
-real embedded iCoT listener. It covers keyboard and accessible-name behavior,
-complete frontier rounds, both approval modes, overwrite conflicts, stale and
-externally modified state, explicit retries, frozen completion, conditional
-polling, visibility changes, and narrow/zoom layout. Production UI packages do
-not import Playwright. The required target sets
-`OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1`, rejects
-`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1`, and logs/asserts sandbox-enabled
-launches. `make icot-ui-browser-check-unsandboxed` is a separately named local
-diagnostic for hosts whose kernel policy blocks user namespaces and never
-counts as release evidence.
+`browser-capture-check` uses actual public supervised capture/browser-author/package
+commands for both synthetic login/TOTP and typed registration. It retains sandboxing,
+issued decision/revision checks, independent package selection and joined workers.
+It refuses sandbox-disable overrides; no unsandboxed release fallback exists.
+UI layout/accessibility belongs to Kinet's accepted consumer gates. Use the fresh
+current native gate for frozen integration/runtime candidates, never development cache.
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,
@@ -152,7 +147,7 @@ reference intents:
 
 ```bash
 make eval-seed-build
-make icot-variants-validate
+make authoring-variants-validate
 ```
 
 The v0.1.0 tag gate requires the provider-free release gates plus the local
@@ -202,8 +197,8 @@ Real-provider evals remain opt-in local evidence:
 
 ```bash
 make release-eval
-go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
+go run ./cmd/openudon authoring authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+go run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
 ```
 
 Record provider, model, corpus size, comparison baseline, provider drift status,

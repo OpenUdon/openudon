@@ -20,7 +20,7 @@ mkdir -p .openudon-run/m20-trials/<fixture>/workflows
 cp .openudon-run/m20-trials/<fixture>/reference/intent.hcl \
   .openudon-run/m20-trials/<fixture>/workflows/intent.hcl
 
-go run ./cmd/icot lint --example ./examples/eval/<fixture>
+go run ./cmd/openudon authoring lint --example ./examples/eval/<fixture>
 go run ./cmd/openudon build --example ./.openudon-run/m20-trials/<fixture>
 go run ./cmd/openudon approval-template \
   --example ./.openudon-run/m20-trials/<fixture> \

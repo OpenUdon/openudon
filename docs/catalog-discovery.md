@@ -167,6 +167,6 @@ M94 is accepted and published at application/test source
 `ee49fe433a4d476f8d28d3d888352293c490dfc6`, through source/qualification
 publication `5a2a2643ff71831ae72cdeca57baf197c1afbf16`. Full owner checks,
 native conformance and review1 passed. Complete source/build, checks, public
-fixture and downstream evidence are in [M94 history](../tabilet/docs/history/status-M94.md).
+fixture and downstream evidence are in [M94 history](https://github.com/OpenUdon/openudon/blob/68118634de49ef1ec48dbcd8824dd9467ea2650a/tabilet/docs/history/status-M94.md).
 Consumer adoption retains its own checks and ledger; discovery or source
 provisioning grants no browser, workflow execution or external delivery approval.

@@ -10,7 +10,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/OpenUdon/browsertools/authprofile"
@@ -89,7 +88,7 @@ func inputDigest(ctx context.Context, root string, ignored map[string]bool) (str
 			if err != nil {
 				return invalidEvidence
 			}
-			if st, ok := info.Sys().(*syscall.Stat_t); !ok || st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0022 != 0 {
+			if !safeOwnedPath(info, false) {
 				return invalidEvidence
 			}
 			return nil
@@ -101,7 +100,7 @@ func inputDigest(ctx context.Context, root string, ignored map[string]bool) (str
 		if err != nil {
 			return invalidEvidence
 		}
-		if st, ok := info.Sys().(*syscall.Stat_t); !ok || st.Uid != uint32(os.Geteuid()) || st.Nlink != 1 || info.Mode().Perm()&0022 != 0 {
+		if !safeOwnedPath(info, true) {
 			return invalidEvidence
 		}
 		total += len(data)
@@ -154,7 +153,7 @@ func resolveRoot(example string) (string, error) {
 	if err != nil || !info.IsDir() {
 		return "", invalidEvidence
 	}
-	if st, ok := info.Sys().(*syscall.Stat_t); !ok || st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0022 != 0 {
+	if !safeOwnedPath(info, false) {
 		return "", invalidEvidence
 	}
 	return root, nil

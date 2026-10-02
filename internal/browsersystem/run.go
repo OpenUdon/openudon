@@ -355,9 +355,6 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if o.Suite == "loopback" && stack != browserscenario.StackCurrent {
 		return nil, errors.New("legacy_UI_execution_retired_use_current_stack_or_historical_verifier")
 	}
-	if stack == browserscenario.StackCurrent && o.Suite != "loopback" {
-		return nil, errors.New("current_stack_requires_loopback")
-	}
 	root, err := filepath.Abs(o.Root)
 	if err == nil {
 		root, err = filepath.EvalSymlinks(root)

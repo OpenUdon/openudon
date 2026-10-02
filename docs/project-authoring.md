@@ -4,43 +4,19 @@
 integration policy that tells OpenUdon when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.
 
-`go run ./cmd/icot --example examples/<name>` is an optional adaptive authoring tool. It maps a broad
-request into one active workflow boundary, keeps later workflows as unnumbered candidates, inspects
-caller-scoped local API and Browsertools source metadata, and asks the full dependency-ready frontier
-each round.
-`--no-llm` disables extraction without replacing that interview with a fixed prompt sequence.
-`project.md` remains the OpenUdon policy/prose artifact, while an approved
-`workflows/intent.hcl` is the structured saved contract that `openudon build` consumes next.
+Kinet owns the adaptive interview and user-confirmation ledger. OpenUdon's
+`authoring draft` accepts explicitly reviewed local seeds or existing session
+artifacts without terminal input. Use print for read-only review, yes for complete
+publication, or the returned structured frontier to supply missing decisions.
+`openudon authoring reconcile` reconstructs a brief from intent, and
+`openudon authoring lint` checks parseability and advisory drift. Generic Authoring
+frontier/transaction mechanics remain shared, with native source and writer rules.
+See [current migration](authoring-retirement.md) for precise command/approval
+boundaries. Expert evaluation/replay can explicitly invoke a model; provider
+credentials alone authorize no model call, publication or external action.
 
-`icot` is deterministic. It can print without writing (`--print`), seed prompts from another
-example (`--from-example`), render from a v2 YAML or JSON session (`--answers`), resume interrupted
-interactive sessions from `.icot/session.yaml`, reconcile `project.md` from existing intent
-(`icot reconcile --example examples/<name>`), and lint an existing brief plus intent drift (`icot
-lint --example examples/<name>`). Drift findings are warnings unless a parse or existing fail check
-also fails.
-
-When provider credentials are available, `icot` uses AI assistance to draft operation choices,
-request mappings, outputs, credentials, and policy prose from the brief plus local API source metadata.
-After each frontier round, deterministic readiness checks recompute which boundary, source,
-operation, mapping, credential, output, fallback, or verification decisions are dependency-ready.
-When LLM extraction is enabled, iCoT also runs a
-single advisory pre-final flow review that looks for cross-step data-flow mistakes such as a report
-email step not consuming report content. Flow warnings are classified into remediation actions and
-kept as visible `intent.hcl` comments when they are not automatically repaired. Experimental
-`--review-repair` can apply bounded wiring repairs or add a local `fnct` transform/report step when
-the existing draft has one defensible producer; it does not change API sources, operations,
-credentials, or side-effect scope. The saved `intent.hcl` is a useful starting draft for
-build/review, not a promise that iCoT found the perfect workflow; operators should reject bad drafts
-or confirm and continue editing manually.
-
-Prompt volume is controlled by `--prompt-mode full|normal|fast`. Omitted mode is `full`, which asks
-every question and waits for confirmation. `normal` prints high-confidence and review-level defaults
-and accepts them automatically, but still asks for missing, low-confidence, conflicting, or forced
-answers. `fast` silently accepts safe defaults while preserving transcript and unified evidence.
-The final proposal approval is forced in all modes; `--yes` is the explicit noninteractive approval.
-
-For SaaS briefs, iCoT checks existing sources, explicit `--api-source`/`--openapi` documents,
-explicit `--browser-profile ID=PATH` inputs, and explicit `--source-root` paths before questioning.
+For SaaS briefs, neutral discovery checks existing sources, explicit `--api-source`/`--openapi` documents,
+explicit `--browser-profile ID=PATH` inputs, and explicit `--source-root` paths before rendering or publication.
 Bounded apitools discovery validates
 OpenAPI/Swagger, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData;
 rejects symlinks; deduplicates by digest; and treats ambiguous JSON/XML as a blocker until its kind is

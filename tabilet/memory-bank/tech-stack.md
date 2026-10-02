@@ -706,7 +706,7 @@ and translate the Udon argv to that container path.
   review before sharing. It is intentionally not part of provider-free release gates. `openudon authoring
   report verify --file ...` revalidates scorecard or authoring-eval JSON, summary counters, variant
   top-issue expectations, failure categories, retention/share-safety metadata, and adjacent SHA-256
-  digest sidecars after generation or archival; `make icot-authoring-scorecard` and `make
+  digest sidecars after generation or archival; `make authoring-scorecard` and `make
   release-saas-check` run it for the provider-free scorecard, while authoring-eval verification
   remains optional/manual real-LLM evidence. `make release-saas-check` also runs the variant
   coverage gate before producing scorecard evidence.
@@ -1155,3 +1155,10 @@ seeded drafts never read terminal answers; print makes no state writes, explicit
 yes gates publication, and missing mandatory input remains a structured frontier.
 Historical artifact labels and report readers are preserved; transport removal
 never grants capture, package or executor authority.
+
+Current native v6 also retains the four browser-free aggregate stages under
+`--stack current --suite offline`: OpenUdon units, Browsertools units,
+Browserdriver units and neutral capture lifecycle. `make qualify` runs/verifies
+that current offline report before the three fresh loopback passes; old v1–v5
+readers keep their original version/lock/suite contracts. No gate is dropped
+because the former historical default no longer executes a removed UI.

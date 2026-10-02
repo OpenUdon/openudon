@@ -1,5 +1,11 @@
 # Supervised application control
 
+> Historical iCoT transport documentation. M95 removes those entry points; use
+> [current authoring migration](authoring-retirement.md),
+> [public capture](browser-capture-protocol.md) and
+> [native package handoff](browser-package-handoff.md). Historical artifacts and
+> qualification readers retain their original meaning.
+
 `icot control --protocol openudon.application-control.v1 --no-open` opens the
 same single-workspace application as the UI over private stdin/stdout pipes.
 Use the existing example, private-root and package scope/scratch/store options.

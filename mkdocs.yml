@@ -24,6 +24,10 @@ nav:
   - Compatibility: compatibility.md
   - Authoring:
     - Overview: authoring.md
+    - Current CLI Migration: authoring-retirement.md
+    - Pure Registration Definitions: registration-draft.md
+    - Public Browser Capture: browser-capture-protocol.md
+    - Native Browser Package Handoff: browser-package-handoff.md
     - Agentic SaaS Authoring: agentic-saas-authoring.md
     - SaaS Authoring Corpus: saas-authoring-corpus.md
     - SaaS Authoring Trials: saas-authoring-trials.md
@@ -33,8 +37,8 @@ nav:
     - project.md Schema: project-authoring-schema.md
     - intent.hcl: intent.md
     - Data Flow: data-flow.md
-    - iCoT: icot.md
-    - Local iCoT UI Server: icot-ui.md
+    - Historical iCoT: icot.md
+    - Historical iCoT UI Server: icot-ui.md
     - Authenticated Browser Authoring: authenticated-browser-authoring.md
     - Browser-Profile Transactions: browser-profile-transactions.md
     - iCoT Corpus And Provider Roadmap: icot-corpus-and-provider-roadmap.md

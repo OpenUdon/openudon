@@ -21,7 +21,7 @@ Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, applic
 | --- | --- | --- |
 | M95.1 — Verify consumer migration and dispositions | `[+]` | Exact W28 source/build/qualification/closure and U07/Gate5B/23 retained dispositions verified. Existing native/neutral seams mapped; closed draft and current neutral qualification still require M95.2–.4. Historical artifacts and authority preserved. |
 | M95.2 — Remove iCoT code and surfaces | `[+]` | Removed actual terminal/UI/control/assets and facade; neutral closed draft/registration builder/public capture/package qualification replace callers. Full offline/unit/vet/focused race, retained native v5 verification and docs passed. Fresh frozen qualification and closing review remain M95.4/.5. |
-| M95.3 — Update CI and release gates | `[ ]` | Remove obsolete standalone/UI/variants iCoT gates and release binary; keep equivalent neutral evaluation and qualification gates. |
+| M95.3 — Update CI and release gates | `[+]` | Two CLI release builds on all six OS/architecture targets; neutral expert/scorecard/seed and actual draft-to-approved-dry-run passed. Strict docs, affected race and additive current offline/native gate checks passed; frozen qualification remains M95.4. |
 | M95.4 — Qualify legacy packages and retained gates | `[ ]` | Exercise package/build/assessment/approval/run, browser dispatch and current-stack qualification; preserve .icot artifacts and legacy defaults. |
 | M95.5 — Document, review and publish | `[ ]` | Name replacements and explicit discontinuations; persist bounded review and publish accepted source for M20 and W29. |
 
@@ -451,3 +451,55 @@ inputs make no state writes. Whole review remains0/10. Evolution checked: this
 advances the already approved retirement boundary, no new version/horizon.
 
 Task2 log SHA256 `82f8808757c1b2dacc7f6b0df0be6266483a02f870ea898fcde26adb59e9f6d1`. Final renamed neutral draft files and current report packages passed focused unit checks; documentation refinements preserve reusable core policy and literal superseded wording. check-doc-memory and diff-check passed on the final task unit.
+
+M95.2 publication independently verified at68118634de49ef1ec48dbcd8824dd9467ea2650a. M95.3 is the sole in-progress row; neutral release/operator/expert gates are being reconciled. No browser qualification is launched by this transition.
+
+M95.3 first release check /var/tmp/openudon-m95-release-check-wwfc9dm5 passed
+Linux and macOS builds, then found preexisting M96 browserpackage syscall.Stat_t
+references that prevented Windows builds. Kept the exact Unix owner/mode/hard-link
+rules in a platform helper; non-Unix reviewed capture-package operations now fail
+closed rather than claiming unqualified ACL equivalence. This is scoped release
+compatibility work, not a new native authority. Failure/build evidence retained;
+resume the remaining affected release checks without repeating passing platforms.
+
+M95.3 self-review preserves the former four-stage offline aggregate before the
+39 fresh loopback stages: current native v6 now admits offline with current
+locks, while v1–v5 readers/loopback contracts remain untouched. make qualify
+runs/verifies both reports. A version/omitted-stage regression and affected
+report tests establish this additive contract; actual frozen execution is M95.4.
+
+### M95.3 verified release and operator migration — 2026-10-02
+
+Current release/CI builds only openudon and udon-runner. Expert scorecard/replay/
+variants use neutral authoring commands; historical .icot/report schemas stay
+unchanged. make qualify retains four current offline gates before39 fresh
+loopback stages. New native v6 adds current offline coverage without changing
+v1–v5 contracts. Current docs direct interaction to Kinet; old UI/control guides
+are explicitly historical. Literal superseded current truth and candidate
+wording remain in the knowledge journal. The drafting candidate stays deferred.
+
+Release qualification /var/tmp/openudon-m95-release-corrected-0lg1gmma passed
+all12 cross-compiles, variants validate/coverage, and provider-free scorecard
+103/103 with failed0 and missing-detail/unsafe false passes0. Its initial strict
+doc check found seven external/missing receiving links; corrected verified source
+links and explicitly unavailable receiving-checkout context, preserving W27
+lessons. No external receipt or unavailable revision is invented.
+
+/var/tmp/openudon-m95-release-remaining-26_ii_s4 passed strict docs and a
+disposable neutral draft → build → assess → exact sandbox approval → dry-run;
+no executor/model/live target was invoked. Final source after the additive
+offline gate: /var/tmp/openudon-m95-release-final-mz94nwnu passed affected race,
+all12 builds, strict docs, memory docs and diff checks. Final docs-only current
+truth refinements reran strict docs/memory/diff successfully. An attempted
+make check-doc-memory was an unavailable target; the actual owner command
+(cd tabilet && go run ../cmd/openudon check-doc-memory) then passed. Unix capture
+package ownership/permissions/hard-link checks remain equivalent; non-Unix
+package operations explicitly refuse unqualified ACL semantics. Windows CLI
+builds pass, without claiming a Windows browser journey. Failed attempts remain
+recorded separately and are not acceptance. Whole review remains0/10.
+
+final-release-summary SHA256 `39a7ad1e2704e0863665432d2b6a642d3ec2a42fb95b7356f400588301ffd843`.
+
+corrected-release-summary SHA256 `325f4539fef02e2c5026ad60bd9301ba2c684992b6dae328680623ba390e1034`.
+
+remaining-release-summary SHA256 `37c546fe7bfce916e79fc874562e61e5d5eddacc61ca3a69390af9cc753db12b`.

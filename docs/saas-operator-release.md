@@ -90,23 +90,23 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `make check`;
 - `make release-check`;
 - `make eval-seed-build`;
-- `make icot-variants-validate`;
-- `make icot-variants-coverage`;
-- `make icot-authoring-scorecard`, which also verifies the generated scorecard JSON and digest
+- `make authoring-variants-validate`;
+- `make authoring-variants-coverage`;
+- `make authoring-scorecard`, which also verifies the generated scorecard JSON and digest
   sidecar, including retention/share-safety metadata, with `icot report verify`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
 - `(cd tabilet && go run ../cmd/openudon check-doc-memory)`;
 - `go run ./cmd/openudon n8n-bridge validate --root examples/eval`;
 - `mkdocs build --strict`;
-- selected strict SaaS fixture lint with `cmd/icot`;
+- selected strict SaaS fixture lint with `openudon authoring lint`;
 - the two demo dry runs above.
 
 Optional real-provider or real-LLM evidence stays local/manual:
 
 - `make release-eval`;
-- `go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider ... --model ... --out eval/runs/icot-authoring-eval-local`;
-- `go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json`;
+- `go run ./cmd/openudon authoring authoring-eval --root examples/eval --include-variants --provider ... --model ... --out eval/runs/icot-authoring-eval-local`;
+- `go run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json`;
 - provider/model name;
 - comparison baseline;
 - provider drift watch status;

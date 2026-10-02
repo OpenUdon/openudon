@@ -4,32 +4,26 @@ OpenUdon has two supported authoring paths. Both produce the same reviewable pac
 human-readable `project.md`, a structured `workflows/intent.hcl`, public UWS artifacts, expected
 plans, review evidence, quality reports, and a handoff manifest.
 
-## Path 1: Guided iCoT
+## Path 1: Kinet or explicit local seed
 
-Use iCoT when you want an operator-guided session that starts from a goal and writes the initial
-brief plus intent.
-
-```bash
-go run ./cmd/icot --example ./examples/<name>
-```
-
-iCoT writes an approved `project.md` plus either `workflows/intent.hcl` or an explicitly incomplete
-`workflows/intent.draft.hcl`; it does not execute workflows. It can run with optional LLM assistance,
-without LLM extraction, from an existing example, or from an `openudon.icot-session.v2` YAML/JSON
-session. The adaptive interview shows every dependency-ready decision in a frontier round and keeps
-later workflows as unnumbered candidates. Use `--prompt-mode full|normal|fast` to choose between full
-questioning, visible safe defaults, or silent safe defaults; final proposal approval is always
-explicit unless `--yes` is supplied.
-
-After iCoT saves artifacts, continue with:
+Use Kinet for interviews and interactive workflow authoring. OpenUdon supplies
+native step, source, supervised capture and package commands; it has no UI.
+For deterministic local drafting from reviewed inputs:
 
 ```bash
-go run ./cmd/openudon build --example ./examples/<name>
-go run ./cmd/openudon assess --example ./examples/<name>
+go run ./cmd/openudon authoring draft \
+  --from-example ./examples/eval/runtime-only-render \
+  --example .openudon-run/authoring-example --prompt-mode fast --no-llm --yes
+go run ./cmd/openudon build --example .openudon-run/authoring-example
+go run ./cmd/openudon assess --example .openudon-run/authoring-example
 ```
 
-Use [iCoT](icot.md) for command details and [Project Briefs](project-authoring.md) for the
-sections a good `project.md` should contain.
+Print is read-only, complete seed publication requires explicit yes, and partial
+input returns a structured frontier without terminal questions or writes. See
+[current authoring migration](authoring-retirement.md),
+[step contracts](step-authoring-contract-v1.md) and
+[Project Briefs](project-authoring.md). Existing session/report artifact formats
+remain readable; optional expert model evaluation retains its separate authority.
 
 ## Path 2: Brief And Synthesis
 
@@ -44,7 +38,7 @@ go run ./cmd/openudon assess --example ./examples/<name>
 `synthesize` reads `project.md`, discovers or imports local API/event source metadata, creates or
 updates intent, and writes the generated package artifacts. OpenAPI, Google Discovery, AWS Smithy
 JSON, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData can be staged directly as UWS source
-descriptions when the trusted executor supports them. New workflows declare UWS 1.11.0;
+descriptions when the trusted executor supports them. New workflows declare UWS 1.12.0;
 AsyncAPI binding was introduced in 1.3 and GraphQL, OpenRPC, gRPC/protobuf, and OData
 binding in 1.4. OpenUdon validates
 and packages those source-bound workflows, but protocol execution remains trusted-runtime-owned.
@@ -53,7 +47,7 @@ and packages those source-bound workflows, but protocol execution remains truste
 
 Operators may add a `content_trust` block to `workflows/intent.hcl` after the
 workflow and source choices are reviewed. OpenUdon maps those declarations to
-the generated UWS 1.11.0 document. This block is deliberately operator-authored,
+the generated UWS 1.12.0 document. This block is deliberately operator-authored,
 not an LLM-generation field. Existing packages retain their declared UWS
 versions and package shape.
 See [intent.hcl](intent.md#content-trust) for the exact declaration syntax and

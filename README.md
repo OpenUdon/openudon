@@ -56,7 +56,7 @@ The source tree implements the unreleased v0.2 compatibility boundary for the de
 trusted handoff (`approval-template` and `run`), run-evidence
 verification/archive/signatures, and the v2 handoff artifacts. Existing v1
 run configs and handoffs must be rebuilt before execution; v1 run evidence is
-read-only inspectable and cannot be archived as v2 evidence. iCoT,
+read-only inspectable and cannot be archived as v2 evidence. Neutral expert authoring,
 LLM/provider behavior, eval/catalog/smoke helpers, and exact generated prose
 remain experimental before v1. OpenUdon does not yet expose a supported
 Go-library API.
@@ -76,16 +76,17 @@ go install github.com/OpenUdon/openudon/cmd/openudon@v0.1.0
 openudon version --json
 ```
 
-Optional companion tools:
+For current source, build the two supported executables:
 
 ```bash
-go install github.com/OpenUdon/openudon/cmd/icot@v0.1.0
-go install github.com/OpenUdon/openudon/cmd/udon-runner@v0.1.0
+GOWORK=off go build -o /tmp/openudon ./cmd/openudon
+GOWORK=off go build -o /tmp/udon-runner ./cmd/udon-runner
 ```
 
-Linux, macOS, and Windows archives for amd64 and arm64 are attached to the
-GitHub v0.1.0 release. Every archive contains `openudon`, `icot`, and
-`udon-runner`; verify it against the published `SHA256SUMS` file.
+The published v0.1.0 archives are historical and contain `openudon`, `icot`
+and `udon-runner`; verify their `SHA256SUMS`. Current release builds contain
+only `openudon` and `udon-runner`. Source retirement does not rewrite or tag a
+published release. Use binaries built from this source for the commands below.
 
 From a source checkout, the credential-free release path authors a local
 function-only project, builds and assesses it, then stages an approved sandbox
@@ -93,7 +94,7 @@ dry run without invoking an executor:
 
 ```bash
 DEMO_ROOT=.openudon-run/v0.1.0-quick-start
-icot \
+openudon authoring draft \
   --from-example ./examples/eval/runtime-only-render \
   --example "$DEMO_ROOT/package" \
   --no-llm \
@@ -150,7 +151,7 @@ rejected.
 
 - `cmd/openudon`: local CLI for checks, synthesis, assessment, eval, readiness, approval templates,
   and trusted execution.
-- `cmd/icot`: guided authoring CLI for `project.md` and `workflows/intent.hcl`.
+- `cmd/udon-runner`: portable external executor handoff wrapper.
 - `internal/`: reusable OpenUdon implementation.
 - `examples/`: committed examples and eval corpus.
 - `templates/project.md`: starter project brief.
@@ -178,7 +179,7 @@ natural-language project brief
   -> trusted executor handoff
 ```
 
-`openudon synthesize`, `openudon build`, `openudon promote`, `openudon assess`, `openudon package prepare|promote|inspect|recover`, `cmd/icot`, and eval commands
+`openudon synthesize`, `openudon build`, `openudon promote`, `openudon assess`, `openudon package prepare|promote|inspect|recover`, neutral authoring, and eval commands
 generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
 `openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
@@ -204,155 +205,31 @@ When that outer override is used, OpenUdon evidence marks its staged package as 
 preflight`; the external runner owns any final executor-visible staging and must fail closed on its
 own config checks.
 
-## Authoring With iCoT
+## Neutral authoring
 
-iCoT turns a project idea into reviewed authoring artifacts. Terminal iCoT
-writes `project.md` and `workflows/intent.hcl`; the UI can additionally build
-and assess the reviewed package for handoff, but neither surface executes workflows.
-The generic interactive loop mechanics are shared through
-`github.com/OpenUdon/authoring/icot`; OpenUdon still owns the prompts, intent
-schema, artifact layout, model/provider clients, reports, and package gates.
-Reviewed API authentication is preserved as OR alternatives of AND symbolic
-bindings through `authoring.prompt-context.v2`. iCoT requires one numbered
-selection before request mappings, supports an explicit anonymous alternative,
-and never unions credentials or stores credential values.
+Kinet owns the interactive authoring loop. OpenUdon retains explicit seeded/local
+commands and their native source validation, policy and atomic writer. No terminal
+interview, application HTTP/control service or embedded UI remains.
 
 ```bash
-go run ./cmd/icot --example ./examples/<name>
+openudon authoring draft --from-example ./examples/eval/runtime-only-render \
+  --example .openudon-run/draft-example --prompt-mode fast --no-llm --print
+openudon authoring draft --from-example ./examples/eval/runtime-only-render \
+  --example .openudon-run/draft-example --prompt-mode fast --no-llm --yes
+openudon authoring lint --example .openudon-run/draft-example
+openudon authoring repair --example .openudon-run/draft-example --dry-run --json
+openudon authoring variants validate --root examples/eval
+openudon authoring variants coverage --root examples/eval
+openudon authoring scorecard --root examples/eval --include-variants --out /tmp/NEW-scorecard
+openudon authoring report verify --file /tmp/NEW-scorecard/scorecard.json
 ```
 
-For non-interactive consumers, `openudon step source add` validates and stages
-explicitly selected local API documents after the caller's confirmation;
-`openudon step candidates` ranks local API operations, `openudon step check`
-validates one selected operation against a workflow intent, `openudon step bind`
-writes one explicitly mapped step, and `openudon flow-review` runs the advisory
-read-only review. The
-versioned JSON contract and runnable fixtures are in
-[the step-authoring contract](docs/step-authoring-contract-v1.md). Model review
-is opt-in per request and reports unavailable or failed outcomes explicitly.
-
-Common modes:
-
-```bash
-# Print rendered project.md and intent.hcl without writing files.
-go run ./cmd/icot --example ./examples/<name> --print
-
-# Use the adaptive interview without LLM extraction.
-go run ./cmd/icot --example ./examples/<name> --no-llm
-
-# Ask every question and let you confirm defaults. This is the default mode.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode full
-
-# Show the whole frontier and accept safe defaults visibly.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
-
-# Silently accept safe defaults; still show missing/conflicting/forced decisions.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
-
-# Seed from an existing example.
-go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name> --yes
-
-# Use an openudon.icot-session.v2 YAML or JSON session.
-go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
-
-# Start the experimental single-workspace API v4 shell. A private root is
-# required only for source upload, authenticated Chromium capture, or guided
-# registration authoring. The package triple enables the registration wizard;
-# --browser-transaction remains optional for an existing public transaction.
-install -d -m 0700 /private/operator/openudon-authoring
-go run ./cmd/icot ui --example ./examples/<name> \
-  --private-root /private/operator/openudon-authoring \
-  --package-scope examples/<name> \
-  --package-scratch /absolute/restrictive-scratch-parent \
-  --package-store /absolute/generation-store
-
-# Seed the UI from a reviewed example without opening the browser.
-go run ./cmd/icot ui --example ./examples/<name> \
-  --from-example ./examples/eval/runtime-only-render --no-open
-
-# Observe or explicitly advance one public value-free browser transaction.
-go run ./cmd/icot browser-transaction \
-  --transaction ./transaction.json \
-  --example ./examples/<name> --scope examples/<name> \
-  --scratch /absolute/restrictive-scratch-parent \
-  --store /absolute/generation-store --prepare
-
-# Add reviewed sources or bounded discovery roots; flags are repeatable.
-go run ./cmd/icot --example ./examples/<name> \
-  --api-source graphql:catalog=./schema.graphql \
-  --openapi weather=./openapi/weather.yaml \
-  --source-root ./provider-metadata --network ask
-
-# Use reviewed browser capability/authentication profiles only when no adequate API capability exists.
-go run ./cmd/icot --example ./examples/<name> \
-  --browser-profile status=./reviewed/status.browser.json \
-  --browser-verification ./reviewed/status.live-check.json \
-  --browser-verification ./reviewed/status.portability.json \
-  --browser-profile member-auth=./reviewed/member-auth.yaml \
-  --browser-registry https://profiles.example.org/catalog/ \
-  --network ask
-
-# Verification reports are optional value-free review evidence. OpenUdon
-# revalidates them against the exact profile/actions and stages only summaries.
-
-# When no reviewed profile exists, emit a non-executing Browsertools handoff.
-install -d -m 0700 /private/operator/browsertools-status
-go run ./cmd/icot browser-authoring plan \
-  --example ./examples/<name> --url https://example.test/status \
-  --origin https://example.test --profile-id status \
-  --action-hint read_status --login-state not-required \
-  --private-root /private/operator/browsertools-status \
-  --out /private/operator/browsertools-status/handoff.json
-
-# The CLI live mode is an expert fallback. It uses the bundled isolated worker
-# by default; --browsertools remains an expert compatibility override.
-install -d -m 0700 /private/operator/member-authoring
-go run ./cmd/icot browser-author live \
-  --example ./examples/member-dashboard \
-  --url https://members.example.test/login \
-  --dashboard-url https://members.example.test/dashboard \
-  --goal "reach the member dashboard and learn how to read account status" \
-  --origin https://members.example.test \
-  --origin https://login.example-idp.test \
-  --private-root /private/operator/member-authoring \
-  --profile-id member --goal-role heading --goal-label Dashboard
-
-# Rebuild project.md from workflows/intent.hcl.
-go run ./cmd/icot reconcile --example ./examples/<name>
-
-# Check authoring quality, intent parseability, and advisory drift.
-go run ./cmd/icot lint --example ./examples/<name>
-
-# Noninteractive agent/JSON report surface.
-go run ./cmd/icot --example ./examples/<name> --agent --json
-
-# Provider-free iCoT reliability scorecard.
-go run ./cmd/icot scorecard --root ./examples/eval --out eval/runs/icot-scorecard-local
-
-# Include curated natural-language authoring variants.
-go run ./cmd/icot scorecard --root ./examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-
-# Verify scorecard report JSON plus digest sidecar.
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
-
-# Validate variant metadata and reference-seeded clear slots.
-go run ./cmd/icot variants validate --root ./examples/eval
-
-# Check provider-family coverage across variant classes.
-go run ./cmd/icot variants coverage --root ./examples/eval
-
-# Optional real-LLM natural-language authoring evidence.
-go run ./cmd/icot authoring-eval --root ./examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
-
-# Optional/manual verification for real-LLM authoring evidence.
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
-
-# Bounded deterministic repair for mappings, outputs, and depends_on.
-go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
-
-# Replay eval references through iCoT and save ignored transcripts.
-go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
-```
+Print and partial-frontier responses make no state writes; complete publication
+requires explicit `--yes`. Existing answers/session/transcript bytes and report
+schemas remain readable; no hidden defaults grant runtime approval. Optional real
+model evaluation/replay still requires explicit invocation and provider authority.
+Use [the retirement/migration guide](docs/authoring-retirement.md) for all retained
+entry mappings, pure registration definitions and versioned qualification.
 
 ## Non-interactive step authoring
 
@@ -387,131 +264,14 @@ shows every dependency-ready decision as one frontier round before collecting an
 fixed question ceiling. Candidate workflows receive a deferral reason and promotion trigger but no
 sources, operations, mappings, or implementation steps.
 
-iCoT autosaves only resumable local state under `<example>/.icot/session.yaml` and resumes by
-default. Successful promotion deletes obsolete draft/readiness state. Transcripts are written under
-`<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
-git.
-
-`icot ui` is the primary interactive authoring shell over the same engine. It always
-binds `127.0.0.1` and opens a tokenless loopback page. A random 12-character
-Crockford Base32 access code is printed only in the terminal; it expires after
-five minutes, is single-use, and throttles after five failed attempts per
-minute. A successful POST exchange installs the existing scoped HttpOnly,
-SameSite=Strict cookie and redirects to the clean instance path. If that
-browser session is lost, the tokenless page can rotate an already-used or
-expired code and print the replacement only in the terminal. The UI requires
-separate authoring and capture revisions for mutations and asynchronous browser
-events, detects changes made by editors or another process, and freezes only
-after a passing reviewed package build. A detected
-workspace change preserves cached inspection but blocks mutation until the
-process is restarted. The shell polls experimental API v4 while visible and backs off after
-errors. It selects a journey, validates/stages bounded API uploads, performs
-isolated existing-account Chromium capture, renders the current frontier as accessible controls, submits
-complete revision-protected rounds, previews proposed artifacts and conflicts,
-supports explicit settled-answer reopening, shows candidate/source/review
-evidence, and requires explicit authoring approval. Package build is a second
-confirmation; failed quality can explicitly return to authoring and requires
-reapproval, while success exposes only allowlisted handoff artifacts and exact
-approval-template argv. A later artifact size or digest change invalidates the
-frozen handoff and requires resume, reapproval, and rebuild. The UI does not invoke an LLM extractor, create an
-approval, accept credentials, execute workflows, or expose a LAN service. See
-[Local iCoT UI Server](docs/icot-ui.md).
-
-`--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
-you to confirm or replace defaults. `--prompt-mode normal` prints the full frontier and visibly
-accepts safe defaults. `--prompt-mode fast` silently accepts safe defaults but shows missing,
-low-confidence, conflicting, and forced decisions. Final proposal approval is forced in every mode;
-`--yes` is its explicit noninteractive equivalent.
-
-When LLM extraction is enabled, iCoT also runs a bounded pre-final flow review before showing the
-current draft. That review is advisory: it looks for cross-step data-flow mistakes such as a report
-email step not consuming the report content, and surfaces findings as warnings without rewriting the
-draft.
-
-The normal terminal iCoT command, agent mode, and `browser-authoring plan` never
-launch a browser. UI capture and the expert `browser-author live` command start
-an isolated Browsertools worker. The bundled worker and terminal-only expert
-override use the same typed controller: worker events are reduced and
-closed-vocabulary validated before terminal, UI, or planner disclosure, and a
-process-private parent attestation binds the ordered interaction, output
-requests, and exact approved-origin ledger before staging. Browsertools owns one
-non-persistent Playwright-Go Chromium context across human login/MFA and
-post-login exploration; each new canonical HTTPS or loopback origin still needs
-an exact human approval. iCoT imports only reviewed canonical UWS profiles plus
-safe metadata, and `--yes` bypasses none of those live gates. See
-[Authenticated Browser Authoring](docs/authenticated-browser-authoring.md) for
-the protocol, data boundary, failure behavior, and the separate Udon/
-Browserdriver trusted-runtime replay.
-
-`--review-repair` turns selected warnings into a bounded repair loop. It can apply narrow wiring
-repairs or add a local `fnct` transform/report/render step when the goal clearly asks for produced
-content and one known producer step can feed it. It rejects operation, source, credential, and
-side-effect-scope mutations.
-
-Before questioning, iCoT inspects existing sources, explicit documents, and explicit roots through
-apitools' bounded multi-family discovery. It supports OpenAPI/Swagger, Google Discovery, AWS Smithy,
-AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData; rejects symlinks and ambiguous documents;
-deduplicates by SHA-256; and never copies a source before proposal approval. If local evidence is
-exhausted, approved remote lookup is limited to curated apitools references plus one APIs.guru lookup
-with an eight-second deadline and at most three metadata candidates.
-
-For a UI action that requires login state, iCoT can pair a reviewed,
-secret-free `uws.browser-authentication.1.0` or 1.1 profile with a reviewed
-`uws.browser.1.5` through 1.9 capability profile. Browser 1.8/1.9 add opt-in
-component-safe parameter templates; 1.9 adds literal-brace escapes. Newly
-generated workflows declare UWS 1.11.0. OpenUdon authors an explicit sign-in
-flow, execution-local named session, symbolic
-credential bindings, bounded timeout, and separate authoring approval; Udon
-still requires separate runtime approval and keeps credentials, MFA responses,
-and live session state private.
-
-The iCoT registration wizard also supports generic BRP 1.1 and UWS call 1.1:
-review typed field definitions, conditional rules and public wizard previews,
-then package them with a symbolic input binding. Runtime values are entered in
-Udon's separate private form and replayed through protocol v5. See
-[Registration 1.1 in iCoT](docs/registration-input-authoring.md).
-
-OpenUdon also accepts already-reviewed, secret-free
-`uws.browser-registration.1.0` profiles and
-`browsertools.registration-review.v1` bundles as manual package-local sources.
-Its internal transaction engine can also turn an explicitly reviewed,
-path-free Browsertools registration candidate into the same package inputs;
-public snapshots and resumable drafts retain only value-free identities. The
-local UI and terminal expose that candidate lifecycle through the same
-driver-free engine. The UI can construct a v2 candidate in one isolated,
-GET/HEAD-only Browsertools session, disclose its retained structural query for
-explicit review, and adopt it only after clean worker teardown. Configure the
-package option triple for that guided path; a public transaction JSON file—never
-a private Browsertools result—remains the input to
-`icot ui --browser-transaction ...` or `icot browser-transaction ...` for an
-existing candidate. Review, scratch preparation, promotion, and recovery each
-require their own exact digest-bound decision.
-An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
-cleanup, symbolic-binding, and exact submit-approval policy to
-`uws.browser-registration-call.1.0`. Build, assessment, approval-template, and
-trusted-runner dry-run are offline. Non-dry registration is enabled only for
-the exact Udon report-v3 and Browserdriver protocol-v4 handoff, with a private
-digest-bound dedicated-test attestation and a separate exact
-`--approve-browser-registration OP_ID`; incomplete or legacy configurations
-still fail before executor invocation. [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md)
-defines the common value-free review, prepare-only, atomic-promotion, and
-recovery record for the BAP+BCP and BRP paths.
-
-If no in-workflow authentication step establishes the required login state,
-each affected browser step must instead name its own symbolic external
-`browser_session`. The aggregate opaque-session posture is review evidence, not
-a runtime session name, cookie, token, or substitute for the step-level binding.
-
-`--agent` returns the entire frontier, candidate workflows, source evidence, blockers, and proposed
-file actions. It never prompts or writes deliverables, including when the session is otherwise
-complete.
-
-Side-effect scope in iCoT:
-
-- `read-only`: generate and validate artifacts only.
-- `sandbox-only`: sandbox proof runs require `approved_for_sandbox`, approved bindings, and a
-  trusted runner.
-- `after-approval`: sandbox and production execution require the full OpenUdon review approval path.
+Historical `.icot/session.yaml`, `.icot/transcript.json` and review metadata
+remain unchanged and readable. Current draft publication does not run an
+interactive autosave loop. For browser acquisition use Kinet over
+[public capture](docs/browser-capture-protocol.md) and
+[reviewed package authoring](docs/browser-package-handoff.md); credentials and
+sessions remain private to Browsertools/Udon. Inert plans and pure draft commands
+never start a browser. Native package preparation, promotion, registration
+attestation and trusted execution require their own exact decisions.
 
 ## Synthesize And Assess
 
@@ -644,20 +404,20 @@ make release-eval
 ```
 
 `make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
-the required sandboxed `icot-ui-browser-check`, the browser-free
+the required sandboxed `browser-capture-check`, the browser-free
 [browser integration evaluation](docs/browser-integration-eval.md), the real
 network-free [browser scenario loopback and journey suites](docs/browser-scenario-eval.md), the eval seed/build matrix,
-`icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
+`authoring-variants-validate`, `authoring-scorecard`, UWS validation,
 doc-memory validation, n8n bridge validation, strict MkDocs, selected strict fixture lint, and
-trusted-runner dry-run demos without live provider credentials or live provider execution. `icot
-scorecard --include-variants` is deterministic reference/variant package evidence; use `icot
+trusted-runner dry-run demos without live provider credentials or live provider execution. `openudon authoring
+scorecard --include-variants` is deterministic reference/variant package evidence; use `openudon authoring
 authoring-eval` separately for optional real LLM natural-language authoring evidence.
 
-`make icot-ui-browser-check` launches Chromium through the test-only
-Playwright-Go harness and qualifies the embedded Phase C authoring, approval,
-accessibility, narrow/zoom layout, polling, stale-state, drift, retry, and
-freeze journeys against a real loopback server. It is part of the release gate,
-not the production UI runtime.
+`make browser-capture-check` exercises both actual public capture-to-package
+journeys on synthetic loopback services with sandboxed Chromium: login/TOTP and
+typed registration, including separate verification refusal/approval. Kinet's
+UI conformance belongs to Kinet; no removed UI selector silently stands in for
+this native boundary. Full current native qualification remains three fresh passes.
 
 `make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
@@ -864,24 +624,17 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)
 
-Use `make fast` for routine iterations and `make smoke` for one authorized
-synthetic UI/runtime flow. The complete local browser gate is `make qualify`
-(also `make browser-system-check`);
-see [browser system qualification](docs/browser-system-eval.md) for explicit
-loopback authority, source prerequisites, evidence verification and supervised
-registration control. Operational adoption requires separately reviewed source
-publication and target authority.
-
-The opt-in [supervised application protocol](docs/application-control.md) extends
-`icot control` through authenticated authoring and package promotion while
-retaining the registration-only protocol and all separate runtime approvals.
+Use `make fast` for routine browser-free iterations and one deliberately selected
+`make smoke` for an affected synthetic capture-to-runtime flow. `make qualify`
+(and `make browser-system-current-check`) selects the fresh complete current
+native gate. See [browser qualification](docs/browser-system-eval.md) for exact
+source/runtime inputs, cost selection, failure retention and verification.
+Consumer adoption and real target authority remain separate.
 
 ### Retained expert authoring commands
 
-`openudon authoring --help` lists lint, reconcile, repair, report verification,
-variants, scorecard and optional provider evaluation. These share the legacy
-iCoT implementation during migration; existing subcommand flags and report
-schemas remain compatible. The expert surface does not start a UI or browser
-worker. Model-backed evaluation remains an explicit separate operation.
-
-Pure previews, including unresolved contracts: [workflow simulation](docs/simulation.md).
+`openudon authoring --help` lists closed draft/browser-plan/registration-draft,
+lint, reconcile, repair, report verification, variants, scorecard and optional
+model evaluation. Historical artifact/report labels are retained; they do not
+make a removed transport callable. Pure previews, including unresolved contracts:
+[workflow simulation](docs/simulation.md).

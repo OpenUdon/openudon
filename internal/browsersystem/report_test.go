@@ -430,3 +430,34 @@ func TestNeutralV6ReportDoesNotRelabelHistoricalUIGates(t *testing.T) {
 		t.Fatal("neutral native repeat inventory lost coverage")
 	}
 }
+
+func TestNeutralCurrentOfflinePreservesFourGatesAndVersionBoundary(t *testing.T) {
+	r := offlineReport(t)
+	lock, err := browserscenario.LoadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Version, r.Baseline = CurrentVersion, lock
+	r.Toolchains.Go = lock.GoVersion
+	for i := range r.Sources {
+		for _, c := range lock.Components {
+			if c.Name == r.Sources[i].Name {
+				r.Sources[i].Commit = c.Commit
+			}
+		}
+	}
+	if err := Validate(r); err != nil {
+		t.Fatal("neutral current offline", err)
+	}
+	for _, version := range []string{CurrentV5Version, Version} {
+		v := *r
+		v.Version = version
+		if Validate(&v) == nil {
+			t.Fatal("current offline relabeled as historical", version)
+		}
+	}
+	r.Passes[0].Stages = r.Passes[0].Stages[:3]
+	if Validate(r) == nil {
+		t.Fatal("offline lifecycle coverage omitted")
+	}
+}
