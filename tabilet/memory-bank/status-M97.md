@@ -44,11 +44,11 @@ Reconcile actual full accepted/source/publication revisions and hashes before st
 
 ## Persisted review
 
-- Review iteration: **0/10**; not started.
-- Findings: not reviewed; no acceptance is claimed.
-- Accepted implementation revision: not yet available.
-- Verification/build evidence: not yet available.
-- Publication evidence: required before downstream adoption; not authorized by this planning action.
+- Review iteration: **1/10**; pre-publication whole-milestone review started and passed on 2026-10-05 after the corrected candidate passed every required automatic gate.
+- Findings: pre-publication review 1 passed with no open P1/P2-or-higher finding. The full baseline-to-corrected-source diff was checked for authority/version correspondence, legacy bytes, private APItools/executor boundaries, pinned transport/executor snapshots, no replay, conservative report-v5 outcomes, both evidence copies and exact fixture/schema/build provenance. Publication and ordinary closing review remain required.
+- Reviewed qualified implementation revision: `f4127c159e18fa66619659bc3c4b8757b7022267`; final acceptance awaits publication and closing review.
+- Verification/build evidence: corrected clean source `f4127c159e18fa66619659bc3c4b8757b7022267` passed make check, go vet ./..., all seven exact-M46 runtime cases, fresh registration smoke and all 39 native stages with independent report verification and joined private-display teardown. Full make fast and focused broker/authority races also passed. Exact artifact and evidence bindings are in docs/m97-qualification.md; acceptance still requires review and publication.
+- Publication evidence: pending. The separately confirmed Stage 9 request authorizes scoped normal origin/main publication after this pre-publication gate; planning alone grants none.
 - Downstream reconciliation: pending exact upstream/downstream revisions.
 
 ## M97 temporary display authorization — 2026-10-05
@@ -149,3 +149,45 @@ corpus/production/API-key tests and broker/authority races. git diff --check is
 clean. The doc-memory evolution warning was inspected: this is an implementation
 advance within approved M97, so v49 remains current. Native qualification and
 both publication/closing reviews remain pending; M97.4 stays in progress.
+
+
+## Corrected M97.4 native selection — 2026-10-05
+
+Clean candidate source: `f4127c159e18fa66619659bc3c4b8757b7022267`; no worktree overlays.
+Private frozen root: `/var/tmp/kinet-stage9-p_9plhx7/m97-final`. Source archive SHA-256
+`87b14b27bf5c1b72280cdaab3293ec8207809e10780eace66885070c0cbcb5ec`. CLI digests:
+openudon `4f0c6cad518331f4dcf61de986c4b21fbda9aadaf1065a2efaafbda2f1220c17`;
+udon-runner `5e0cf3623db21a2aef72e7f5daefa34ae8672306658c35222995e4af3735407e`.
+Both build records report vcs.modified=false at that exact revision.
+Build-input inventory SHA-256
+`38a2b26a19ab073fddb497331bd6877b43756e18ddbb3ef110c73d923436a324` binds
+48 modules, 2,784 compiled source/embed files and all seventeen clean exported
+repositories (nineteen native report source entries). Fixture/schema hashes and
+M46 executor/closure remain unchanged. The private launcher is byte-bound and
+uses the exact compiled CLI, cached Go and disk-backed Go temporary files.
+
+M97.4 remains in progress before its fresh affected smoke and full 39-stage
+qualification. Installed assets, prior Xvfb authority, private authentication,
+sandbox enabled and joined teardown remain the selection; estimate 30–50 minutes.
+The corrected source does not consume old smoke/native results or logger overlays.
+No acceptance/publication is claimed by this selection.
+
+
+The corrected candidate's first launcher passed input preflight but stopped on
+a private-script variable typo before smoke/native work; display teardown passed.
+The corrected launcher uses explicit tool paths and separate qualification-2
+outputs. This is not native failure or review evidence; source stays f4127c1.
+
+
+## M97.4 exact qualification and pre-publication review
+
+Corrected source passed all four offline gates, all 39 fresh native stages and
+independent verification; fresh smoke passed with reuse=false. Joined display
+teardown passed all three checks. Exact-source make check, go vet and all seven
+actual-M46 private-broker cases also passed. Qualified closure SHA-256
+`5fb02718562932acd64c2e1a19245e0773441a0e718ddba577aa90b15694035c`; full artifact/evidence hashes are in
+[the handoff](../../docs/m97-qualification.md). Earlier contexts remain excluded.
+Review 1 inspected the whole milestone, not only the checkpoint patch; no open
+P1/P2 finding remains. M97.4 stays in progress through its authorized normal
+publication. Ordinary post-task closing review and downstream reconciliation
+remain pending; this record does not claim them complete.

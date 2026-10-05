@@ -19,7 +19,7 @@ Active [M97](status-M97.md) is this repository's only Stage 9 milestone. Kinet c
 
 **Verification.** make fast for routine edits; go test ./...; go vet ./...; make check; go run ./cmd/openudon check; go run ./cmd/openudon check-apitools-boundary; (cd tabilet && go run ../cmd/openudon check-doc-memory); fixture validation and git diff --check. Run the required affected make smoke and full make qualify for runtime adoption, including three fresh native repeats under owner rules, in disposable exact-source closures. No cache result substitutes for required fresh qualification.
 
-**Tasks and review.** [M97](status-M97.md) owns 3 completed task rows and the in-progress qualification/publication row, persisted review 0/10 and exact revision handoffs. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
+**Tasks and review.** [M97](status-M97.md) owns 3 completed task rows and the in-progress qualification/publication row, persisted pre-publication review 1/10 passed and exact revision handoffs. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
 
 ## Current State
 
