@@ -306,7 +306,11 @@ func openAPIServerIndex(candidates []openapidisco.Candidate) map[string]string {
 	return out
 }
 
-func productionEndpointURL(value string) bool {
+func productionEndpointURL(value string) bool { return ProductionEndpointURL(value) }
+
+// ProductionEndpointURL shares the existing sandbox destination classification
+// with trusted broker handoff checks; reserved/local scope is unchanged.
+func ProductionEndpointURL(value string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(value))
 	if err != nil || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) || parsed.Hostname() == "" {
 		return false

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
@@ -88,6 +89,8 @@ type Invocation struct {
 type InvokeFunc func(context.Context, Invocation) error
 
 type Options struct {
+	BrokerConfigPath        string
+	Now                     func() time.Time
 	ConfigPath              string
 	RepoRoot                string
 	Env                     []string
@@ -130,7 +133,7 @@ func LoadConfig(path string) (Config, error) {
 	if err := evidencefile.DecodeStrict(data, &config); err != nil {
 		return Config{}, fmt.Errorf("run config must be valid JSON: %w", err)
 	}
-	if config.Version != RunConfigVersion || config.Broker != nil {
+	if !ValidConfigVersion(config) {
 		if config.Version == LegacyRunConfigVersion {
 			return Config{}, fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
 		}
@@ -170,6 +173,11 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if err != nil {
 		return result, err
 	}
+	if config.Broker != nil {
+		if err := claimBrokerAttempt(config); err != nil {
+			return result, fmt.Errorf("broker attempt already claimed or cannot be persisted")
+		}
+	}
 	// Execute inside the reviewed staging tree. Udon's file backend resolves
 	// local persistence against the process directory, and relative executor
 	// artifacts must remain beside the staged workflow rather than its store.
@@ -200,11 +208,14 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if config.DirectProductionRun {
 		return Result{}, nil, "", fmt.Errorf("run config direct_production_run must be false")
 	}
-	if config.Version != RunConfigVersion || config.Broker != nil {
+	if !ValidConfigVersion(config) {
 		if config.Version == LegacyRunConfigVersion {
 			return Result{}, nil, "", fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
 		}
 		return Result{}, nil, "", fmt.Errorf("run config version must be %s", RunConfigVersion)
+	}
+	if err := validateBrokerConfig(config, opts); err != nil {
+		return Result{}, nil, "", err
 	}
 	reportVersion := strings.TrimSpace(config.ExecutorReportVersion)
 	if reportVersion == "" {
@@ -296,7 +307,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	if config.Browser != nil && (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6") {
+	if config.Broker != nil || (config.Browser != nil && (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6")) {
 		credentialEnvNames = nil
 	}
 	sourceEnv := opts.Env
@@ -347,10 +358,34 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 			return result, nil, "", err
 		}
 		result.InventoryV5 = &inventory
+		if config.Broker != nil {
+			if err := validateBrokerPlan(config, result); err != nil {
+				return result, nil, "", err
+			}
+		}
+	}
+	if config.Broker != nil && !buildExecutorArgv {
+		if _, err := brokerExecutor(config, envByName, result, false); err != nil {
+			return result, nil, "", err
+		}
 	}
 	if buildExecutorArgv {
 		result.ExecutorReportPath = filepath.Join(stage, "executor-report-"+config.RunID+".json")
-		argv, err := executorArgvWithBrowser(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, config.Browser, browser.driverEnv, envByName)
+		var argv []string
+		var err error
+		if config.Broker != nil {
+			var binary string
+			binary, err = brokerExecutor(config, envByName, result, true)
+			if err == nil {
+				var privatePath string
+				privatePath, err = snapshotBrokerTransport(config, opts, stage)
+				if err == nil {
+					argv = []string{binary, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat, "--execution-report", result.ExecutorReportPath, "--http-broker-config", privatePath}
+				}
+			}
+		} else {
+			argv, err = executorArgvWithBrowser(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, config.Browser, browser.driverEnv, envByName)
+		}
 		if err != nil {
 			return result, nil, "", err
 		}

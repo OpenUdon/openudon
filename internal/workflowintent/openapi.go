@@ -10,13 +10,14 @@ import (
 )
 
 type OpenAPISpec struct {
-	Title       string
-	Version     string
-	Description string
-	ServerURL   string
-	Operations  []*OperationInfo
-	Security    []string
-	RawSpec     map[string]any
+	Title           string
+	Version         string
+	Description     string
+	ServerURL       string
+	Operations      []*OperationInfo
+	Security        []string
+	RawSpec         map[string]any
+	serverOverrides bool
 }
 
 type OpenAPISpecContext struct {
@@ -28,16 +29,17 @@ type OpenAPISpecContext struct {
 }
 
 type OperationInfo struct {
-	OperationID          string
-	Method               string
-	Path                 string
-	Summary              string
-	Description          string
-	Parameters           []*ParameterInfo
-	RequestBody          *RequestBodyInfo
-	Responses            map[string]*ResponseInfo
-	SecurityAlternatives [][]string
-	Tags                 []string
+	OperationID             string
+	Method                  string
+	Path                    string
+	Summary                 string
+	Description             string
+	Parameters              []*ParameterInfo
+	RequestBody             *RequestBodyInfo
+	Responses               map[string]*ResponseInfo
+	SecurityAlternatives    [][]string
+	SecurityRequirementSets []apitools.SecurityRequirementSetSummary `json:"-"`
+	Tags                    []string
 }
 
 type ParameterInfo struct {
@@ -74,13 +76,14 @@ func LoadOpenAPISpec(path string) (*OpenAPISpec, error) {
 	}
 	for _, op := range index.Inventory.Operations {
 		info := &OperationInfo{
-			OperationID: op.OperationID,
-			Method:      strings.ToUpper(op.Method),
-			Path:        op.Path,
-			Summary:     op.Summary,
-			Description: op.Description,
-			Responses:   map[string]*ResponseInfo{},
-			Tags:        append([]string(nil), op.Tags...),
+			OperationID:             op.OperationID,
+			SecurityRequirementSets: op.SecurityRequirementSets,
+			Method:                  strings.ToUpper(op.Method),
+			Path:                    op.Path,
+			Summary:                 op.Summary,
+			Description:             op.Description,
+			Responses:               map[string]*ResponseInfo{},
+			Tags:                    append([]string(nil), op.Tags...),
 		}
 		for _, param := range op.Parameters {
 			info.Parameters = append(info.Parameters, &ParameterInfo{
@@ -127,6 +130,9 @@ func augmentOpenAPIResponses(path string, spec *OpenAPISpec) {
 	}
 	root := normalizeYAMLMap(raw)
 	rootMap := asMap(root)
+	if servers, ok := rootMap["servers"].([]any); ok && len(servers) != 1 {
+		spec.serverOverrides = true
+	}
 	if spec.ServerURL == "" {
 		if servers, ok := rootMap["servers"].([]any); ok && len(servers) > 0 {
 			spec.ServerURL = asString(asMap(servers[0])["url"])
@@ -147,8 +153,14 @@ func augmentOpenAPIResponses(path string, spec *OpenAPISpec) {
 	}
 	for _, rawPathItem := range paths {
 		pathItem := asMap(rawPathItem)
+		if _, ok := pathItem["servers"]; ok {
+			spec.serverOverrides = true
+		}
 		for _, method := range []string{"get", "post", "put", "patch", "delete", "head", "options"} {
 			rawOp := asMap(pathItem[method])
+			if _, ok := rawOp["servers"]; ok {
+				spec.serverOverrides = true
+			}
 			if len(rawOp) == 0 {
 				continue
 			}
@@ -255,3 +267,7 @@ func schemaSummaryToMap(schema *apitools.SchemaSummary) map[string]any {
 	}
 	return out
 }
+
+// HasServerOverrides reports server shapes outside the fixed first broker
+// profile. Parsing/operation metadata stays in the existing APItools adapter.
+func HasServerOverrides(spec *OpenAPISpec) bool { return spec == nil || spec.serverOverrides }

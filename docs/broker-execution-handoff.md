@@ -20,7 +20,7 @@ private executor module is imported.
 These definitions are additive. Every broker envelope requires its concrete
 `broker` object and version; attaching that object to an old version refuses.
 The old default serialization omits the new field. M97.1 defines and tests
-the contracts; M97.2 owns execution wiring. Definition or package import alone
+the contracts; M97.2 wires execution. Definition or package import alone
 does not establish runtime adoption or side-effect authority.
 
 ## Concrete approval
@@ -49,6 +49,34 @@ or fragment; the host independently enforces its stronger destination policy.
 Sandbox still uses existing non-production address checks. A production state
 does not relax any legacy approval or package gate.
 
+### Exact package review
+
+`openudon broker-inspect --example <package>` returns
+`openudon.broker-package.v1`: existing package/handoff/credential review metadata
+plus `plan.inputs_sha256`, ordered operations and ordered request constraints.
+It stages approved bytes privately for inspection, removes that staging, and
+changes neither the package nor any approval. No executor or service is called.
+`inputs_sha256` hashes the exact compiled workflow bytes; the first broker
+profile accepts no additional runtime data file. Static inputs and dynamic
+expressions therefore remain part of the reviewed package. Each operation's
+`constraints_sha256` hashes standard Go JSON for
+`{"operation": <UWS operation>, "step": <UWS step>}`. Inspection returns those
+canonical bytes alongside the source operation ID, API server and path template
+so the host can apply explicit static/dynamic request policy without copying an
+OpenAPI parser or private executor compiler.
+
+Review uses the existing APItools metadata adapter. This first profile requires
+one fixed OpenAPI server, operation IDs and a fixed API-key/bearer security set;
+server variables/overrides, OAuth/signing, ambiguous security alternatives and
+custom credential-binding overrides are unsupported. Inspection's symbolic
+bindings have no credential revision yet; the host supplies the exact current
+revision when constructing authority. Empty bindings are omitted.
+
+`approval-template --broker-authority <authority.json>` emits approval v2 only
+after checking current authority and exact package/input/operation constraints.
+The ordinary template remains approval v1. Neither template resolves an account
+credential or validates current host grants; those checks belong to the host.
+
 ## Private transport input
 
 The published Udon executor receives a separate owner-only, bounded private
@@ -57,6 +85,24 @@ capability. The capability is not an API credential or a portable artifact.
 Only the declared symbolic binding inventory bypasses legacy environment-value
 requirements. API credential values remain at the host, outside executor
 environment, approved artifacts, normal diagnostics and run evidence.
+
+`openudon run --http-broker-config /absolute/private.json` requires approval v2;
+the external `udon-runner` accepts the same explicit private reference with
+executor config v3. Broker mode selects report v5 automatically and requires an
+explicit absolute `OPENUDON_EXECUTOR` or `OPENUDON_UDON_BIN` whose bytes match the
+approved executor digest. It has no sibling-checkout or legacy Docker fallback.
+Checked executor and transport bytes are copied privately into staging before
+Udon starts. Credential values and proxy variables are excluded from both
+process environments. The capability and socket/config values never enter the
+portable configuration; evidence redacts the private config argument.
+
+Broker configs/evidence use create-only publication. The executor path also
+persists a create-only run claim before invocation; interruption never removes
+it. Reusing that run/workdir refuses before another invocation and preserves
+earlier evidence. Dry-run invokes nothing and claims no I/O; use a separate
+output root from real execution because its immutable evidence already occupies
+its run directory. The host must independently enforce durable claims across
+workers/workdirs, current credentials/grants and all concrete destinations.
 
 The v4 evidence records the value-free concrete authority and existing per-step
 observation. Missing, malformed, stale or lost completion cannot prove a failed
@@ -82,3 +128,9 @@ Use those exact clean exports and executor bytes for M97 qualification.
 Existing authoring/browser runtime acceptance remains frozen at
 `c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0`; this new profile needs its own
 fresh owner qualification and Kinet adoption.
+
+M97.2's focused tests cover private handoff, legacy downgrade refusal, stale
+package/handoff/input/method/origin/constraints/executor/bindings, expiry, public
+socket/config refusal and conservative interruption/replay/archive behavior.
+Full owner qualification, exact-source artifact provenance and publication
+remain M97.3–M97.4; no new runtime acceptance is claimed yet.

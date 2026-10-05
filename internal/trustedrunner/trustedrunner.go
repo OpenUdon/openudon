@@ -60,6 +60,7 @@ type Approval struct {
 }
 
 type Options struct {
+	BrokerConfigPath      string
 	ExecutorReportVersion string
 	RepoRoot              string
 	ExampleDir            string
@@ -85,6 +86,7 @@ type Options struct {
 }
 
 type TemplateOptions struct {
+	Broker     *brokerhandoff.Authority
 	RepoRoot   string
 	ExampleDir string
 	State      string
@@ -339,6 +341,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	}
 
 	runID, err := newRunID()
+	if approval.Broker != nil {
+		runID, err = approval.Broker.RunID, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create run ID: %w", err)
 	}
@@ -369,6 +374,12 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := bindBrokerConfig(&runConfig, approval); err != nil {
+		return nil, err
+	}
+	if approval.Broker == nil && opts.BrokerConfigPath != "" {
+		return nil, fmt.Errorf("broker reference requires broker approval")
+	}
 	switch opts.ExecutorReportVersion {
 	case "":
 	case "v5", udonreport.VersionV5:
@@ -382,6 +393,11 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if opts.Stdin != nil && runConfig.Browser == nil {
 		return nil, fmt.Errorf("interactive browser input requires a reviewed browser workflow")
 	}
+	if runConfig.Broker != nil {
+		if _, err := udonrunner.Prepare(ctx, runConfig, udonrunner.Options{RepoRoot: p.repoRoot, Env: opts.Env, BrokerConfigPath: opts.BrokerConfigPath, Now: opts.Now}); err != nil {
+			return nil, fmt.Errorf("broker preflight refused: %w", err)
+		}
+	}
 	runConfigPath, runConfigBytes, err := writeRunConfig(runConfig)
 	if err != nil {
 		return nil, err
@@ -390,8 +406,8 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	runConfigDigest := evidencefile.SHA256(runConfigBytes)
 	if opts.DryRun {
 		prepared, err := udonrunner.Prepare(ctx, runConfig, udonrunner.Options{
-			RepoRoot: p.repoRoot,
-			Env:      opts.Env,
+			RepoRoot: p.repoRoot, BrokerConfigPath: opts.BrokerConfigPath, Now: opts.Now,
+			Env: opts.Env,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
@@ -423,7 +439,8 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, err
 		}
 		prepared, err := udonrunner.Prepare(ctx, runConfig, udonrunner.Options{
-			RepoRoot:                p.repoRoot,
+			RepoRoot:         p.repoRoot,
+			BrokerConfigPath: opts.BrokerConfigPath, Now: opts.Now,
 			Env:                     opts.Env,
 			RequireCredentialValues: true,
 		})
@@ -436,6 +453,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, fmt.Errorf("prepare external executor report path: %w", err)
 		}
 		args := []string{"--config", runConfigPath, "--config-sha256", runConfigDigest, "--approval", opts.ApprovalPath}
+		if runConfig.Broker != nil {
+			args = append(args, "--http-broker-config", opts.BrokerConfigPath)
+		}
 		if opts.Stdin != nil {
 			args = append(args, "--interactive-browser")
 		}
@@ -496,14 +516,17 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return result, nil
 	}
 	prepared, err := udonrunner.Run(ctx, runConfig, udonrunner.Options{
-		RepoRoot: p.repoRoot,
-		Env:      opts.Env,
-		Stdin:    opts.Stdin,
-		Stdout:   opts.Stdout,
-		Stderr:   opts.Stderr,
-		Invoke:   opts.Invoke,
+		RepoRoot: p.repoRoot, BrokerConfigPath: opts.BrokerConfigPath, Now: opts.Now,
+		Env:    opts.Env,
+		Stdin:  opts.Stdin,
+		Stdout: opts.Stdout,
+		Stderr: opts.Stderr,
+		Invoke: opts.Invoke,
 	})
 	if err != nil {
+		if runConfig.Broker != nil && !prepared.InvocationAttempted {
+			return result, fmt.Errorf("broker executor not invoked: %w", err)
+		}
 		result.StagePath = prepared.StagePath
 		evidencePath, asyncEvidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:          runConfig,
@@ -615,7 +638,11 @@ func writeRunConfig(config RunConfig) (string, []byte, error) {
 		return "", nil, err
 	}
 	data = append(data, '\n')
-	if err := atomicfile.Write(path, data, 0o600); err != nil {
+	write := atomicfile.Write
+	if config.Broker != nil {
+		write = atomicfile.WriteNew
+	}
+	if err := write(path, data, 0o600); err != nil {
 		return "", nil, err
 	}
 	return path, data, nil
@@ -633,7 +660,11 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := atomicfile.Write(path, append(data, '\n'), 0o600); err != nil {
+	write := atomicfile.Write
+	if evidence.Broker != nil {
+		write = atomicfile.WriteNew
+	}
+	if err := write(path, append(data, '\n'), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -662,7 +693,7 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 	if evidence.Version == LegacyRunEvidenceVersion && (opts.RequireSignature || strings.TrimSpace(opts.TrustedPublicKey) != "") {
 		return VerifyRunEvidenceResult{}, fmt.Errorf("legacy run evidence cannot carry a v0.2 signature")
 	}
-	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 || evidence.Version == BrokerRunEvidenceVersion {
 		if err := verifyRunEvidenceSignature(path, data, opts); err != nil {
 			return VerifyRunEvidenceResult{}, err
 		}
@@ -678,12 +709,12 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 			return VerifyRunEvidenceResult{}, err
 		}
 	}
-	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 || evidence.Version == BrokerRunEvidenceVersion {
 		requireSuccessfulReport := !evidence.DryRun &&
 			(evidence.Executor.Mode == "internal-runner" || evidence.Executor.Mode == "external-runner") &&
 			evidenceGateStatus(evidence, "executor_invocation") == "pass"
 		var reportErr error
-		if evidence.Version == RunEvidenceVersionV3 {
+		if evidence.Version == RunEvidenceVersionV3 || evidence.Version == BrokerRunEvidenceVersion {
 			reportErr = verifyStepExecutionV3(workdir, evidence, requireSuccessfulReport)
 		} else {
 			reportErr = verifyExecutorReport(workdir, evidence.Executor, evidence.Browser, requireSuccessfulReport)
@@ -699,10 +730,10 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 }
 
 func validateRunEvidenceForVerify(evidence RunEvidence) error {
-	if evidence.Broker != nil {
-		return fmt.Errorf("broker evidence requires the explicit broker execution path")
+	if err := validateBrokerEvidence(evidence); err != nil {
+		return err
 	}
-	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 && evidence.Version != LegacyRunEvidenceVersion {
+	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 && evidence.Version != BrokerRunEvidenceVersion && evidence.Version != LegacyRunEvidenceVersion {
 		return fmt.Errorf("run evidence version must be %s or read-only legacy %s", RunEvidenceVersion, LegacyRunEvidenceVersion)
 	}
 	if strings.TrimSpace(evidence.Scope) == "" {
@@ -717,7 +748,7 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 	if strings.TrimSpace(evidence.WorkDir) == "" {
 		return fmt.Errorf("run evidence workdir is required")
 	}
-	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 || evidence.Version == BrokerRunEvidenceVersion {
 		if strings.TrimSpace(evidence.RunID) == "" || !evidencefile.ValidSHA256(evidence.PackageSHA256) ||
 			!evidencefile.ValidSHA256(evidence.HandoffSHA256) || !evidencefile.ValidSHA256(evidence.ApprovalSHA256) ||
 			!evidencefile.ValidSHA256(evidence.RunConfigSHA256) {
@@ -730,7 +761,7 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 			return fmt.Errorf("run evidence browser contract is invalid: %w", err)
 		}
 	}
-	if evidence.Version == RunEvidenceVersionV3 {
+	if evidence.Version == RunEvidenceVersionV3 || evidence.Version == BrokerRunEvidenceVersion {
 		if evidence.StepExecution == nil || evidence.Browser != nil {
 			return fmt.Errorf("v3 requires HTTP step execution observation")
 		}
@@ -965,6 +996,9 @@ func buildRunEvidence(opts runEvidenceOptions) (RunEvidence, error) {
 	if len(executorArgv) == 0 {
 		executorArgv = append(executorArgv, opts.Prepared.Argv...)
 	}
+	if opts.Config.Broker != nil {
+		executorArgv = redactBrokerArgv(executorArgv)
+	}
 	var executor RunEvidenceExecutor
 	var observation *udonreport.ObservationV5
 	var err error
@@ -978,7 +1012,11 @@ func buildRunEvidence(opts runEvidenceOptions) (RunEvidence, error) {
 	if err != nil {
 		return RunEvidence{}, err
 	}
+	if opts.Config.Broker != nil {
+		version = BrokerRunEvidenceVersion
+	}
 	return RunEvidence{
+		Broker:             opts.Config.Broker,
 		Version:            version,
 		StepExecution:      observation,
 		RunID:              opts.Result.RunID,
@@ -1408,7 +1446,7 @@ func outerRunnerEnvironment(source []string, config RunConfig, registrationAttes
 		"OPENUDON_EXECUTOR": true, "OPENUDON_UDON_BIN": true, "OPENUDON_UDON_IMAGE": true,
 	}
 	for _, binding := range config.CredentialBindings {
-		if config.Browser == nil || (config.Browser.Protocol != "v5" && config.Browser.Protocol != "v6") {
+		if config.Broker == nil && (config.Browser == nil || (config.Browser.Protocol != "v5" && config.Browser.Protocol != "v6")) {
 			allowed[udonrunner.CredentialEnvironmentName(binding)] = true
 		}
 	}
@@ -1500,7 +1538,7 @@ func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, erro
 	if reviewer == "" {
 		return Approval{}, fmt.Errorf("--reviewer is required")
 	}
-	return Approval{
+	approval := Approval{
 		Version:       ApprovalVersion,
 		Scope:         p.scope,
 		State:         state,
@@ -1508,7 +1546,22 @@ func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, erro
 		ApprovedAt:    resolveNow(opts.Now).UTC().Format(time.RFC3339),
 		PackageSHA256: digest,
 		Notes:         strings.TrimSpace(opts.Notes),
-	}, nil
+	}
+	if opts.Broker != nil {
+		a := opts.Broker
+		if a.ValidateAt(resolveNow(opts.Now)) != nil || a.PackageSHA256 != digest || a.HandoffSHA256 != validated.handoffSHA256 {
+			return Approval{}, fmt.Errorf("broker template requires current exact package authority")
+		}
+		plan, err := inspectBrokerValidated(ctx, validated)
+		if err != nil {
+			return Approval{}, err
+		}
+		if err := udonrunner.CheckBrokerPlan(plan, *a); err != nil {
+			return Approval{}, err
+		}
+		approval.Version, approval.Broker, approval.ApprovedAt, approval.ExpiresAt = BrokerApprovalVersion, a, a.ApprovedAt, a.ExpiresAt
+	}
+	return approval, nil
 }
 
 func WriteApproval(w io.Writer, approval Approval) error {
@@ -1805,8 +1858,13 @@ func readApprovalDocument(path string) (Approval, []byte, error) {
 }
 
 func validateApproval(approval Approval, scope, digest, tier string, now time.Time) error {
-	if approval.Version != ApprovalVersion || approval.Broker != nil {
+	if (approval.Version != ApprovalVersion || approval.Broker != nil) && (approval.Version != BrokerApprovalVersion || approval.Broker == nil) {
 		return fmt.Errorf("approval version must be %s", ApprovalVersion)
+	}
+	if approval.Broker != nil {
+		if approval.Broker.ValidateAt(now) != nil || approval.Broker.PackageSHA256 != digest || approval.Broker.ApprovedAt != approval.ApprovedAt || approval.Broker.ExpiresAt != approval.ExpiresAt {
+			return fmt.Errorf("broker approval authority mismatch or expired")
+		}
 	}
 	if approval.Scope != scope {
 		return fmt.Errorf("approval scope %q does not match %q", approval.Scope, scope)

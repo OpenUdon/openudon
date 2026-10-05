@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	brokerConfig := flag.String("http-broker-config", "", "Absolute private broker configuration for executor config v3")
 	configPath := flag.String("config", "", "Path to openudon.executor-run.v2 JSON")
 	configSHA256 := flag.String("config-sha256", "", "Exact SHA-256 of the config bytes validated by openudon")
 	interactiveBrowser := flag.Bool("interactive-browser", false, "Forward private stdin for human browser verification responses")
@@ -34,6 +35,7 @@ func main() {
 	}
 	if _, err := trustedrunner.RunExternal(ctx, trustedrunner.ExternalOptions{
 		ConfigPath:                  *configPath,
+		BrokerConfigPath:            *brokerConfig,
 		ConfigSHA256:                *configSHA256,
 		ApprovalPath:                *approvalPath,
 		RegistrationAttestationPath: os.Getenv("OPENUDON_BROWSER_REGISTRATION_ATTESTATION"),

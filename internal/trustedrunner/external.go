@@ -23,6 +23,7 @@ import (
 // The config and approval files are both digest-pinned by the parent process,
 // then revalidated against current package state before any executor starts.
 type ExternalOptions struct {
+	BrokerConfigPath            string
 	ConfigPath                  string
 	ConfigSHA256                string
 	ApprovalPath                string
@@ -58,7 +59,7 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if config.Version == udonrunner.LegacyRunConfigVersion {
 		return udonrunner.Result{}, fmt.Errorf("legacy run config %s cannot execute", config.Version)
 	}
-	if config.Version != RunConfigVersion {
+	if !udonrunner.ValidConfigVersion(config) {
 		return udonrunner.Result{}, fmt.Errorf("run config version must be %s", RunConfigVersion)
 	}
 	if opts.Stdin != nil && config.Browser == nil {
@@ -111,6 +112,12 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
+	if err := bindBrokerConfig(&expected, approval); err != nil {
+		return udonrunner.Result{}, err
+	}
+	if !sameBrokerAuthority(config, approval) {
+		return udonrunner.Result{}, fmt.Errorf("config and approval authority differ")
+	}
 	if config.ExecutorReportVersion == udonreport.VersionV5 {
 		if expected.Browser != nil {
 			return udonrunner.Result{}, fmt.Errorf("report v5 requires HTTP-only execution")
@@ -126,7 +133,7 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 		return udonrunner.Result{}, fmt.Errorf("run config bytes are not the canonical validated encoding")
 	}
 	result, err := udonrunner.Run(ctx, config, udonrunner.Options{
-		RepoRoot: repoRoot, Env: opts.Env, Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr, Invoke: opts.Invoke,
+		RepoRoot: repoRoot, Env: opts.Env, BrokerConfigPath: opts.BrokerConfigPath, Now: opts.Now, Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr, Invoke: opts.Invoke,
 	})
 	if err != nil {
 		if _, statErr := os.Stat(result.ExecutorReportPath); os.IsNotExist(statErr) {

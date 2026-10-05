@@ -61,7 +61,7 @@ func ArchiveRunEvidence(opts ArchiveOptions) (ArchiveResult, error) {
 	if err != nil {
 		return ArchiveResult{}, err
 	}
-	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 {
+	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 && evidence.Version != BrokerRunEvidenceVersion {
 		return ArchiveResult{}, fmt.Errorf("legacy run evidence %s is read-only and cannot be archived because report ownership is not provable", evidence.Version)
 	}
 	archiveDir, err := filepath.Abs(opts.ArchiveDir)

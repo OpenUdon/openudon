@@ -151,7 +151,7 @@ func signRunEvidence(evidencePath string, privatePEM []byte) (string, error) {
 	if err := evidencefile.DecodeStrict(evidence, &document); err != nil {
 		return "", err
 	}
-	if document.Version != RunEvidenceVersion && document.Version != RunEvidenceVersionV3 {
+	if document.Version != RunEvidenceVersion && document.Version != RunEvidenceVersionV3 && document.Version != BrokerRunEvidenceVersion {
 		return "", fmt.Errorf("only %s evidence can be signed", RunEvidenceVersion)
 	}
 	privateKey, publicKey, publicDER, err := parsePrivateKey(privatePEM)

@@ -1177,3 +1177,16 @@ Browserdriver units and neutral capture lifecycle. `make qualify` runs/verifies
 that current offline report before the three fresh loopback passes; old v1–v5
 readers keep their original version/lock/suite contracts. No gate is dropped
 because the former historical default no longer executes a removed UI.
+
+## M97 broker commands
+
+- openudon broker-inspect --example <package>: exact value-free package and request review metadata.
+- openudon approval-template --example <package> --state approved_for_production --reviewer <host> --broker-authority <authority.json>: explicitly bound approval v2.
+- openudon run --example <package> --tier production --approval <approval.json> --http-broker-config <absolute-private.json>: config v3, evidence v4 and unchanged report v5.
+- udon-runner takes the same private flag across the revalidated external boundary.
+
+Broker execution requires the explicit absolute executor path and exact approved
+binary digest. The new path does not use legacy Docker or sibling fallback.
+No module pin or private executor import changes. Private transport/config and
+executor snapshots stay in the private run staging; no credentials enter portable
+artifacts. Qualification/publication remain pending under status-M97.md.

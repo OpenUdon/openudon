@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoringcli"
+	"github.com/OpenUdon/openudon/internal/brokerhandoff"
 	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browsercapture"
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
@@ -25,6 +26,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/buildinfo"
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/n8nbridge"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
@@ -48,6 +50,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  authoring retained expert lint, repair, reconcile, variants, reports and evaluation\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  broker-inspect print exact value-free broker package/operation metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-author plan/apply a reviewed capture through neutral authoring\n")
@@ -151,6 +154,8 @@ func main() {
 		runLocalUdonSmokeCommand(flag.Args()[1:])
 	case "smoke-matrix":
 		runSmokeMatrixCommand(flag.Args()[1:])
+	case "broker-inspect":
+		runBrokerInspectCommand(flag.Args()[1:])
 	case "approval-template":
 		runApprovalTemplateCommand(flag.Args()[1:])
 	case "package":
@@ -760,6 +765,7 @@ func runReadinessCommand(args []string) {
 
 func runTrustedCommand(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
+	brokerConfig := fs.String("http-broker-config", "", "Absolute private broker configuration; requires concrete approval v2")
 	executorReportVersion := fs.String("executor-report-version", "", "Opt in to payload-free per-step report v5 and run-evidence v3")
 	example := fs.String("example", "", "Example directory containing generated OpenUdon artifacts")
 	tier := fs.String("tier", "", "Execution tier: sandbox or production")
@@ -792,6 +798,7 @@ func runTrustedCommand(args []string) {
 	defer stop()
 	runOptions := trustedrunner.Options{
 		ExecutorReportVersion:       *executorReportVersion,
+		BrokerConfigPath:            *brokerConfig,
 		RepoRoot:                    ".",
 		ExampleDir:                  *example,
 		Tier:                        *tier,
@@ -897,6 +904,7 @@ func runSmokeMatrixCommand(args []string) {
 
 func runApprovalTemplateCommand(args []string) {
 	fs := flag.NewFlagSet("approval-template", flag.ExitOnError)
+	authorityPath := fs.String("broker-authority", "", "Optional concrete value-free broker authority JSON for approval v2")
 	example := fs.String("example", "", "Example directory containing generated OpenUdon artifacts")
 	state := fs.String("state", "", "Approval state: approved_for_sandbox or approved_for_production")
 	reviewer := fs.String("reviewer", "", "Reviewer name recorded in the approval JSON")
@@ -921,6 +929,19 @@ func runApprovalTemplateCommand(args []string) {
 		State:      *state,
 		Reviewer:   *reviewer,
 		Notes:      *notes,
+	}
+	if *authorityPath != "" {
+		data, _, err := evidencefile.ReadRegular(*authorityPath, evidencefile.DefaultMaxBytes)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "cannot read broker authority")
+			os.Exit(1)
+		}
+		var authority brokerhandoff.Authority
+		if evidencefile.DecodeStrict(data, &authority) != nil {
+			fmt.Fprintln(os.Stderr, "invalid broker authority")
+			os.Exit(1)
+		}
+		templateOptions.Broker = &authority
 	}
 	var approval trustedrunner.Approval
 	var err error

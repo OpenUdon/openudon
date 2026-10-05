@@ -764,3 +764,16 @@ context. M96 acceptance/source publication is verified through `d77f6d51262d0f31
 Kinet M19 owns external single-use delivery/recovery and its own checks; M95
 must retain these commands and legacy public review artifacts after UI removal.
 See [the CLI/wire contract](../../docs/browser-package-handoff.md).
+
+## M97 private broker wiring
+
+The additive broker path takes concrete approval v2, publishes value-free executor
+config v3, and passes a separate owner-only private transport reference to the
+external Udon CLI. It pins and snapshots executor/transport bytes, excludes host
+credential/proxy environment values, and records authority/step observation in
+evidence v4 with the private argument redacted. Create-only config/evidence and a
+durable executor claim preserve uncertain attempts. Read-only broker-inspect
+metadata comes through the existing APItools adapter; the host still owns current
+grants, credentials and concrete network/request policy. Legacy serialization,
+report readers, authoring/capture pins and destination classification are unchanged.
+No new profile is accepted until M97 qualification and publication close.
