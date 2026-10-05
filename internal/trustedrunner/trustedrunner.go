@@ -1399,6 +1399,9 @@ func asyncExecutorArgv(opts runEvidenceOptions) []string {
 	if len(argv) == 0 {
 		argv = append(argv, opts.Prepared.Argv...)
 	}
+	if opts.Config.Broker != nil {
+		argv = redactBrokerArgv(argv)
+	}
 	return argv
 }
 

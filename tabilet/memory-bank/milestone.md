@@ -2,7 +2,7 @@
 
 ## Stage 9 approved work — 2026-10-05
 
-Pending [M97](status-M97.md) is this repository's only Stage 9 milestone. Kinet coordinates `Kinet:M34 -> Udon:M46 -> OpenUdon:M97 -> Kinet:M35 -> Kinet:A14 -> Kinet:W14 -> Kinet:M36 -> Kinet:U12 -> Kinet:M37`; this ledger owns its tasks and closure. No implementation, acceptance or publication is established by planning. Future exact upstream revisions remain unset until observed.
+Active [M97](status-M97.md) is this repository's only Stage 9 milestone. Kinet coordinates `Kinet:M34 -> Udon:M46 -> OpenUdon:M97 -> Kinet:M35 -> Kinet:A14 -> Kinet:W14 -> Kinet:M36 -> Kinet:U12 -> Kinet:M37`; this ledger owns its tasks and closure. No implementation, acceptance or publication is established by planning. Future exact upstream revisions remain unset until observed.
 
 ## M97 — Brokered execution handoff
 
@@ -19,7 +19,7 @@ Pending [M97](status-M97.md) is this repository's only Stage 9 milestone. Kinet 
 
 **Verification.** make fast for routine edits; go test ./...; go vet ./...; make check; go run ./cmd/openudon check; go run ./cmd/openudon check-apitools-boundary; (cd tabilet && go run ../cmd/openudon check-doc-memory); fixture validation and git diff --check. Run the required affected make smoke and full make qualify for runtime adoption, including three fresh native repeats under owner rules, in disposable exact-source closures. No cache result substitutes for required fresh qualification.
 
-**Tasks and review.** [M97](status-M97.md) owns 4 pending task rows, persisted review 0/10 and exact revision handoffs. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
+**Tasks and review.** [M97](status-M97.md) owns 3 completed task rows and the in-progress qualification/publication row, persisted review 0/10 and exact revision handoffs. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
 
 ## Current State
 
@@ -281,7 +281,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M97 | Brokered execution handoff | [status-M97.md](status-M97.md) | `[ ]` |
+| M97 | Brokered execution handoff | [status-M97.md](status-M97.md) | `[~]` |
 
 ## Requested Changes After Initialization
 

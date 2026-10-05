@@ -33,12 +33,17 @@ paths:
 
 func fixtureBroker(t *testing.T) (Options, Approval, string, net.Listener) {
 	t.Helper()
+	return fixtureBrokerAPI(t, brokerAPI)
+}
+
+func fixtureBrokerAPI(t *testing.T, api string) (Options, Approval, string, net.Listener) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("Unix broker profile")
 	}
 	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/service.yaml"}, credentialBindings: []string{"token"}})
 	mustWriteFile(t, filepath.Join(example, "workflows/workflow.uws.yaml"), []byte(v5Workflow))
-	mustWriteFile(t, filepath.Join(example, "openapi/service.yaml"), []byte(brokerAPI))
+	mustWriteFile(t, filepath.Join(example, "openapi/service.yaml"), []byte(api))
 	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, fixedNow())
 	a, _, err := readApprovalDocument(approvalPath)
 	if err != nil {
@@ -78,7 +83,9 @@ func fixtureBroker(t *testing.T) (Options, Approval, string, net.Listener) {
 	a.ExpiresAt = fixedNow()().Add(time.Hour).Format(time.RFC3339)
 	a.Broker = &brokerhandoff.Authority{Version: brokerhandoff.Version, RunID: runID, OwnerID: "owner", AgentID: "agent", GrantID: "one-off", GrantRevisionSHA256: strings.Repeat("a", 64), OccurrenceID: "occurrence", PackageSHA256: a.PackageSHA256, HandoffSHA256: c.HandoffSHA256, InputsSHA256: plan.InputsSHA256, ExecutorSHA256: evidencefile.SHA256(data), ApprovedAt: a.ApprovedAt, ExpiresAt: a.ExpiresAt, Operations: plan.Operations}
 	for i := range a.Broker.Operations {
-		a.Broker.Operations[i].Bindings = []brokerhandoff.Binding{{Name: "token", Revision: strings.Repeat("b", 64), Kind: "bearer", In: "header", Parameter: "Authorization"}}
+		for j := range a.Broker.Operations[i].Bindings {
+			a.Broker.Operations[i].Bindings[j].Revision = strings.Repeat("b", 64)
+		}
 	}
 	a.Broker.PolicySHA256 = a.Broker.Digest()
 	writeApprovalFile(t, approvalPath, a)
@@ -111,9 +118,11 @@ func fixtureBroker(t *testing.T) (Options, Approval, string, net.Listener) {
 func TestBrokerRunPrivateHandoffAndUncertainReplay(t *testing.T) {
 	opts, approval, privatePath, _ := fixtureBroker(t)
 	calls := 0
+	transportSnapshot := ""
 	opts.Invoke = func(_ context.Context, call udonrunner.Invocation) error {
 		calls++
 		snapshot := argValue(t, call.Argv, "--http-broker-config")
+		transportSnapshot = snapshot
 		if snapshot == privatePath {
 			t.Fatal("mutable source transport used directly")
 		}
@@ -142,6 +151,15 @@ func TestBrokerRunPrivateHandoffAndUncertainReplay(t *testing.T) {
 	data, _ := os.ReadFile(result.RunEvidencePath)
 	if strings.Contains(string(data), privatePath) || strings.Contains(string(data), strings.Repeat("c", 64)) || strings.Contains(string(data), "SECRET_CANARY") {
 		t.Fatal("private transport or values leaked")
+	}
+	for _, artifact := range []string{result.RunEvidencePath, result.AsyncEvidencePath} {
+		data, err := os.ReadFile(artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), privatePath) || strings.Contains(string(data), transportSnapshot) || strings.Contains(string(data), strings.Repeat("c", 64)) || strings.Contains(string(data), "SECRET_CANARY") {
+			t.Fatal("private transport reference leaked into portable evidence")
+		}
 	}
 	before := append([]byte(nil), data...)
 	if _, err := Run(context.Background(), opts); err == nil || calls != 1 {
@@ -279,5 +297,106 @@ func TestBrokerInspectionApprovalAndExternalBoundary(t *testing.T) {
 	}
 	if _, err := RunExternal(context.Background(), external); err == nil || calls != 1 {
 		t.Fatal("external boundary replayed uncertain run")
+	}
+}
+
+// Only a concrete production approval admits a reviewed public origin. The
+// injected executor never contacts that origin; these are local boundary tests.
+func TestBrokerProductionApprovalPreservesSandboxBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name, tier, state string
+		invoked           bool
+	}{
+		{"approved-production", TierProduction, StateApprovedForProduction, true},
+		{"sandbox-public-refusal", TierSandbox, StateApprovedForProduction, false},
+		{"sandbox-approval-refusal", TierProduction, StateApprovedForSandbox, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts, old, privatePath, _ := fixtureBroker(t)
+			mustWriteFile(t, filepath.Join(opts.ExampleDir, "openapi/service.yaml"), []byte(strings.ReplaceAll(brokerAPI, "https://service.test", "https://api.customer.net")))
+			writeApprovalTemplate(t, opts.RepoRoot, opts.ExampleDir, tc.state, fixedNow())
+			approval, _, err := readApprovalDocument(opts.ApprovalPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			inspection, err := InspectBrokerPackage(context.Background(), TemplateOptions{RepoRoot: opts.RepoRoot, ExampleDir: opts.ExampleDir, Assess: passAssess})
+			if err != nil {
+				t.Fatal(err)
+			}
+			authority := *old.Broker
+			authority.PackageSHA256, authority.HandoffSHA256 = inspection.PackageSHA256, inspection.HandoffSHA256
+			authority.Operations = inspection.Plan.Operations
+			for i := range authority.Operations {
+				authority.Operations[i].Bindings = append([]brokerhandoff.Binding(nil), old.Broker.Operations[i].Bindings...)
+			}
+			authority.PolicySHA256 = authority.Digest()
+			approval.Version, approval.Broker, approval.ExpiresAt = BrokerApprovalVersion, &authority, authority.ExpiresAt
+			writeApprovalFile(t, opts.ApprovalPath, approval)
+			data, err := os.ReadFile(privatePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var private brokerhandoff.PrivateConfig
+			if err := json.Unmarshal(data, &private); err != nil {
+				t.Fatal(err)
+			}
+			private.PolicyDigest = authority.PolicySHA256
+			data, err = json.Marshal(private)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(privatePath, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			opts.Tier = tc.tier
+			calls := 0
+			opts.Invoke = func(context.Context, udonrunner.Invocation) error { calls++; return errors.New("synthetic lost reply") }
+			result, err := Run(context.Background(), opts)
+			if err == nil {
+				t.Fatal("expected refusal or synthetic uncertainty")
+			}
+			if (calls == 1) != tc.invoked || calls > 1 {
+				t.Fatalf("production boundary invoked %d times", calls)
+			}
+			if tc.invoked {
+				if result == nil || result.RunEvidencePath == "" {
+					t.Fatal("production uncertainty not persisted")
+				}
+				e := readRunEvidenceFile(t, result.RunEvidencePath)
+				if e.Tier != TierProduction || e.Broker == nil || e.Version != BrokerRunEvidenceVersion {
+					t.Fatal("production broker evidence mismatch")
+				}
+			}
+		})
+	}
+}
+
+func TestBrokerAPIKeyMetadataReachesPrivateExecutorBinding(t *testing.T) {
+	for _, tc := range []struct{ in, parameter string }{{"header", "X-Api-Key"}, {"query", "api_key"}} {
+		t.Run(tc.in, func(t *testing.T) {
+			api := strings.ReplaceAll(brokerAPI, "{type: http, scheme: bearer}", "{type: apiKey, in: "+tc.in+", name: "+tc.parameter+"}")
+			opts, authority, _, _ := fixtureBrokerAPI(t, api)
+			calls := 0
+			opts.Invoke = func(_ context.Context, call udonrunner.Invocation) error {
+				calls++
+				private, err := brokerhandoff.ReadPrivate(argValue(t, call.Argv, "--http-broker-config"), *authority.Broker)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, inv := range private.Invocations {
+					if len(inv.Bindings) != 1 || inv.Bindings[0].Kind != "api_key" || inv.Bindings[0].In != tc.in || inv.Bindings[0].Parameter != tc.parameter {
+						t.Fatal("APItools-backed API-key metadata drift")
+					}
+				}
+				if strings.Contains(strings.Join(call.Env, "\n"), "SECRET_CANARY") {
+					t.Fatal("credential value crossed API-key worker boundary")
+				}
+				return errors.New("synthetic lost reply")
+			}
+			r, err := Run(context.Background(), opts)
+			if err == nil || r == nil || r.RunEvidencePath == "" || calls != 1 {
+				t.Fatalf("API-key handoff failed: %v", err)
+			}
+		})
 	}
 }
