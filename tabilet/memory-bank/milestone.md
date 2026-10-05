@@ -1,5 +1,26 @@
 # Milestone
 
+## Stage 9 approved work — 2026-10-05
+
+Pending [M97](status-M97.md) is this repository's only Stage 9 milestone. Kinet coordinates `Kinet:M34 -> Udon:M46 -> OpenUdon:M97 -> Kinet:M35 -> Kinet:A14 -> Kinet:W14 -> Kinet:M36 -> Kinet:U12 -> Kinet:M37`; this ledger owns its tasks and closure. No implementation, acceptance or publication is established by planning. Future exact upstream revisions remain unset until observed.
+
+## M97 — Brokered execution handoff
+
+**Stage.** Kinet STG-09; approved planning on 2026-10-05, not implementation.
+**Goal and scope.** Own reviewed package/approval/configuration/evidence binding and external private-Udon invocation. Add explicit broker-enabled executor configuration and evidence versions, keeping legacy readers/outputs. No private executor module imports. Bind grant-derived per-run approval to package, concrete inputs/constraints, allowed operations/destinations, executor and credential revisions. Allow the production tier only through this explicit approved broker path; never broaden sandbox destination rules. Values remain outside worker environment, artifacts and reports.
+
+**Dependencies.** Accepted and published Udon M46 source, contract fixtures and exact executor closure; reconcile actual revision before starting. OpenUdon baseline fbda7e9231b8b306fd1ae3ac623e9d70331b3e08; existing runtime acceptance c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0 remains frozen.
+
+**Upstream reconciliation.** Udon M46 accepted source `95c5850fd446e06ac6f79d943774db67e417c989`, published source-record head `58f9fa5cda92d508e9fcb4085157a09949ddfab9` (completed owner record published and independently verified at `71071537890599e98541abe8ca564490660dfd16`), review 2 passed; exact executor/closure/corpus hashes and bounded supported shapes are in [M97](status-M97.md). No adoption or implementation is claimed by this prerequisite update.
+
+**Downstream.** Kinet M35 uses the exact accepted/published broker handoff and M97 fixtures; W14 binds approval/evidence and M37 qualifies the bundle. Existing authoring/capture consumers retain their own pins; no W8M adoption.
+
+**Acceptance.** Approved package and exact run authority are inseparable from broker configuration and evidence. A symbolic credential binding works without an environment secret in broker mode; legacy environment behavior remains unchanged. Unsupported/missing/mismatched authority is rejected before Udon invocation. Accepted source, fixtures and publication are consumable by Kinet.
+
+**Verification.** make fast for routine edits; go test ./...; go vet ./...; make check; go run ./cmd/openudon check; go run ./cmd/openudon check-apitools-boundary; (cd tabilet && go run ../cmd/openudon check-doc-memory); fixture validation and git diff --check. Run the required affected make smoke and full make qualify for runtime adoption, including three fresh native repeats under owner rules, in disposable exact-source closures. No cache result substitutes for required fresh qualification.
+
+**Tasks and review.** [M97](status-M97.md) owns 4 pending task rows, persisted review 0/10 and exact revision handoffs. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
+
 ## Current State
 
 Stage 5 M91 extraction is complete, accepted and published at qualified
@@ -260,6 +281,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| M97 | Brokered execution handoff | [status-M97.md](status-M97.md) | `[ ]` |
 
 ## Requested Changes After Initialization
 

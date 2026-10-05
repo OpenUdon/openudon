@@ -16,3 +16,8 @@ var BrowserCaptureResources embed.FS
 //
 //go:embed openudon.step-source-catalog.v1.schema.json
 var CatalogSourceResources embed.FS
+
+// BrokerHandoffResources contains the additive, value-free Stage 9 schemas.
+//
+//go:embed openudon.broker-authority.v1.schema.json openudon.approval.v2.schema.json openudon.executor-run.v3.schema.json openudon.run-evidence.v4.schema.json
+var BrokerHandoffResources embed.FS

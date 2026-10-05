@@ -16,6 +16,7 @@ import (
 	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/brokerhandoff"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
@@ -29,10 +30,12 @@ import (
 
 const (
 	ApprovalVersion            = "openudon.approval.v1"
+	BrokerApprovalVersion      = "openudon.approval.v2"
 	AsyncEvidenceVersion       = "openudon.async-evidence-bundle.v1"
 	RunConfigVersion           = udonrunner.RunConfigVersion
 	RunEvidenceVersion         = "openudon.run-evidence.v2"
 	RunEvidenceVersionV3       = "openudon.run-evidence.v3"
+	BrokerRunEvidenceVersion   = "openudon.run-evidence.v4"
 	LegacyRunEvidenceVersion   = "openudon.run-evidence.v1"
 	UdonExecutionReportVersion = udonreport.Version
 	ReviewHandoffVersion       = authoring.ReviewHandoffVersion
@@ -45,14 +48,15 @@ const (
 )
 
 type Approval struct {
-	Version       string `json:"version"`
-	Scope         string `json:"scope"`
-	State         string `json:"state"`
-	Reviewer      string `json:"reviewer"`
-	ApprovedAt    string `json:"approved_at"`
-	ExpiresAt     string `json:"expires_at,omitempty"`
-	PackageSHA256 string `json:"package_sha256"`
-	Notes         string `json:"notes,omitempty"`
+	Version       string                   `json:"version"`
+	Scope         string                   `json:"scope"`
+	State         string                   `json:"state"`
+	Reviewer      string                   `json:"reviewer"`
+	ApprovedAt    string                   `json:"approved_at"`
+	ExpiresAt     string                   `json:"expires_at,omitempty"`
+	PackageSHA256 string                   `json:"package_sha256"`
+	Notes         string                   `json:"notes,omitempty"`
+	Broker        *brokerhandoff.Authority `json:"broker,omitempty"`
 }
 
 type Options struct {
@@ -252,6 +256,7 @@ type RunEvidence struct {
 	Gates              []RunEvidenceGate         `json:"gates"`
 	Executor           RunEvidenceExecutor       `json:"executor"`
 	AsyncEvidenceFiles []RunEvidenceAsyncFile    `json:"async_evidence_files,omitempty"`
+	Broker             *brokerhandoff.Authority  `json:"broker,omitempty"`
 }
 
 type RunEvidenceGate struct {
@@ -694,6 +699,9 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 }
 
 func validateRunEvidenceForVerify(evidence RunEvidence) error {
+	if evidence.Broker != nil {
+		return fmt.Errorf("broker evidence requires the explicit broker execution path")
+	}
 	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 && evidence.Version != LegacyRunEvidenceVersion {
 		return fmt.Errorf("run evidence version must be %s or read-only legacy %s", RunEvidenceVersion, LegacyRunEvidenceVersion)
 	}
@@ -1797,7 +1805,7 @@ func readApprovalDocument(path string) (Approval, []byte, error) {
 }
 
 func validateApproval(approval Approval, scope, digest, tier string, now time.Time) error {
-	if approval.Version != ApprovalVersion {
+	if approval.Version != ApprovalVersion || approval.Broker != nil {
 		return fmt.Errorf("approval version must be %s", ApprovalVersion)
 	}
 	if approval.Scope != scope {

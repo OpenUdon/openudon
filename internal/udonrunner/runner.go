@@ -11,6 +11,7 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/brokerhandoff"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
@@ -20,31 +21,33 @@ import (
 
 const (
 	RunConfigVersion        = "openudon.executor-run.v2"
+	BrokerRunConfigVersion  = "openudon.executor-run.v3"
 	LegacyRunConfigVersion  = "openudon.executor-run.v1"
 	dockerBrowserDriverPath = "/openudon/browser-driver"
 )
 const dockerExecutorPrefix = "docker://"
 
 type Config struct {
-	Version               string         `json:"version"`
-	RunID                 string         `json:"run_id"`
-	Scope                 string         `json:"scope"`
-	Tier                  string         `json:"tier"`
-	PackageRoot           string         `json:"package_root"`
-	WorkDir               string         `json:"workdir"`
-	WorkflowPath          string         `json:"workflow_path"`
-	WorkflowFormat        string         `json:"workflow_format"`
-	DataFiles             []string       `json:"data_files,omitempty"`
-	APISourcePaths        []string       `json:"api_source_paths,omitempty"`
-	OpenAPIPaths          []string       `json:"openapi_paths,omitempty"`
-	PackagePaths          []string       `json:"package_paths"`
-	PackageSHA256         string         `json:"package_sha256"`
-	HandoffSHA256         string         `json:"handoff_sha256"`
-	ApprovalSHA256        string         `json:"approval_sha256"`
-	ExecutorReportVersion string         `json:"executor_report_version,omitempty"`
-	CredentialBindings    []string       `json:"credential_bindings,omitempty"`
-	Browser               *BrowserConfig `json:"browser,omitempty"`
-	DirectProductionRun   bool           `json:"direct_production_run"`
+	Version               string                   `json:"version"`
+	RunID                 string                   `json:"run_id"`
+	Scope                 string                   `json:"scope"`
+	Tier                  string                   `json:"tier"`
+	PackageRoot           string                   `json:"package_root"`
+	WorkDir               string                   `json:"workdir"`
+	WorkflowPath          string                   `json:"workflow_path"`
+	WorkflowFormat        string                   `json:"workflow_format"`
+	DataFiles             []string                 `json:"data_files,omitempty"`
+	APISourcePaths        []string                 `json:"api_source_paths,omitempty"`
+	OpenAPIPaths          []string                 `json:"openapi_paths,omitempty"`
+	PackagePaths          []string                 `json:"package_paths"`
+	PackageSHA256         string                   `json:"package_sha256"`
+	HandoffSHA256         string                   `json:"handoff_sha256"`
+	ApprovalSHA256        string                   `json:"approval_sha256"`
+	ExecutorReportVersion string                   `json:"executor_report_version,omitempty"`
+	CredentialBindings    []string                 `json:"credential_bindings,omitempty"`
+	Browser               *BrowserConfig           `json:"browser,omitempty"`
+	DirectProductionRun   bool                     `json:"direct_production_run"`
+	Broker                *brokerhandoff.Authority `json:"broker,omitempty"`
 }
 
 // BrowserConfig is the complete value-free browser replay contract. Secret
@@ -127,7 +130,7 @@ func LoadConfig(path string) (Config, error) {
 	if err := evidencefile.DecodeStrict(data, &config); err != nil {
 		return Config{}, fmt.Errorf("run config must be valid JSON: %w", err)
 	}
-	if config.Version != RunConfigVersion {
+	if config.Version != RunConfigVersion || config.Broker != nil {
 		if config.Version == LegacyRunConfigVersion {
 			return Config{}, fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
 		}
@@ -197,7 +200,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if config.DirectProductionRun {
 		return Result{}, nil, "", fmt.Errorf("run config direct_production_run must be false")
 	}
-	if config.Version != RunConfigVersion {
+	if config.Version != RunConfigVersion || config.Broker != nil {
 		if config.Version == LegacyRunConfigVersion {
 			return Result{}, nil, "", fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
 		}

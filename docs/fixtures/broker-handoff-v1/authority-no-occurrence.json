@@ -1,0 +1,35 @@
+{
+  "version": "openudon.broker-authority.v1",
+  "run_id": "0123456789abcdef0123456789abcdef",
+  "owner_id": "fixture-owner",
+  "agent_id": "fixture-agent",
+  "grant_id": "fixture-grant",
+  "grant_revision_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "occurrence_id": "",
+  "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "handoff_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "inputs_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "executor_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "policy_sha256": "79beb58f14cb87a4fa1c5b52c124a51d3e2640475d5ffa30ffa6b508e589f114",
+  "approved_at": "2026-10-05T00:00:00Z",
+  "expires_at": "2026-10-05T00:05:00Z",
+  "operations": [
+    {
+      "step_id": "read",
+      "operation_id": "get",
+      "invocation_id": "read",
+      "method": "GET",
+      "origin": "https://service.example.test",
+      "constraints_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "bindings": [
+        {
+          "name": "fixture-key",
+          "revision": "1111111111111111111111111111111111111111111111111111111111111111",
+          "kind": "api_key",
+          "in": "header",
+          "parameter": "X-Api-Key"
+        }
+      ]
+    }
+  ]
+}

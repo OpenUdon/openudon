@@ -5769,3 +5769,17 @@ independent package import and fresh native/visible qualification remain M93.4/5
 ````markdown
 or terminal delivery never authorize retries. M93.5 qualification remains open.
 ````
+
+## 2026-10-05 — Stage 9 approved planning supersessions
+
+The user explicitly chose OpenUdon-local ledger ownership during Stage 9 discovery and approved its correction. Fresh inspection found tracked regular harness files here and no ../tofu/openudon directory. Replacement: [AGENTS.md](../../../AGENTS.md); the local ledger remains authoritative and no history is moved.
+
+**Original source:** `AGENTS.md` at `fbda7e9231b8b306fd1ae3ac623e9d70331b3e08`.
+
+`````markdown
+The tracked canonical OpenUdon harness snapshot lives in
+`../tofu/openudon`. In a normal `../openudon` checkout, `AGENTS.md`,
+`tabilet/memory-bank/`, and `tabilet/evolution/` may be symlinks to this tracked snapshot so
+agents can keep using the usual local paths while planning history is committed
+in the `../tofu` repository.
+`````

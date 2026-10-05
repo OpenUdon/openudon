@@ -1,5 +1,11 @@
 # Product
 
+## Stage 9 approved planning — 2026-10-05
+
+M97.1 defines additive concrete authority v1, approval v2, executor config v3 and run-evidence v4 for a broker-enabled external Udon handoff. [Contract and schemas](../../docs/broker-execution-handoff.md) bind run/occurrence/grant revisions, package/inputs/executor, ordered operations and symbolic credentials. Existing schemas, sandbox protection and authoring/capture pins remain the implemented baseline; no private executor import or Kinet policy is added here.
+
+[M97](status-M97.md) and milestone/status records own target behavior. M97.1 contract definitions and conformance tests are implemented; runtime wiring and qualification/publication remain pending. The confirmed Stage 9 goal consumes the exact accepted/published M46 handoff recorded in status-M97.md. No M97 acceptance or publication is claimed.
+
 ## Current Browser Authoring
 
 Reviewed structural-query navigation is retained in generated browser profiles;

@@ -16,11 +16,11 @@ wrappers, review evidence, package digests, and trusted execution glue.
 
 ## Memory Bank First
 
-The tracked canonical OpenUdon harness snapshot lives in
-`../tofu/openudon`. In a normal `../openudon` checkout, `AGENTS.md`,
-`tabilet/memory-bank/`, and `tabilet/evolution/` may be symlinks to this tracked snapshot so
-agents can keep using the usual local paths while planning history is committed
-in the `../tofu` repository.
+The canonical OpenUdon harness is tracked in this repository: `AGENTS.md`,
+`tabilet/memory-bank/`, `tabilet/evolution/` and `tabilet/docs/history/`.
+Keep its ledger and acceptance separate from Kinet and other siblings. The
+earlier `../tofu/openudon` pointer was stale and is preserved in the knowledge
+journal; no tofu repository changes or ledger migration are required.
 
 Before making substantial changes, read in this order:
 
