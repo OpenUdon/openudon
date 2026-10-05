@@ -234,3 +234,16 @@ a workflow readiness deadline. Keep the existing runtime limit and approval
 policy, and expose only fixed phase codes when a component fails. Evidence:
 M95 bounded diagnosis, readiness/privacy regression and corrected native39
 qualification; the earlier failure remains preserved, not retrospectively explained.
+
+
+## Portable evidence must redact every argument copy
+
+A private broker config path appeared in the async sidecar after the main run
+record already redacted it. Reuse the same redactor for every portable argv
+copy and scan both artifacts for source/snapshot paths and credential/capability
+canaries. Exact package/run authority belongs in evidence; transport capability
+and private connection references do not. Evidence: M97 regression assertion
+failed before the fix, then passed in focused/race/default checks; qualified
+source f4127c159e18fa66619659bc3c4b8757b7022267 and native39 bind the corrected
+implementation. Keep failed qualification contexts at their original source;
+never relabel them when publishing a corrected clean artifact.

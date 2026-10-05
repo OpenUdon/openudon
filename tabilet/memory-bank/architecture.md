@@ -1,10 +1,20 @@
 # Architecture
 
-## Stage 9 approved planning — 2026-10-05
+## Stage 9 broker handoff — accepted 2026-10-05
 
-M97.1 defines additive concrete authority v1, approval v2, executor config v3 and run-evidence v4 for a broker-enabled external Udon handoff. [Contract and schemas](../../docs/broker-execution-handoff.md) bind run/occurrence/grant revisions, package/inputs/executor, ordered operations and symbolic credentials. Existing schemas, sandbox protection and authoring/capture pins remain the implemented baseline; no private executor import or Kinet policy is added here.
-
-[M97](status-M97.md) and milestone/status records own target behavior. M97.1 definitions, M97.2 private execution wiring and M97.3 producer/consumer corpus checks are implemented; full clean-source/native qualification and publication remain pending. The confirmed Stage 9 goal consumes the exact accepted/published M46 handoff recorded in status-M97.md. No M97 acceptance or publication is claimed.
+[M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,
+executor config v3 and evidence v4 at qualified source
+`f4127c159e18fa66619659bc3c4b8757b7022267`; source-record publication
+`55e1be3eb4eb728005d3f51f582f9fceda547b56` was independently verified.
+Closing review 2 passed. [Contract](../../docs/broker-execution-handoff.md) and
+[exact qualification](../../docs/m97-qualification.md) bind package/input/executor,
+ordered operations, symbolic credential revisions and complete artifact hashes.
+Fresh native39, offline4, seven actual M46 broker cases, smoke and focused races
+passed. Existing schemas/default bytes, sandbox protection and frozen
+`c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0` authoring/capture pin remain unchanged.
+No private executor import or Kinet network/grant policy is owned here. Kinet
+M35/W14/M37 consume this separate qualified profile after exact reconciliation;
+no deployment, live service or W8M adoption is established by producer acceptance.
 
 ## Versioned browser qualification locks
 
@@ -776,4 +786,4 @@ durable executor claim preserve uncertain attempts. Read-only broker-inspect
 metadata comes through the existing APItools adapter; the host still owns current
 grants, credentials and concrete network/request policy. Legacy serialization,
 report readers, authoring/capture pins and destination classification are unchanged.
-No new profile is accepted until M97 qualification and publication close.
+M97's separate broker profile is accepted as above; host consumer adoption remains owner-local.

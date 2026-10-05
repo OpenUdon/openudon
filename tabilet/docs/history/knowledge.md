@@ -5783,3 +5783,56 @@ The tracked canonical OpenUdon harness snapshot lives in
 agents can keep using the usual local paths while planning history is committed
 in the `../tofu` repository.
 `````
+
+
+## 2026-10-05 — M97 accepted broker profile replaces planning posture
+
+Reason: exact-source verification, fresh native qualification and both persisted
+reviews passed; source publication was independently verified. Replacements:
+current Stage 9 broker handoff sections and docs/m97-qualification.md. Existing
+legacy pins and frozen evidence are unchanged.
+
+Source: tabilet/memory-bank/product.md — Stage 9 approved planning
+
+````markdown
+## Stage 9 approved planning — 2026-10-05
+
+M97.1 defines additive concrete authority v1, approval v2, executor config v3 and run-evidence v4 for a broker-enabled external Udon handoff. [Contract and schemas](../../docs/broker-execution-handoff.md) bind run/occurrence/grant revisions, package/inputs/executor, ordered operations and symbolic credentials. Existing schemas, sandbox protection and authoring/capture pins remain the implemented baseline; no private executor import or Kinet policy is added here.
+
+[M97](status-M97.md) and milestone/status records own target behavior. M97.1 definitions, M97.2 private execution wiring and M97.3 producer/consumer corpus checks are implemented; full clean-source/native qualification and publication remain pending. The confirmed Stage 9 goal consumes the exact accepted/published M46 handoff recorded in status-M97.md. No M97 acceptance or publication is claimed.
+
+````
+
+Source: tabilet/memory-bank/architecture.md — Stage 9 approved planning
+
+````markdown
+## Stage 9 approved planning — 2026-10-05
+
+M97.1 defines additive concrete authority v1, approval v2, executor config v3 and run-evidence v4 for a broker-enabled external Udon handoff. [Contract and schemas](../../docs/broker-execution-handoff.md) bind run/occurrence/grant revisions, package/inputs/executor, ordered operations and symbolic credentials. Existing schemas, sandbox protection and authoring/capture pins remain the implemented baseline; no private executor import or Kinet policy is added here.
+
+[M97](status-M97.md) and milestone/status records own target behavior. M97.1 definitions, M97.2 private execution wiring and M97.3 producer/consumer corpus checks are implemented; full clean-source/native qualification and publication remain pending. The confirmed Stage 9 goal consumes the exact accepted/published M46 handoff recorded in status-M97.md. No M97 acceptance or publication is claimed.
+
+````
+
+Source: tabilet/memory-bank/architecture.md — M97 private broker wiring
+
+````markdown
+No new profile is accepted until M97 qualification and publication close.
+````
+
+Source: tabilet/memory-bank/tech-stack.md — Stage 9 approved planning
+
+````markdown
+## Stage 9 approved planning — 2026-10-05
+
+M97.1 defines additive concrete authority v1, approval v2, executor config v3 and run-evidence v4 for a broker-enabled external Udon handoff. [Contract and schemas](../../docs/broker-execution-handoff.md) bind run/occurrence/grant revisions, package/inputs/executor, ordered operations and symbolic credentials. Existing schemas, sandbox protection and authoring/capture pins remain the implemented baseline; no private executor import or Kinet policy is added here.
+
+[M97](status-M97.md) and milestone/status records own target behavior. M97.1 definitions, M97.2 private execution wiring and M97.3 producer/consumer corpus checks are implemented; full clean-source/native qualification and publication remain pending. The confirmed Stage 9 goal consumes the exact accepted/published M46 handoff recorded in status-M97.md. No M97 acceptance or publication is claimed.
+
+````
+
+Source: tabilet/memory-bank/tech-stack.md — M97 broker commands
+
+````markdown
+artifacts. Qualification/publication remain pending under status-M97.md.
+````

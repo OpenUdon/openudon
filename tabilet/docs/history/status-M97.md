@@ -1,6 +1,44 @@
+# Retired milestone M97 - Brokered execution handoff
+
+**Milestone.** M97
+**Outcome.** completed
+**Retired.** 2026-10-05
+**Source status.** tabilet/memory-bank/status-M97.md
+**Source specification.** tabilet/memory-bank/milestone.md#m97--brokered-execution-handoff
+**Evidence.** 55e1be3eb4eb728005d3f51f582f9fceda547b56
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 2
+**Verification.** make fast; clean-export make check and go vet; focused broker/authority races; seven actual accepted M46 broker cases; fresh registration smoke; offline4 and native39/three fresh repeats with independent verification; joined private-display teardown; git diff --check. Exact qualified source f4127c159e18fa66619659bc3c4b8757b7022267, closure SHA-256 5fb02718562932acd64c2e1a19245e0773441a0e718ddba577aa90b15694035c; docs/m97-qualification.md binds artifacts and original evidence contexts.
+**Consolidated into.** Current product.md, architecture.md, tech-stack.md, lessons.md; docs/broker-execution-handoff.md and docs/m97-qualification.md; v49 unchanged direction. Kinet M35/W14/M37 exact producer contracts/artifacts reconciled before retirement; consumer implementation and final closure publication remain separate.
+
+## Milestone specification
+
+````markdown
+## M97 — Brokered execution handoff
+
+**Stage.** Kinet STG-09; accepted implementation and closing review 2 on 2026-10-05.
+**Goal and scope.** Own reviewed package/approval/configuration/evidence binding and external private-Udon invocation. Add explicit broker-enabled executor configuration and evidence versions, keeping legacy readers/outputs. No private executor module imports. Bind grant-derived per-run approval to package, concrete inputs/constraints, allowed operations/destinations, executor and credential revisions. Allow the production tier only through this explicit approved broker path; never broaden sandbox destination rules. Values remain outside worker environment, artifacts and reports.
+
+**Dependencies.** Accepted and published Udon M46 source, contract fixtures and exact executor closure; reconcile actual revision before starting. OpenUdon baseline fbda7e9231b8b306fd1ae3ac623e9d70331b3e08; existing runtime acceptance c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0 remains frozen.
+
+**Upstream reconciliation.** Udon M46 accepted source `95c5850fd446e06ac6f79d943774db67e417c989`, published source-record head `58f9fa5cda92d508e9fcb4085157a09949ddfab9` (completed owner record published and independently verified at `71071537890599e98541abe8ca564490660dfd16`), review 2 passed; exact executor/closure/corpus hashes and bounded supported shapes are in [M97](status-M97.md). M97 implementation, exact qualification and acceptance are recorded in its complete status.
+
+**Downstream.** Kinet M35 uses the exact accepted/published broker handoff and M97 fixtures; W14 binds approval/evidence and M37 qualifies the bundle. Existing authoring/capture consumers retain their own pins; no W8M adoption.
+
+**Acceptance.** Approved package and exact run authority are inseparable from broker configuration and evidence. A symbolic credential binding works without an environment secret in broker mode; legacy environment behavior remains unchanged. Unsupported/missing/mismatched authority is rejected before Udon invocation. Accepted source, fixtures and publication are consumable by Kinet.
+
+**Verification.** make fast for routine edits; go test ./...; go vet ./...; make check; go run ./cmd/openudon check; go run ./cmd/openudon check-apitools-boundary; (cd tabilet && go run ../cmd/openudon check-doc-memory); fixture validation and git diff --check. Run the required affected make smoke and full make qualify for runtime adoption, including three fresh native repeats under owner rules, in disposable exact-source closures. No cache result substitutes for required fresh qualification.
+
+**Tasks and review.** [M97](status-M97.md) owns all four completed task rows, passed pre-publication review 1 and ordinary closing review 2, and independently verified source publication. Task names: M97.1 Define approval, configuration and evidence contracts; M97.2 Pass broker authority without credential values; M97.3 Qualify producer and consumer fixtures; M97.4 Qualify, review and publish exact handoff. Package instructions govern acceptance/closure. Planning grants no execution, commit or publication authority.
+````
+
+## Status record
+
+````markdown
 # Status M97 — Brokered execution handoff
 
-**State:** Execution started, 2026-10-05. M97.1–M97.3 completed; M97.4 is in progress.
+**State:** Completed and accepted, 2026-10-05; all four rows complete and closing review 2 passed. Qualified source and source-record publication are independently verified; closure publication follows retirement.
 **Stage:** STG-09 (Kinet coordination label; milestone IDs remain repository-local).
 **Specification:** [M97](milestone.md#m97--brokered-execution-handoff).
 **Provenance:** User approved the complete Stage 9 proposal with “Implement the plan” on 2026-10-05. This applies planning-file actions only; a later goal request starts code work. Planning baseline `fbda7e9231b8b306fd1ae3ac623e9d70331b3e08`; [Stage 9 contract](../../../kinet/docs/stage9.md) records discovery evidence and all decisions.
@@ -11,7 +49,7 @@ Own reviewed package/approval/configuration/evidence binding and external privat
 
 **Requires:** Accepted/published Udon M46 source, contract fixtures and exact executor closure are now reconciled below. OpenUdon baseline fbda7e9231b8b306fd1ae3ac623e9d70331b3e08; existing runtime acceptance c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0 remains frozen.
 
-**Accepted Udon handoff:** M46 source `95c5850fd446e06ac6f79d943774db67e417c989`; independently verified source-record publication `58f9fa5cda92d508e9fcb4085157a09949ddfab9` (completed owner record published and independently verified at `71071537890599e98541abe8ca564490660dfd16`); closing review 2 passed. Frozen executor SHA-256 `53bb9e8976f67c6a5880f07248a99cd195e6285ce7a5a68239793dd5dc6eb429`, fourteen-source closure SHA-256 `a286f21a5dcd4180b7ec19bf0630188ddacec26e0532198db14decd0c86b2069`, broker fixture manifest SHA-256 `7289085b14f744504019ae6d607d351f74522ed3f930ecbbfd159200fd2ddb5f`. Private qualification `/var/tmp/udon-m46-broker-qualification-20261005/closure.json`; use its clean exports and exact executor, not a sibling checkout rebuild. The opt-in contract is `udon.http-broker.v1` plus `--http-broker-config`/report v5, bounded unique straight-line OpenAPI HTTP operations with fixed API-key/bearer bindings; no browser, signing, OAuth, data files, repeated/nested plan or direct fallback. Legacy reports/pins remain unchanged. This satisfies the M46 prerequisite only; M97 implementation and acceptance remain pending.
+**Accepted Udon handoff:** M46 source `95c5850fd446e06ac6f79d943774db67e417c989`; independently verified source-record publication `58f9fa5cda92d508e9fcb4085157a09949ddfab9` (completed owner record published and independently verified at `71071537890599e98541abe8ca564490660dfd16`); closing review 2 passed. Frozen executor SHA-256 `53bb9e8976f67c6a5880f07248a99cd195e6285ce7a5a68239793dd5dc6eb429`, fourteen-source closure SHA-256 `a286f21a5dcd4180b7ec19bf0630188ddacec26e0532198db14decd0c86b2069`, broker fixture manifest SHA-256 `7289085b14f744504019ae6d607d351f74522ed3f930ecbbfd159200fd2ddb5f`. Private qualification `/var/tmp/udon-m46-broker-qualification-20261005/closure.json`; use its clean exports and exact executor, not a sibling checkout rebuild. The opt-in contract is `udon.http-broker.v1` plus `--http-broker-config`/report v5, bounded unique straight-line OpenAPI HTTP operations with fixed API-key/bearer bindings; no browser, signing, OAuth, data files, repeated/nested plan or direct fallback. Legacy reports/pins remain unchanged. M97 acceptance is separately established by the exact-source qualification and closing review below.
 
 **Consumers:** Kinet M35 uses the exact accepted/published broker handoff and M97 fixtures; W14 binds approval/evidence and M37 qualifies the bundle. Existing authoring/capture consumers retain their own pins; no W8M adoption.
 
@@ -22,7 +60,7 @@ Own reviewed package/approval/configuration/evidence binding and external privat
 | M97.1 — Define approval, configuration and evidence contracts | `[+]` | Publish the broker-enabled versioned handoff with run/grant/policy/credential-reference and exact package/input/executor bindings; preserve existing schemas and readers. Distinguish a bounded recurring grant from the concrete per-occurrence approval emitted by its trusted host. Include mismatch and downgrade refusal fixtures. Defined concrete Authority v1, approval v2, executor config v3 and evidence v4 with strict metadata/digest/deadline/inventory validation, four embedded schemas and seven hashed authority fixtures. Positive Go envelopes validate against the schemas; stale input/credential policy and legacy downgrade tests refuse. Full make fast and focused semantic/schema tests passed offline. Runtime wiring remains M97.2; no new profile is qualified or accepted. |
 | M97.2 — Pass broker authority without credential values | `[+]` | Wire the private Unix-socket/capability references through trustedrunner and the external Udon CLI. Preserve production approval checks and sandbox protection; broker mode bypasses environment-value requirements only for declared broker-resolved references. No host sockets, keys or private Udon imports. Implemented explicit private reference through both CLIs and canonical external revalidation; exact authority/compiled input/operation/security/executor preflights; pinned executor/private transport snapshots; credential/proxy environment exclusion; immutable broker config/evidence and durable no-replay claim; evidence v4 verification/sign/archive support. broker-inspect returns exact APItools-backed review metadata; approval-template optionally validates concrete broker authority. Full make fast, focused broker tests and focused races passed offline. Existing schemas/pins/default serialization remain unchanged; actual M46 producer/runtime qualification remains M97.3–M97.4. |
 | M97.3 — Qualify producer and consumer fixtures | `[+]` | Consume actual published M46 fixtures and closure, publish a Kinet-compatible positive/negative corpus and manifest, and test replay, stale package/input, unsupported version, wrong operation and uncertainty handling. Keep original producer provenance separate from runtime adoption. Original ten M46 fixtures/manifest copied byte-identically; eleven normalized OpenUdon envelope/inspection fixtures have independent hashes and strict membership/schema/semantic checks. Exact accepted M46 executor passed seven private-socket journeys (success, lost/wrong/unknown/refused/failed/cancelled outcomes), with durable start-before-dispatch, redaction and no-replay assertions. Full make fast, focused corpus and broker races passed offline. Clean-source/native qualification remains M97.4; synthetic corpus provenance is distinct from actual runtime proof. |
-| M97.4 — Qualify, review and publish exact handoff | `[~]` | Run owner runtime/adoption checks against exact M46 and preserve historical browser evidence. Persist a whole-diff pre-publication review; this row owns scoped publication only under separately confirmed normal-push authority. Verify actual origin/main and hand off full accepted/source/publication hashes to Kinet before normal closing review/retirement. |
+| M97.4 — Qualify, review and publish exact handoff | `[+]` | Exact corrected source `f4127c159e18fa66619659bc3c4b8757b7022267` passed all required gates, four offline stages and 39 fresh native stages with independent verification and joined display teardown. Pre-publication whole-diff review 1 passed. Normal publication `55e1be3eb4eb728005d3f51f582f9fceda547b56` succeeded; independent git ls-remote confirmed that exact origin/main head. Qualified closure SHA-256 `5fb02718562932acd64c2e1a19245e0773441a0e718ddba577aa90b15694035c`; full artifact and evidence bindings are in docs/m97-qualification.md. Ordinary closing review 2 passed and Kinet M35/W14/M37 were reconciled to exact artifacts before retirement. |
 
 ## Acceptance and verification
 
@@ -44,12 +82,12 @@ Reconcile actual full accepted/source/publication revisions and hashes before st
 
 ## Persisted review
 
-- Review iteration: **1/10**; pre-publication whole-milestone review started and passed on 2026-10-05 after the corrected candidate passed every required automatic gate.
-- Findings: pre-publication review 1 passed with no open P1/P2-or-higher finding. The full baseline-to-corrected-source diff was checked for authority/version correspondence, legacy bytes, private APItools/executor boundaries, pinned transport/executor snapshots, no replay, conservative report-v5 outcomes, both evidence copies and exact fixture/schema/build provenance. Publication and ordinary closing review remain required.
-- Reviewed qualified implementation revision: `f4127c159e18fa66619659bc3c4b8757b7022267`; final acceptance awaits publication and closing review.
+- Review iteration: **2/10**; ordinary post-task closing review started and passed on 2026-10-05 after all four rows closed and publication was independently verified. Both reviews covered the full milestone baseline-to-source range; no open P1/P2-or-higher finding.
+- Findings: pre-publication review 1 passed with no open P1/P2-or-higher finding. The full baseline-to-corrected-source diff was checked for authority/version correspondence, legacy bytes, private APItools/executor boundaries, pinned transport/executor snapshots, no replay, conservative report-v5 outcomes, both evidence copies and exact fixture/schema/build provenance. Publication and ordinary closing review 2 are now verified below.
+- Accepted qualified implementation revision: `f4127c159e18fa66619659bc3c4b8757b7022267`; reviewed source-record publication `55e1be3eb4eb728005d3f51f582f9fceda547b56`.
 - Verification/build evidence: corrected clean source `f4127c159e18fa66619659bc3c4b8757b7022267` passed make check, go vet ./..., all seven exact-M46 runtime cases, fresh registration smoke and all 39 native stages with independent report verification and joined private-display teardown. Full make fast and focused broker/authority races also passed. Exact artifact and evidence bindings are in docs/m97-qualification.md; acceptance still requires review and publication.
-- Publication evidence: pending. The separately confirmed Stage 9 request authorizes scoped normal origin/main publication after this pre-publication gate; planning alone grants none.
-- Downstream reconciliation: pending exact upstream/downstream revisions.
+- Publication evidence: normal push to authorized origin/main succeeded at `55e1be3eb4eb728005d3f51f582f9fceda547b56`, independently verified by git ls-remote. Later closing records are not yet published.
+- Downstream reconciliation: Kinet M35, W14 and M37 bind the accepted source, independently verified source-record publication, both CLI digests, schema/fixture manifests and qualified closure. Remaining implementation order is M35 -> A14 -> W14 -> M36 -> U12 -> M37. Closure publication will be reconciled after its actual head is observed.
 
 ## M97 temporary display authorization — 2026-10-05
 
@@ -191,3 +229,18 @@ Review 1 inspected the whole milestone, not only the checkpoint patch; no open
 P1/P2 finding remains. M97.4 stays in progress through its authorized normal
 publication. Ordinary post-task closing review and downstream reconciliation
 remain pending; this record does not claim them complete.
+
+
+## Ordinary closing review 2 — 2026-10-05
+
+Started after independently verified source publication, then reviewed the
+whole baseline-to-qualified-source implementation again: strict version and
+package/operation/credential metadata binding; unchanged legacy serialization
+and sandbox rules; private config/executor snapshots and closed environments;
+create-only claim/config/evidence; interrupted write/report semantics; main and
+async redaction, archive verification, source/fixture/schema and native provenance.
+The qualified application/schema/fixture/module bytes remain unchanged in the
+source-record publication. No P1/P2-or-higher finding remains. Current-truth
+consolidation and exact consumer reconciliation accompany retirement; v49
+direction is unchanged. No new live operation or runtime adoption is authorized.
+````

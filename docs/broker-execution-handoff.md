@@ -159,5 +159,9 @@ write. They verify durable step-start before dispatch, exact identity echoes,
 no credential values in requests/evidence, conservative possible-write outcomes
 and replay refusal without a second dispatch. Default checks skip this explicit
 executor qualification; they exercise portable fixtures without credentials or
-real services. Full owner/native qualification, clean exact-source artifact
-provenance and publication remain M97.4; no new runtime acceptance is claimed yet.
+real services. Full owner/native qualification passed on the separate broker profile at
+`f4127c159e18fa66619659bc3c4b8757b7022267`, published through independently
+verified `55e1be3eb4eb728005d3f51f582f9fceda547b56`; closing review 2 passed.
+[The qualification handoff](m97-qualification.md) records exact artifacts and
+evidence. Existing authoring/capture pins remain frozen; consumers qualify their
+own adoption and acceptance grants no live-service authority.
