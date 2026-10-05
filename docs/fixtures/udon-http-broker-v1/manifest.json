@@ -1,0 +1,55 @@
+{
+  "version": "udon.http-broker.fixtures.v1",
+  "files": {
+    "request-valid.json": {
+      "kind": "request",
+      "valid": true,
+      "sha256": "a4008a0b0b5cd93f5433a3ed4ba21758e82b84e0ea7e567c5b6d031a5e7f5873"
+    },
+    "response-valid.json": {
+      "kind": "response",
+      "valid": true,
+      "sha256": "c0c6954d271a50a97fca1cf74dc8159ae892cd171b8585527d6a2097602de112"
+    },
+    "response-unknown.json": {
+      "kind": "response",
+      "valid": true,
+      "sha256": "1152a6937d772ce850fed5903491f1a025bd799732b7ad03f1ad5fbdb4f3c656"
+    },
+    "response-refused.json": {
+      "kind": "response",
+      "valid": true,
+      "sha256": "b92e128b13ab037ba7ebc3bf23ddf1bf8567745890f75cee942c03fbc5e39c9d"
+    },
+    "request-version.json": {
+      "kind": "request",
+      "valid": false,
+      "sha256": "3ea4292cbdb75a63f2eb47782dec18f3465936c6231b7111c839ef8e3476804a"
+    },
+    "request-stale-id.json": {
+      "kind": "request",
+      "valid": false,
+      "sha256": "54e0223cc635858d3ef316225d5aabfd52197130b9b32d8d4e752466053d0ed7"
+    },
+    "request-credential-value.json": {
+      "kind": "request",
+      "valid": false,
+      "sha256": "e5367273999929ab655f0536a4a03a12352717c499080d120d85be4ed6dba4cf"
+    },
+    "request-duplicate-key.json": {
+      "kind": "request",
+      "valid": false,
+      "sha256": "ec756272ab428e6176335c3e99d3103560691966a8d54446e62960221ef5e9df"
+    },
+    "response-unknown-body.json": {
+      "kind": "response",
+      "valid": false,
+      "sha256": "56255f07ba3e4e89f8fee5933e30a8e00b7ed05b5eba69372629e26ef7ec2010"
+    },
+    "response-wrong-run.json": {
+      "kind": "response",
+      "valid": false,
+      "sha256": "725ce7c8d5ac4b01e75dcbbb1406cfbabf5f2dfa02beb83f94239a11d95ac774"
+    }
+  }
+}

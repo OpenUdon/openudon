@@ -63,7 +63,10 @@ expressions therefore remain part of the reviewed package. Each operation's
 `{"operation": <UWS operation>, "step": <UWS step>}`. Inspection returns those
 canonical bytes alongside the source operation ID, API server and path template
 so the host can apply explicit static/dynamic request policy without copying an
-OpenAPI parser or private executor compiler.
+OpenAPI parser or private executor compiler. The CLI may indent the raw constraints
+inside its enclosing JSON response. Consumers must remove JSON whitespace with
+`json.Compact` before checking `constraints_sha256`; preserve member order and
+number spelling instead of decoding into a map and re-encoding.
 
 Review uses the existing APItools metadata adapter. This first profile requires
 one fixed OpenAPI server, operation IDs and a fixed API-key/bearer security set;
@@ -132,5 +135,29 @@ fresh owner qualification and Kinet adoption.
 M97.2's focused tests cover private handoff, legacy downgrade refusal, stale
 package/handoff/input/method/origin/constraints/executor/bindings, expiry, public
 socket/config refusal and conservative interruption/replay/archive behavior.
-Full owner qualification, exact-source artifact provenance and publication
-remain M97.3–M97.4; no new runtime acceptance is claimed yet.
+M97.3 includes the byte-identical [original M46 transport fixtures](fixtures/udon-http-broker-v1/manifest.json)
+and an independently hashed [OpenUdon consumer corpus](fixtures/broker-execution-v1/manifest.json).
+The latter contains eleven synthetic, normalized authority/approval/configuration,
+inspection and dry-run/unknown evidence examples, including stale-package,
+unsupported-version, downgrade and wrong-operation refusals. Synthetic examples
+are contract fixtures, not relabeled runtime qualification evidence. Both
+manifests enforce exact membership and file hashes; positive portable envelopes
+also pass the embedded schemas.
+
+The opt-in real-producer test uses the exact M46 executor and frozen closure:
+
+```sh
+OPENUDON_M46_QUALIFY=1 \
+OPENUDON_M46_EXECUTOR=/absolute/qualified/udon-executor \
+OPENUDON_M46_CLOSURE=/absolute/qualified/closure.json \
+go test ./internal/trustedrunner -run '^TestPublishedM46BrokerQualification$' -count=1 -timeout=2m -v
+```
+
+Seven synthetic private Unix-socket journeys passed: success, lost-write reply,
+wrong identity, explicit unknown write, refused read, failed write and cancelled
+write. They verify durable step-start before dispatch, exact identity echoes,
+no credential values in requests/evidence, conservative possible-write outcomes
+and replay refusal without a second dispatch. Default checks skip this explicit
+executor qualification; they exercise portable fixtures without credentials or
+real services. Full owner/native qualification, clean exact-source artifact
+provenance and publication remain M97.4; no new runtime acceptance is claimed yet.

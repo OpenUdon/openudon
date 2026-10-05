@@ -1,6 +1,6 @@
 # Status M97 — Brokered execution handoff
 
-**State:** Execution started, 2026-10-05. M97.1–M97.2 completed; M97.3–M97.4 remain pending.
+**State:** Execution started, 2026-10-05. M97.1–M97.3 completed; M97.4 remains pending.
 **Stage:** STG-09 (Kinet coordination label; milestone IDs remain repository-local).
 **Specification:** [M97](milestone.md#m97--brokered-execution-handoff).
 **Provenance:** User approved the complete Stage 9 proposal with “Implement the plan” on 2026-10-05. This applies planning-file actions only; a later goal request starts code work. Planning baseline `fbda7e9231b8b306fd1ae3ac623e9d70331b3e08`; [Stage 9 contract](../../../kinet/docs/stage9.md) records discovery evidence and all decisions.
@@ -21,7 +21,7 @@ Own reviewed package/approval/configuration/evidence binding and external privat
 |---|---|---|
 | M97.1 — Define approval, configuration and evidence contracts | `[+]` | Publish the broker-enabled versioned handoff with run/grant/policy/credential-reference and exact package/input/executor bindings; preserve existing schemas and readers. Distinguish a bounded recurring grant from the concrete per-occurrence approval emitted by its trusted host. Include mismatch and downgrade refusal fixtures. Defined concrete Authority v1, approval v2, executor config v3 and evidence v4 with strict metadata/digest/deadline/inventory validation, four embedded schemas and seven hashed authority fixtures. Positive Go envelopes validate against the schemas; stale input/credential policy and legacy downgrade tests refuse. Full make fast and focused semantic/schema tests passed offline. Runtime wiring remains M97.2; no new profile is qualified or accepted. |
 | M97.2 — Pass broker authority without credential values | `[+]` | Wire the private Unix-socket/capability references through trustedrunner and the external Udon CLI. Preserve production approval checks and sandbox protection; broker mode bypasses environment-value requirements only for declared broker-resolved references. No host sockets, keys or private Udon imports. Implemented explicit private reference through both CLIs and canonical external revalidation; exact authority/compiled input/operation/security/executor preflights; pinned executor/private transport snapshots; credential/proxy environment exclusion; immutable broker config/evidence and durable no-replay claim; evidence v4 verification/sign/archive support. broker-inspect returns exact APItools-backed review metadata; approval-template optionally validates concrete broker authority. Full make fast, focused broker tests and focused races passed offline. Existing schemas/pins/default serialization remain unchanged; actual M46 producer/runtime qualification remains M97.3–M97.4. |
-| M97.3 — Qualify producer and consumer fixtures | `[ ]` | Consume actual published M46 fixtures and closure, publish a Kinet-compatible positive/negative corpus and manifest, and test replay, stale package/input, unsupported version, wrong operation and uncertainty handling. Keep original producer provenance separate from runtime adoption. |
+| M97.3 — Qualify producer and consumer fixtures | `[+]` | Consume actual published M46 fixtures and closure, publish a Kinet-compatible positive/negative corpus and manifest, and test replay, stale package/input, unsupported version, wrong operation and uncertainty handling. Keep original producer provenance separate from runtime adoption. Original ten M46 fixtures/manifest copied byte-identically; eleven normalized OpenUdon envelope/inspection fixtures have independent hashes and strict membership/schema/semantic checks. Exact accepted M46 executor passed seven private-socket journeys (success, lost/wrong/unknown/refused/failed/cancelled outcomes), with durable start-before-dispatch, redaction and no-replay assertions. Full make fast, focused corpus and broker races passed offline. Clean-source/native qualification remains M97.4; synthetic corpus provenance is distinct from actual runtime proof. |
 | M97.4 — Qualify, review and publish exact handoff | `[ ]` | Run owner runtime/adoption checks against exact M46 and preserve historical browser evidence. Persist a whole-diff pre-publication review; this row owns scoped publication only under separately confirmed normal-push authority. Verify actual origin/main and hand off full accepted/source/publication hashes to Kinet before normal closing review/retirement. |
 
 ## Acceptance and verification
@@ -50,3 +50,12 @@ Reconcile actual full accepted/source/publication revisions and hashes before st
 - Verification/build evidence: not yet available.
 - Publication evidence: required before downstream adoption; not authorized by this planning action.
 - Downstream reconciliation: pending exact upstream/downstream revisions.
+
+## M97 temporary display authorization — 2026-10-05
+
+The user explicitly authorized the installed Xvfb on vps-f7dfc687 for M97's
+required smoke and three fresh native qualification passes. TCP stays disabled,
+X authentication is private/temporary, Chromium sandboxing remains enabled and
+all owned processes are torn down. Only disposable local fixtures are included;
+no installation, public-service access or other milestone display is authorized.
+The exact M97.4 operational row must be in progress before its launcher.

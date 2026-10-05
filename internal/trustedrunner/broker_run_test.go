@@ -31,7 +31,7 @@ paths:
     post: {operationId: post, responses: {'200': {description: OK}}}
 `
 
-func fixtureBroker(t *testing.T) (Options, Approval, string) {
+func fixtureBroker(t *testing.T) (Options, Approval, string, net.Listener) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("Unix broker profile")
@@ -105,11 +105,11 @@ func fixtureBroker(t *testing.T) (Options, Approval, string) {
 	if err := os.WriteFile(privatePath, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	return Options{RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath, WorkDir: filepath.Join(root, "broker-runs"), BrokerConfigPath: privatePath, Env: []string{"OPENUDON_EXECUTOR=" + binary, "UDON_CREDENTIAL_TOKEN=SECRET_CANARY", "HTTP_PROXY=http://proxy.invalid"}, Now: fixedNow(), Assess: passAssess}, a, privatePath
+	return Options{RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath, WorkDir: filepath.Join(root, "broker-runs"), BrokerConfigPath: privatePath, Env: []string{"OPENUDON_EXECUTOR=" + binary, "UDON_CREDENTIAL_TOKEN=SECRET_CANARY", "HTTP_PROXY=http://proxy.invalid"}, Now: fixedNow(), Assess: passAssess}, a, privatePath, listener
 }
 
 func TestBrokerRunPrivateHandoffAndUncertainReplay(t *testing.T) {
-	opts, approval, privatePath := fixtureBroker(t)
+	opts, approval, privatePath, _ := fixtureBroker(t)
 	calls := 0
 	opts.Invoke = func(_ context.Context, call udonrunner.Invocation) error {
 		calls++
@@ -163,7 +163,7 @@ func TestBrokerRunPrivateHandoffAndUncertainReplay(t *testing.T) {
 func TestBrokerRefusesBeforeExecutorInvocation(t *testing.T) {
 	for _, name := range []string{"legacy-version", "missing-private", "public-private", "public-socket", "wrong-run", "stale-package", "stale-handoff", "stale-input", "wrong-method", "wrong-origin", "wrong-constraints", "wrong-executor", "missing-binding", "public-sandbox", "expired"} {
 		t.Run(name, func(t *testing.T) {
-			opts, a, private := fixtureBroker(t)
+			opts, a, private, _ := fixtureBroker(t)
 			switch name {
 			case "legacy-version":
 				a.Version = ApprovalVersion
@@ -237,7 +237,7 @@ func TestBrokerRefusesBeforeExecutorInvocation(t *testing.T) {
 }
 
 func TestBrokerInspectionApprovalAndExternalBoundary(t *testing.T) {
-	opts, approval, privatePath := fixtureBroker(t)
+	opts, approval, privatePath, _ := fixtureBroker(t)
 	inspection, err := InspectBrokerPackage(context.Background(), TemplateOptions{RepoRoot: opts.RepoRoot, ExampleDir: opts.ExampleDir, Assess: passAssess})
 	if err != nil {
 		t.Fatal(err)
