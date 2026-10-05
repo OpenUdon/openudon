@@ -1,0 +1,21 @@
+{
+  "version": "openudon.browser-capture.v1",
+  "session_id": "capture-11111111111111111111111111111111",
+  "mode": "authenticated",
+  "revision": 1,
+  "event_id": "ref-22222222222222222222222222222222",
+  "type": "state",
+  "deadline": "2026-10-01T01:00:00Z",
+  "view": {
+    "state": "observing"
+  },
+  "action": {
+    "id": "ref-55555555555555555555555555555555",
+    "command_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "command": {
+      "authentication": {
+        "kind": "observe"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": "openudon.browser-capture.v1",
+  "session_id": "capture-11111111111111111111111111111111",
+  "mode": "authenticated",
+  "revision": 1,
+  "event_id": "ref-22222222222222222222222222222222",
+  "type": "result",
+  "deadline": "2026-10-01T01:00:00Z",
+  "view": {
+    "state": "completed",
+    "result": {
+      "profile_id": "synthetic",
+      "transaction_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "effect": "read"
+    }
+  }
+}

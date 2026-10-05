@@ -1,0 +1,19 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "flow-review",
+  "status": "completed",
+  "diagnostics": [],
+  "result": {
+    "intent_sha256": "sha256:6a010a6eef84f5bf3edc7729953d64f1b8a43580a5fffbeffb080ac68b802f79",
+    "local_review": { "status": "completed", "findings": [] },
+    "model_review": {
+      "status": "completed",
+      "findings": [{
+        "code": "llm_flow_review_disconnected_notification",
+        "severity": "warning",
+        "message": "The notification step does not consume the prior summary."
+      }]
+    }
+  }
+}

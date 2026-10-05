@@ -1,0 +1,33 @@
+{
+  "version": "openudon.broker-handoff-fixtures.v1",
+  "files": {
+    "authority-valid.json": {
+      "valid": true,
+      "sha256": "8a0ccfc0a90cfc4bb07ea665a8d0746750668701c79b2c58a7d2824c89a2cdd0"
+    },
+    "authority-stale-input.json": {
+      "valid": false,
+      "sha256": "9a40303934378982f82ed6eb6d6c9dd2b6d012f6b7d8371d3fb24937abb24723"
+    },
+    "authority-stale-credential.json": {
+      "valid": false,
+      "sha256": "73cf0ad8511855951a4c9868e5ebfba2055997c1f21f46273e119c9a69c33646"
+    },
+    "authority-duplicate-operation.json": {
+      "valid": false,
+      "sha256": "c2493ede4b7645a2ca62a48a115315a3b8a38a3fe44e71eead79082684486354"
+    },
+    "authority-downgrade.json": {
+      "valid": false,
+      "sha256": "e432a7dc7ec9eab6286eaa0d95564489ea8b5925da63cb49c9ca1e686017e961"
+    },
+    "authority-no-occurrence.json": {
+      "valid": false,
+      "sha256": "0db7b50c4a8cc353cc4397b7e549cf04bdde18a266d079c757dbee54cc8f3c83"
+    },
+    "authority-secret-field.json": {
+      "valid": false,
+      "sha256": "b473972c97ca58471f8f3588e1971628097befd817da6c907109a800a448a74f"
+    }
+  }
+}

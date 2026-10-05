@@ -1,0 +1,2444 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/step-authoring-contract-v1/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>OpenUdon step-authoring command contract v1 - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#openudon-step-authoring-command-contract-v1" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              OpenUdon step-authoring command contract v1
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../compatibility/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compatibility
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring-retirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Current CLI Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registration-draft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pure Registration Definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-capture-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public Browser Capture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-package-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Native Browser Package Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.md Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical iCoT UI Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authenticated-browser-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authenticated Browser Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-profile-transactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Profile Transactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-corpus-and-provider-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Corpus And Provider Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-session-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Session Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-transcript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Transcripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../enterprise-authoring-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Authoring And Execution Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-seed-build-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Seed/Build Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product-smoke-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Smoke Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-integration-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Integration Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-scenario-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scenario Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#invocation-and-transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invocation and transport
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-step-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared step contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command behavior
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-source-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        step source add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        step candidates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        step check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-bind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        step bind
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flow-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        flow-review
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#revisions-and-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Revisions and compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conformance-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conformance corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="openudon-step-authoring-command-contract-v1">OpenUdon step-authoring command contract v1</h1>
+<p><strong>M87 release contract, extended additively by M89.</strong> This document and its
+fixtures define the versioned OpenUdon CLI surface for step authoring and
+explicit local API-source provisioning. UWS owns pending-step semantics; the
+recorded local C07.2 mapping check does not publish or modify UWS.</p>
+<p>This additive CLI contract is owned by OpenUdon. It gives Kinet a stable,
+versioned subprocess boundary for <code>step source add</code>, <code>step candidates</code>,
+<code>step bind</code>, <code>step check</code>, and <code>flow-review</code>. It does not add UWS execution behavior. Kinet remains the
+workflow planner and owns user confirmation, its ledger, receipts, and repair
+orchestration. UWS owns workflow semantics; APItools owns generic operation
+summaries, effect evidence, and ranking.</p>
+<h2 id="invocation-and-transport">Invocation and transport</h2>
+<pre><code class="language-text">openudon step candidates --example DIR --request FILE|-
+openudon step bind       --example DIR --request FILE|-
+openudon step check      --example DIR --request FILE|-
+openudon step source add --example DIR --request FILE|-
+openudon flow-review     --example DIR --request FILE|-
+</code></pre>
+<p><code>--request -</code> reads one request from standard input. The request is strict
+UTF-8 JSON, at most 256 KiB, and rejects unknown fields and trailing JSON
+values. Commands never prompt. Each valid invocation writes exactly one JSON
+result followed by a newline to stdout; progress, diagnostics, and errors do
+not add text to stdout. Once a command route is known, malformed JSON,
+unsupported versions, and schema-invalid requests still produce a v1 <code>failed</code>
+result with a stable diagnostic and the command's normal nonzero exit code.
+Invalid CLI usage before a command route is known writes usage to stderr and no
+JSON result. Result messages omit absolute filesystem paths and do not echo
+request text. Diagnostics use stable codes and bounded, sanitized messages.
+<code>--help</code> remains ordinary command help.</p>
+<p>Every request and result has <code>version: "openudon.step-authoring.v1"</code>, a
+<code>kind</code> (<code>request</code> or <code>result</code>), and the exact <code>command</code> name. The published
+schema validates both directions. A result has <code>status</code>, <code>diagnostics</code>, and a
+command-specific <code>result</code> only when one is available. Status describes command
+completion, not whether a checked step is compatible:</p>
+<table>
+<thead>
+<tr>
+<th>Result status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>completed</code></td>
+<td>The requested operation ran; inspect its result assessment and diagnostics.</td>
+</tr>
+<tr>
+<td><code>needs_input</code></td>
+<td>A human decision or missing declaration is required. No write occurred.</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>Required source/evidence/capability is unavailable. No write occurred.</td>
+</tr>
+<tr>
+<td><code>conflict</code></td>
+<td>An expected intent or source revision is stale. No write occurred.</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>The command could not produce a trustworthy result.</td>
+</tr>
+</tbody>
+</table>
+<p>Exit codes are stable: <code>0</code> completed; <code>1</code> operational or explicitly requested
+model-review failure; <code>2</code> invalid CLI usage, JSON, schema, or version; <code>3</code>
+stale revision or write conflict; <code>4</code> needs-input or blocked. A completed
+<code>step check</code> may report an incompatible or indeterminate assessment and still
+exit <code>0</code>; consumers use the structured assessment rather than interpreting
+exit success as approval.</p>
+<p>The diagnostic code and severity are machine-readable. Diagnostic prose is
+advisory, bounded, and safe to display. It must not contain credential values,
+raw source text, prompt text, or absolute local paths. Input, output, and
+fixture budgets are part of the schema; implementations may impose lower
+operational limits only when they report a stable blocking diagnostic.</p>
+<p>Diagnostic codes are stable identifiers, not prose-derived keys. The initial
+registry is:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request.cancelled</code></td>
+<td>A source operation, candidate discovery, step check, or step bind was cancelled before completion.</td>
+</tr>
+<tr>
+<td><code>request.invalid_json</code></td>
+<td>Request bytes are not one strict UTF-8 JSON value.</td>
+</tr>
+<tr>
+<td><code>request.unsupported_version</code></td>
+<td>Request version is not supported by this binary.</td>
+</tr>
+<tr>
+<td><code>request.invalid</code></td>
+<td>Request schema or command-specific invariants are invalid.</td>
+</tr>
+<tr>
+<td><code>example.invalid</code></td>
+<td>The selected example is missing or cannot be safely read.</td>
+</tr>
+<tr>
+<td><code>intent.invalid</code></td>
+<td>Existing workflow intent is malformed or cannot be checked.</td>
+</tr>
+<tr>
+<td><code>intent.stale</code></td>
+<td>Expected intent digest does not match the current bytes.</td>
+</tr>
+<tr>
+<td><code>source.unavailable</code></td>
+<td>A requested source cannot be read or verified.</td>
+</tr>
+<tr>
+<td><code>source.unsupported</code></td>
+<td>A requested source family or metadata dimension is unavailable.</td>
+</tr>
+<tr>
+<td><code>source.digest_mismatch</code></td>
+<td>The current source bytes differ from the requested digest.</td>
+</tr>
+<tr>
+<td><code>source.invalid</code></td>
+<td>A source identity, family, or supported file type is invalid.</td>
+</tr>
+<tr>
+<td><code>source.format_unsupported</code></td>
+<td>A source file uses an unsupported extension or text encoding.</td>
+</tr>
+<tr>
+<td><code>source.duplicate</code></td>
+<td>The same local source file or source identity was supplied more than once.</td>
+</tr>
+<tr>
+<td><code>source.byte_limit</code></td>
+<td>The selected local source set exceeds its byte bound.</td>
+</tr>
+<tr>
+<td><code>manifest.stale</code></td>
+<td>The package source manifest does not match the approved revision.</td>
+</tr>
+<tr>
+<td><code>manifest.invalid</code></td>
+<td>The package source manifest is malformed, unsafe, or inconsistent with its source files.</td>
+</tr>
+<tr>
+<td><code>manifest.unsupported</code></td>
+<td>The package source manifest version is not supported.</td>
+</tr>
+<tr>
+<td><code>source.id_exists</code></td>
+<td>The requested source identity is already present in the package.</td>
+</tr>
+<tr>
+<td><code>source.path_exists</code></td>
+<td>The derived package source path is already present.</td>
+</tr>
+<tr>
+<td><code>source.validation_failed</code></td>
+<td>APItools could not validate all selected local sources within the command bounds.</td>
+</tr>
+<tr>
+<td><code>package.write_failed</code></td>
+<td>The atomic source write failed and the transaction rollback completed.</td>
+</tr>
+<tr>
+<td><code>operation.not_found</code></td>
+<td>Exact source operation identity does not resolve.</td>
+</tr>
+<tr>
+<td><code>operation.ambiguous</code></td>
+<td>Operation identity does not select exactly one candidate.</td>
+</tr>
+<tr>
+<td><code>contract.root_extension_unsupported</code></td>
+<td>A root-level contract extension prevents binding; the diagnostic names the extension key without echoing its value.</td>
+</tr>
+<tr>
+<td><code>mapping.incomplete</code></td>
+<td>Required request/output or dependency mappings are missing.</td>
+</tr>
+<tr>
+<td><code>mapping.workflow_inputs</code></td>
+<td>A selected step mapping references an input not declared by the workflow.</td>
+</tr>
+<tr>
+<td><code>mapping.contract_mismatch</code></td>
+<td>Source input/output types conflict with the declared step contract.</td>
+</tr>
+<tr>
+<td><code>dependency.cycle</code></td>
+<td>The selected step references its own output or participates in a dependency cycle.</td>
+</tr>
+<tr>
+<td><code>authentication.unknown</code></td>
+<td>Authentication evidence is unavailable or incomplete.</td>
+</tr>
+<tr>
+<td><code>effect.unknown</code></td>
+<td>Effect evidence is insufficient or conflicting.</td>
+</tr>
+<tr>
+<td><code>effect.conflict</code></td>
+<td>The source-backed operation effect conflicts with the step contract.</td>
+</tr>
+<tr>
+<td><code>write.conflict</code></td>
+<td>An optimistic or concurrent write check failed before replacement.</td>
+</tr>
+<tr>
+<td><code>write.indeterminate</code></td>
+<td>The filesystem outcome cannot be reported as definitively committed or rejected.</td>
+</tr>
+<tr>
+<td><code>review.model_unavailable</code></td>
+<td>Requested model review could not be started.</td>
+</tr>
+<tr>
+<td><code>review.model_failed</code></td>
+<td>Requested model review failed or was cancelled.</td>
+</tr>
+<tr>
+<td><code>review.cancelled</code></td>
+<td>Local or model-assisted flow review was cancelled before completion.</td>
+</tr>
+</tbody>
+</table>
+<p>New codes may be added within v1. Consumers branch on status and command, not
+on diagnostic prose, and must tolerate unknown codes.</p>
+<h2 id="shared-step-contract">Shared step contract</h2>
+<p>A command contract carries an identifier and the shared UWS declaration fields:
+<code>purpose</code>, <code>inputs</code>, <code>outputs</code>, and <code>effect</code>. Each of <code>inputs</code> and
+<code>outputs</code> is one recursive UWS <code>ParamSchema</code> object whose root type is
+<code>object</code>; named values are its <code>properties</code>, and its <code>required</code> list names
+the required values. A declared property absent from <code>required</code> is optional.
+Nested properties, array items, and schema-composition members retain the UWS
+shape. These four fields are the same declaration shape used by UWS C07.2's
+pending-step contract. Input/output entries are declarations, not runtime
+values, request mappings, or output expressions. OpenUdon adds
+<code>account_constraints</code> and <code>destination_constraints</code>; these are
+operator-reviewed symbolic constraints, not account selection or execution
+authorization. The schemas are declarations, not runtime values; UWS
+<code>x-*</code> extensions must not be used to carry examples, defaults, or credential
+material.</p>
+<p>The fixture <code>uws-c07-2-pending-fields-draft.json</code> checks the shared fields
+against the public UWS <code>ParamSchema</code> type in OpenUdon's pinned UWS module
+<code>v0.0.0-20260925154821-80ee9bfb24a6</code>. It verifies recursive JSON round-trip
+preservation for standalone consumers. The tagged workspace test
+<code>go test -tags uws_pending_step_c07_2 ./internal/stepauthoringcontract</code>
+decodes the same fixture using <code>uws1.PendingStep</code> at local UWS revision
+<code>7f843af78e508fee140b3b43f28a6b73b37a66a8</code> and compares all four shared
+fields losslessly. The owner selected one
+<code>ParamSchema</code> object per field set on 2026-09-27, matching the cross-package
+design sync recorded as Kinet ordering X2. OpenUdon's standalone module pin
+intentionally remains unchanged; no UWS publication is part of this release.</p>
+<p>The allowed effect values are <code>read</code>, <code>write</code>, and <code>unknown</code>. The contract's
+effect is the operator's expected effect class. Candidate metadata reports an
+independently evidenced operation effect. Unknown evidence is conservative;
+an HTTP method alone never proves <code>read</code>, and unknown does not satisfy a
+read-only constraint. A match or rank is advisory and does not grant authority.</p>
+<p>The <code>operation_ref</code> binds one OpenUdon source ID, source kind, source content
+digest, source-native selector, and APItools operation key; the protocol's
+operation ID is included when the source has one. For OpenAPI, the native
+selector is the source JSON pointer (for example
+<code>#/paths/~1projects/get</code>); other source kinds retain their native selector.
+The source ID is a
+workspace-local symbolic identity; filesystem paths and source URLs never
+appear in the OpenUdon result. The APItools source SHA-256 is emitted with the
+<code>sha256:</code> prefix used by this contract. Authentication alternatives preserve
+OR-of-AND semantics: requirements inside an alternative are conjunctive, and
+alternatives are disjunctive. An explicit empty alternative means anonymous
+access is allowed; missing or unsupported authentication evidence is reported
+as unknown, not anonymous.</p>
+<h2 id="command-behavior">Command behavior</h2>
+<h3 id="step-source-add"><code>step source add</code></h3>
+<p>Kinet calls this command only after the user confirms the exact rendered
+proposal. The request carries the proposal-approved SHA-256 for each selected
+local file and the current source-manifest revision. OpenUdon verifies those
+revisions, validates every document through APItools' local source inventory,
+then installs the source documents and updated provenance manifest in one
+create-only/optimistic atomic package transaction. The command performs no
+network discovery, URL fetch, workflow execution, or write outside <code>--example</code>.</p>
+<p>The strict request shape is:</p>
+<pre><code class="language-json">{
+  &quot;version&quot;: &quot;openudon.step-authoring.v1&quot;,
+  &quot;kind&quot;: &quot;request&quot;,
+  &quot;command&quot;: &quot;step.source.add&quot;,
+  &quot;manifest_revision&quot;: {&quot;state&quot;: &quot;missing&quot;},
+  &quot;sources&quot;: [{
+    &quot;source_kind&quot;: &quot;openapi&quot;,
+    &quot;source_id&quot;: &quot;weather&quot;,
+    &quot;source_path&quot;: &quot;/home/user/Downloads/weather.yaml&quot;,
+    &quot;source_sha256&quot;: &quot;sha256:&lt;64 lowercase hex digits&gt;&quot;
+  }]
+}
+</code></pre>
+<p>For an existing manifest, use <code>{"state":"present","sha256":"sha256:..."}</code>
+with its exact digest. Each source path must be absolute, local, regular, and
+free of symlink components; the command bounds each source to 8 MiB, the batch
+to 32 MiB and 16 entries, and APItools inspection to 1,000 operations. Allowed
+extensions are OpenAPI/AsyncAPI <code>.json</code>, <code>.yaml</code>, or <code>.yml</code> (stored as <code>.yaml</code>),
+Google Discovery/AWS Smithy/OpenRPC <code>.json</code>, GraphQL <code>.graphql</code> or <code>.gql</code>,
+gRPC/protobuf <code>.proto</code>, and OData <code>.xml</code> or <code>.json</code>.</p>
+<p>Output paths are derived as <code>&lt;source_kind&gt;/&lt;source_id&gt;.&lt;extension&gt;</code>; callers
+cannot choose package paths. Existing source files are never overwritten. The
+deterministic <code>expected/api-source-manifest.json</code> records its version and each
+imported source's ID, kind, package-relative path, and exact content digest.
+Package handoff inventory includes that manifest whenever it exists. Results
+contain package-relative paths and digests, but never echo the selected local
+source path or content. In each result, <code>source_id</code> is the caller-selected ID
+used in the manifest and package filename; <code>candidate_source_id</code> is the
+path-derived identity used by <code>step candidates</code> and its <code>operation_ref</code>. Use
+<code>candidate_source_id</code> when filtering later candidate discovery; operation
+references in candidate results remain authoritative. Failed validation,
+stale digests, or a changed manifest write no source file.</p>
+<h3 id="step-candidates"><code>step candidates</code></h3>
+<p>The request supplies one shared step contract and optional exact source filters
+and a bounded candidate limit. OpenUdon passes the shared purpose/input/output/
+effect declaration to APItools' <code>apitools.operation-candidates/v1</code> contract,
+mapping each root schema's named properties and required list to APItools'
+named input/output values. Types, formats, nested properties, items, and
+requiredness are preserved. ParamSchema references or composition constructs
+or extensions that APItools cannot represent are reported as
+indeterminate/unsupported evidence; they are never silently discarded or
+fetched. Root-level <code>x-*</code> extensions remain unsupported; the
+<code>contract.root_extension_unsupported</code> diagnostic identifies the key and never
+returns its value. Each candidate returns exact source identity, a
+structured consumer summary (description, inputs, outputs, evidence, and gaps),
+separate purpose/input/output/effect match evidence and scores, OR-of-AND
+authentication alternatives, and the effect class with its source evidence
+and reasons. <code>rank</code> is the 1-based position in APItools' deterministic result
+order; it is advisory, not an independent score or authority. The result also
+retains path-free source capability reports so partial or unsupported source
+families are visible. No candidate is still a valid completed result with an
+empty list and a diagnostic. A requested source or metadata dimension that
+cannot be represented is reported explicitly rather than dropped or invented.</p>
+<p>Candidate discovery is local and offline: it scans only the recognized
+source-family directories under <code>--example</code> (<code>openapi</code>, <code>google-discovery</code>,
+the legacy Google Discovery alias <code>discovery</code>, <code>aws-smithy</code>, <code>asyncapi</code>,
+<code>graphql</code>, <code>openrpc</code>, <code>grpc-protobuf</code>, and <code>odata</code>). Both Google Discovery
+directories produce the <code>google-discovery</code> source kind. It does not follow
+symlinks, accept special files, fetch URLs, or search outside the selected
+example. Conventional directory names classify candidate families but APItools
+still validates document contents. Supported package security sidecars are
+excluded from candidate discovery and source resolution. Without <code>source_filters</code>,
+discovery accepts at most 32 files and 4096 visited entries; each file is
+bounded to 8 MiB and combined source bytes to 32 MiB. APItools is bounded to
+100 candidates and 1000 operations. Reaching a bound or finding an unsafe or
+ambiguous source blocks the result rather than returning a partial rank as
+complete. An exact source filter binds the path-derived source ID to the
+requested SHA-256 digest; stale bytes return <code>conflict</code>.</p>
+<p>The runnable request/result pair under <code>examples/step-authoring/v1/</code> exercises
+the candidate command. A credential-free end-to-end CLI test also selects a
+local operation, binds and checks it, runs deterministic flow review, and then
+passes the existing build and assessment gates using only a symbolic
+credential binding. The <code>requests/step-check-nested-mapping.json</code> fixture and
+<code>example-nested-mapping/</code> package demonstrate an API query parameter mapped
+to a nested contract input and a renamed contract output mapped to a nested
+response path; its checked result is published alongside the request.</p>
+<h3 id="step-check"><code>step check</code></h3>
+<p>This read-only request names one contract, exact step ID, expected intent
+digest, and the exact <code>operation_ref</code> selected from <code>step candidates</code>. The
+result echoes that reference and checks its source identity/digest and native
+selector against the step and current local source, then checks required
+request/output mappings, input/output types and requiredness against the step
+contract, an available authentication alternative, declared dependencies, and
+effect against the contract. Unsupported schema constructs or incomplete
+source metadata remain indeterminate; known type/requiredness conflicts fail.
+Request mapping keys must select the location declared by the source (<code>body</code>, <code>query</code>,
+<code>path</code>, <code>header</code>, or <code>cookie</code>). An unqualified name shared by multiple
+locations is ambiguous. For direct <code>inputs.&lt;name&gt;</code> mappings, the declared
+workflow input's type and requiredness must satisfy both the step contract
+and selected source field. The contract field may be nested, for example
+<code>query.q: inputs.address.city</code>; OpenUdon checks the exact source field's type,
+format, and requiredness against that nested contract field and checks the
+workflow input's declared root type. A mapping to an array value is supported
+as a whole; element-level mappings through array items remain indeterminate.</p>
+<p>The optional <code>output_mappings</code> request object maps dotted contract output paths
+to exact <code>received_body</code> paths, such as
+<code>{"project_rows":"received_body.data.projects"}</code>. This permits nested and
+renamed response fields. If omitted, v1 retains the previous same-name mapping
+behavior. OpenUdon checks mapped field types, formats, requiredness, and
+nullability against the contract. A selected nullable response field remains
+indeterminate because UWS <code>ParamSchema</code> does not express nullability. Result
+check items may include a JSON Pointer identifying the contract field that
+failed or remains unproven.</p>
+<p>Output mappings are request evidence and are not written into
+<code>workflows/intent.hcl</code>; Kinet keeps them with the confirmed workflow step and
+supplies them again for later <code>step check</code> calls. The intent continues to use
+the actual <code>received_body</code> paths. <code>step bind</code> requires supported source
+metadata and fully proven compatible mappings before writing. Unknown effects,
+partial source-family mapping capabilities, and unproven expressions remain
+fail-closed.
+Inline credential references use <code>credentials.&lt;symbol&gt;</code> with a lowercase
+symbol of letters, digits, <code>_</code>, or <code>-</code>; <code>none</code> and <code>clear</code> are reserved and
+cannot name credentials. Bind rejects malformed inline references, and check
+reports them as incompatible in existing intent files.</p>
+<p>A selected step that consumes its own output or participates in a cycle through
+its transitive prerequisites fails the dependency check.
+A source or intent digest mismatch is a <code>conflict</code>, not a fresh successful check. Its assessment is
+<code>compatible</code>, <code>incompatible</code>, or <code>indeterminate</code>; deterministic checks and
+unresolved semantic questions are separate. A structural match does not prove
+that a natural-language outcome has been met.</p>
+<p>Effect verification reuses APItools' local operation-candidate metadata for
+the exact source selector and digest. Matching source-backed <code>read</code>/<code>write</code>
+classification passes; a known conflicting class fails; missing or unknown
+classification remains indeterminate. The check never infers effect from an
+HTTP method.</p>
+<p><code>contract.id</code> and <code>step_id</code> are separate symbolic identities and need not be
+equal: one contract may be checked against a specifically named intent step.</p>
+<p>The implementation reads only <code>workflows/intent.hcl</code> and the selected local
+source beneath <code>--example</code>. The final file and every intermediate component
+must be regular/non-symlink paths contained in that example. The
+path-independent <code>operation_ref.source_id</code> is <code>src-</code> plus the first 24
+lowercase hexadecimal characters of SHA-256 over the cleaned, slash-normalized,
+example-relative source path. This keeps source IDs stable within the example
+without disclosing filenames; <code>step candidates</code> uses the same mapping.
+OpenAPI operation selectors are JSON pointers such as
+<code>#/paths/~1projects/get</code>; non-OpenAPI adapters retain their source-native
+selector. Inventory compaction/truncation blocks a definitive operation check.
+Candidates expose APItools' source-backed effect class, evidence, and reason.
+An unknown effect remains indeterminate in <code>step check</code>; an HTTP method alone
+never proves a read effect.</p>
+<p>The runnable synthetic example under <code>examples/step-authoring/v1/example/</code>
+can be checked with:</p>
+<pre><code class="language-sh">openudon step check --example docs/examples/step-authoring/v1/example \
+  --request docs/examples/step-authoring/v1/requests/step-check-runnable.json
+</code></pre>
+<p>It completes with a compatible structural/effect assessment while retaining
+the unresolved natural-language purpose question. The assessment does not
+prove that the workflow outcome is fulfilled. <code>results/step-check-runnable.json</code>
+is the expected value-free result fixture; digest conflicts and structural
+incompatibility have separate result fixtures.</p>
+<h3 id="step-bind"><code>step bind</code></h3>
+<p>The request names one step, contract, exact operation reference, explicit
+request/output mappings, authentication alternative and symbolic bindings, and
+the expected intent revision. Existing intent is updated atomically only when
+that digest matches. A stale request writes nothing. If intent is absent, the
+request must include an explicit workflow scaffold with workflow metadata and
+top-level input/output declarations; the command never invents workflow-wide
+policy. The source ID and digest must resolve to exactly one regular source file
+under the matching source-family directory, including the legacy Google
+Discovery alias; supported security sidecars and symlinks are excluded. The command
+rechecks that digest and exact native operation selector/key before writing.
+Required request fields, contract outputs, the selected OR-of-AND authentication
+alternative, credential symbols, declared input references, and dependencies
+must be validated before mutation; self-output references and prerequisite
+cycles are rejected. The selected source operation's complete
+input/output match must also be compatible with the declared contract; known
+type/requiredness conflicts and unsupported schema dimensions return
+<code>needs_input</code> without a write. Credential symbols lower to existing
+<code>credentials.&lt;symbol&gt;</code> request mappings; reserved <code>none</code>/<code>clear</code> sentinels and
+credential-looking values are rejected. Output mappings must resolve within the
+selected response summary; OpenUdon's native step result remains
+<code>received_body</code>, so these mappings do not add an unsupported HCL extension.
+The selected operation must also have source-backed effect evidence compatible
+with the declared <code>read</code> or <code>write</code> contract. Missing or unknown effect evidence,
+an <code>unknown</code> contract effect, and a known effect conflict return <code>needs_input</code>
+without writing. Authentication must have a complete source alternative;
+missing/partial evidence returns <code>needs_input</code>. An explicitly empty alternative
+is known anonymous access and remains distinct from absent security evidence.</p>
+<p>The transaction replaces the selected step in place, or adds one top-level step
+when no target exists, while retaining unrelated HCL blocks and comments. A
+composite target that cannot safely be reduced to one API operation is rejected.
+The shared transactional artifact writer enforces the expected intent digest
+again at commit. Success reports the resulting intent digest and <code>written</code> or
+<code>unchanged</code>; a failure after the filesystem commit point is represented as an
+indeterminate write outcome, not as an ordinary rejection that invites blind
+retry. Rejected validation and stale-revision requests preserve the original
+bytes.</p>
+<p><code>step bind</code> writes only <code>workflows/intent.hcl</code>. It does not select credentials,
+approve a package, call an API operation, or perform an external side effect.
+Kinet must obtain its user's confirmation before asking OpenUdon to bind a
+confirmed step.</p>
+<h3 id="flow-review"><code>flow-review</code></h3>
+<p>This command exposes the existing advisory review over one assembled flow and
+does not modify files. Deterministic local review always runs. Model review is
+optional and requires explicit provider and model names in the request; its
+credential comes only from the configured process environment and is never
+included in the request or result. The result distinguishes <code>completed</code>,
+<code>skipped</code>, <code>unavailable</code>, and <code>failed</code> model review from local findings.
+Supported providers are <code>openai</code>, <code>anthropic</code>, <code>gemini</code>, and <code>copilot-api</code>;
+model names use a bounded provider-safe identifier. An unavailable model
+configuration leaves a completed local result with an explicit
+<code>model_review.status: unavailable</code>; a failed or cancelled model call is never
+reported as a passed model review. Unsafe credential-shaped review context is
+not sent to a provider. Findings contain only advisory codes, warning severity,
+safe messages, and validated step IDs; model evidence, repair suggestions,
+provider errors, source paths, and prompt payloads are not returned.</p>
+<p>Review findings are advisory and cannot replace build, assessment, approval,
+or digest-bound package gates. For example, request and result fixtures can be
+run against the synthetic example with:</p>
+<pre><code class="language-sh">openudon flow-review --example docs/examples/step-authoring/v1/example \
+  --request docs/examples/step-authoring/v1/requests/flow-review.json
+</code></pre>
+<p><code>model_review.enabled: false</code> runs deterministic review only. Enabling model
+review sends the bounded intent-derived draft to the explicitly named provider;
+the provider credential is read from its normal environment variable.</p>
+<h2 id="revisions-and-compatibility">Revisions and compatibility</h2>
+<p>Requests that read an existing intent carry its expected SHA-256 digest.
+Candidates, check, and bind carry the same exact operation reference,
+including the source digest. A source or intent change between candidate
+selection, check, and bind returns <code>conflict</code>; the consumer must fetch current
+evidence and make a new decision. Digests use
+<code>sha256:</code> followed by 64 lowercase hexadecimal characters. Paths are never
+used as the sole operation identity.</p>
+<p>Unknown fields and unsupported versions are rejected. Additive compatible
+changes require a new minor-compatible contract document and fixtures without
+changing v1 interpretation. Changes to status names, digest meaning, command
+identity, source identity, shared UWS fields, write guarantees, or effect/auth
+semantics require a new major wire version. Consumers select behavior by
+<code>version</code>, <code>command</code>, <code>kind</code>, and status; they do not infer success from
+diagnostic text.</p>
+<h2 id="conformance-corpus">Conformance corpus</h2>
+<p>The adjacent <code>examples/step-authoring/v1/</code> corpus is the public consumer
+fixture set. Every valid request/result must pass
+<code>schemas/openudon.step-authoring.v1.schema.json</code>; malformed, unsupported
+version, unknown-field, and impossible status/result combinations must fail.
+The corpus uses synthetic identifiers and no credentials, customer data,
+provider calls, or environment-specific paths. Kinet validates these fixtures
+without importing OpenUdon Go packages.</p>
+<p>M87.1 recorded the APItools and UWS revisions inspected after reconciling their
+contract rows, plus the Kinet W03 consumer requirements. APItools M77 is now
+published and M87 consumes the exact pseudo-version pinned by OpenUdon. The
+UWS field-shape agreement is complete; the tagged mapping check uses the
+recorded local UWS declaration without publishing that sibling package.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

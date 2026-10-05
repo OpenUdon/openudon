@@ -1,0 +1,17 @@
+{
+  "run_id": "fixture-attempt-1",
+  "workflow_id": "fixture",
+  "workflow_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "steps": [
+    {
+      "step_id": "read",
+      "operation_id": "get",
+      "invocation_id": "read"
+    },
+    {
+      "step_id": "write",
+      "operation_id": "post",
+      "invocation_id": "write"
+    }
+  ]
+}

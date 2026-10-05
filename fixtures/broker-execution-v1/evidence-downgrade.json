@@ -1,0 +1,157 @@
+{
+  "step_execution": {
+    "report_version": "udon.execution-report.v5",
+    "run_id": "0123456789abcdef0123456789abcdef",
+    "workflow_id": "fixture",
+    "workflow_digest": "sha256:a21eff0f354b1b7f567633996767b12892167a1ccacc95cc204a754394b0002b",
+    "state": "missing",
+    "inventory_complete": false,
+    "steps": [
+      {
+        "step_id": "read",
+        "operation_id": "get",
+        "invocation_id": "read",
+        "outcome": "unknown"
+      },
+      {
+        "step_id": "write",
+        "operation_id": "post",
+        "invocation_id": "write",
+        "outcome": "unknown"
+      }
+    ]
+  },
+  "version": "openudon.run-evidence.v3",
+  "run_id": "0123456789abcdef0123456789abcdef",
+  "created_at": "2026-04-29T12:00:00Z",
+  "scope": "examples/support-email",
+  "tier": "sandbox",
+  "dry_run": false,
+  "approval_state": "approved_for_sandbox",
+  "package_sha256": "964910aa91c2c4b554eaa22d855b56a86e3f4c75bf6ed231f86ba4b0bed3e299",
+  "handoff_sha256": "0a54781e1a73ba7f4e41d0fd4ed1486dda7a37e4df45dbd7de94afe139e31628",
+  "approval_sha256": "d7c431a0b422795d21d73d6d2d98a2ba3ca8b348b3dbdf7f0647d1691506b854",
+  "run_config_sha256": "4f973f501989c86dde55fc7df842a2f267f8f9a853e88724a9e9cfc7b4d9d784",
+  "run_config_path": "/fixture/run-0123456789abcdef0123456789abcdef/run-config.json",
+  "package_root": "/fixture/examples/support-email",
+  "workdir": "/fixture/run-0123456789abcdef0123456789abcdef",
+  "stage_kind": "executor",
+  "stage_path": "/fixture/run-0123456789abcdef0123456789abcdef/stage",
+  "workflow_path": "/fixture/run-0123456789abcdef0123456789abcdef/stage/workflows/workflow.uws.yaml",
+  "package_paths": [
+    "expected/plan.json",
+    "expected/quality.json",
+    "expected/refinement.json",
+    "expected/review-handoff.json",
+    "expected/review.md",
+    "openapi/service.yaml",
+    "project.md",
+    "workflows/intent.hcl",
+    "workflows/workflow.hcl",
+    "workflows/workflow.uws.yaml"
+  ],
+  "api_source_paths": [
+    "openapi/service.yaml"
+  ],
+  "credential_bindings": [
+    "token"
+  ],
+  "gates": [
+    {
+      "name": "handoff_package",
+      "status": "pass"
+    },
+    {
+      "name": "manifest_policy",
+      "status": "pass"
+    },
+    {
+      "name": "stored_quality",
+      "status": "pass"
+    },
+    {
+      "name": "current_quality",
+      "status": "pass"
+    },
+    {
+      "name": "approval",
+      "status": "pass"
+    },
+    {
+      "name": "run_config",
+      "status": "pass"
+    },
+    {
+      "name": "staged_digest",
+      "status": "pass"
+    },
+    {
+      "name": "executor_invocation",
+      "status": "fail"
+    }
+  ],
+  "executor": {
+    "invoked": true,
+    "mode": "internal-runner"
+  },
+  "async_evidence_files": [
+    {
+      "path": "async-evidence.json",
+      "digest": "sha256:6ddff76609668db32f6a7d71242b2c537af548b84f046d03d08c665e52ebed30",
+      "records": 2,
+      "purpose": "openudon_run_async_execution_forwarding"
+    }
+  ],
+  "broker": {
+    "version": "openudon.broker-authority.v1",
+    "run_id": "0123456789abcdef0123456789abcdef",
+    "owner_id": "owner",
+    "agent_id": "agent",
+    "grant_id": "one-off",
+    "grant_revision_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "occurrence_id": "occurrence",
+    "package_sha256": "964910aa91c2c4b554eaa22d855b56a86e3f4c75bf6ed231f86ba4b0bed3e299",
+    "handoff_sha256": "0a54781e1a73ba7f4e41d0fd4ed1486dda7a37e4df45dbd7de94afe139e31628",
+    "inputs_sha256": "a21eff0f354b1b7f567633996767b12892167a1ccacc95cc204a754394b0002b",
+    "executor_sha256": "306c6ca7407560340797866e077e053627ad409277d1b9da58106fce4cf717cb",
+    "policy_sha256": "b50e0ff18fa86b716131f11a18e48c1ab8093b06cede078460082f19cfd4c658",
+    "approved_at": "2026-04-29T12:00:00Z",
+    "expires_at": "2026-04-29T13:00:00Z",
+    "operations": [
+      {
+        "step_id": "read",
+        "operation_id": "get",
+        "invocation_id": "read",
+        "method": "GET",
+        "origin": "https://service.test",
+        "constraints_sha256": "da3be54cbbc36336f4af13538bcca94de6dd6482060734afae866f63399af661",
+        "bindings": [
+          {
+            "name": "token",
+            "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "kind": "bearer",
+            "in": "header",
+            "parameter": "Authorization"
+          }
+        ]
+      },
+      {
+        "step_id": "write",
+        "operation_id": "post",
+        "invocation_id": "write",
+        "method": "POST",
+        "origin": "https://service.test",
+        "constraints_sha256": "7c1eeb260efeff43efb17da29c0526589b3d1a75e92b5fcbd31b9c606da86581",
+        "bindings": [
+          {
+            "name": "token",
+            "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "kind": "bearer",
+            "in": "header",
+            "parameter": "Authorization"
+          }
+        ]
+      }
+    ]
+  }
+}

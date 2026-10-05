@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.simulate-input.v1"
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "responses": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "example": {},
+          "schema": {
+            "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/paramSchema"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "example"
+            ]
+          },
+          {
+            "required": [
+              "schema"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.simulate-input.v1.schema.json",
+  "title": "openudon.simulate-input.v1"
+}

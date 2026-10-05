@@ -1,0 +1,614 @@
+{
+  "candidates": [
+    {
+      "candidate": {
+        "capabilities": [
+          {
+            "dimension": "inputs",
+            "evidence": [
+              {
+                "kind": "operation.inputs",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "outputs",
+            "evidence": [
+              {
+                "kind": "operation.outputs",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "auth",
+            "evidence": [
+              {
+                "kind": "openapi.security",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "effect",
+            "evidence": [
+              {
+                "kind": "operation.meaning",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "gaps": [
+              "Textual operation meaning does not prove runtime effects or authorization."
+            ],
+            "status": "partial"
+          }
+        ],
+        "effect": {
+          "class": "read",
+          "evidence": [
+            {
+              "kind": "operation.operation_id",
+              "reference": "#/paths/~1notes/get"
+            },
+            {
+              "kind": "operation.summary",
+              "reference": "#/paths/~1notes/get"
+            }
+          ],
+          "reasons": [
+            "Operation metadata contains the read-style action \"list\"; the HTTP method was not used as proof."
+          ]
+        },
+        "match": {
+          "effect": {
+            "evidence": [
+              {
+                "kind": "operation.operation_id",
+                "reference": "#/paths/~1notes/get"
+              },
+              {
+                "kind": "operation.summary",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "reasons": [
+              "Operation metadata contains the read-style action \"list\"; the HTTP method was not used as proof."
+            ],
+            "score": 20,
+            "status": "compatible"
+          },
+          "inputs": {
+            "evidence": [
+              {
+                "kind": "operation.inputs",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "reasons": [
+              "The source establishes that this operation declares no request inputs."
+            ],
+            "score": 30,
+            "status": "compatible"
+          },
+          "outputs": {
+            "evidence": [
+              {
+                "kind": "operation.outputs",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "reasons": [
+              "No expected output values were declared."
+            ],
+            "status": "compatible"
+          },
+          "purpose": {
+            "evidence": [
+              {
+                "kind": "operation.summary",
+                "reference": "#/paths/~1notes/get"
+              }
+            ],
+            "reasons": [
+              "3 of 3 step-purpose terms overlap documented operation wording; this is advisory lexical similarity."
+            ],
+            "score": 20,
+            "status": "compatible"
+          },
+          "score": 70
+        },
+        "operation": {
+          "document_name": "synthetic-notes-openapi",
+          "document_path": "openapi/notes.json",
+          "document_url": "https://notes.example.invalid/openapi.json",
+          "id": "listNotes",
+          "method": "GET",
+          "operation_id": "listNotes",
+          "path": "/notes",
+          "provenance": "openapi/notes.json#get /notes",
+          "response_body": {
+            "content_types": [
+              "application/json"
+            ],
+            "description": "Notes",
+            "fields": [
+              {
+                "path": "notes",
+                "type": "array"
+              },
+              {
+                "path": "notes[]",
+                "type": "string"
+              }
+            ],
+            "schema": {
+              "properties": [
+                {
+                  "name": "notes",
+                  "type": "array"
+                }
+              ],
+              "type": "object"
+            },
+            "status_code": "200"
+          },
+          "summary": "List notes records"
+        },
+        "source": {
+          "document_path": "openapi/notes.json",
+          "document_url": "https://notes.example.invalid/openapi.json",
+          "kind": "openapi",
+          "selector": "#/paths/~1notes/get",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1"
+        },
+        "summary": {
+          "description": "List notes records",
+          "evidence": [
+            {
+              "kind": "operation.summary",
+              "reference": "#/paths/~1notes/get"
+            }
+          ],
+          "gaps": [
+            "The source declares no request parameters or body."
+          ],
+          "outputs": [
+            {
+              "description": "Notes",
+              "evidence": [
+                {
+                  "kind": "response.body",
+                  "reference": "#/paths/~1notes/get/response"
+                }
+              ],
+              "location": "response",
+              "name": "body",
+              "type": "object"
+            },
+            {
+              "evidence": [
+                {
+                  "kind": "response.field",
+                  "reference": "#/paths/~1notes/get/response/fields/notes"
+                }
+              ],
+              "location": "response",
+              "name": "notes",
+              "required": false,
+              "type": "array"
+            },
+            {
+              "evidence": [
+                {
+                  "kind": "response.field",
+                  "reference": "#/paths/~1notes/get/response/fields/notes[]"
+                }
+              ],
+              "location": "response",
+              "name": "notes[]",
+              "required": false,
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "provider_constrained": false,
+      "qualified": true,
+      "references": [
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes",
+          "selector": "#/paths/~1notes/get",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        },
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes-alias",
+          "selector": "#/paths/~1notes/get",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        }
+      ],
+      "sources": [
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "authority": "official-provider",
+          "license_identifier": "unknown",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "provider_id": "example-notes",
+          "redistribution": "unknown",
+          "spec_ref_id": "synthetic-notes-openapi"
+        },
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "authority": "official-provider",
+          "license_identifier": "unknown",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "provider_id": "example-notes-alias",
+          "redistribution": "unknown",
+          "spec_ref_id": "synthetic-notes-openapi"
+        }
+      ]
+    },
+    {
+      "candidate": {
+        "capabilities": [
+          {
+            "dimension": "inputs",
+            "evidence": [
+              {
+                "kind": "operation.inputs",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "outputs",
+            "evidence": [
+              {
+                "kind": "operation.outputs",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "auth",
+            "evidence": [
+              {
+                "kind": "openapi.security",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "dimension": "effect",
+            "evidence": [
+              {
+                "kind": "operation.meaning",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "gaps": [
+              "Textual operation meaning does not prove runtime effects or authorization."
+            ],
+            "status": "partial"
+          }
+        ],
+        "effect": {
+          "class": "write",
+          "evidence": [
+            {
+              "kind": "operation.operation_id",
+              "reference": "#/paths/~1notes/post"
+            },
+            {
+              "kind": "operation.summary",
+              "reference": "#/paths/~1notes/post"
+            }
+          ],
+          "reasons": [
+            "Operation metadata contains the mutating action \"create\"; the HTTP method was not used as proof."
+          ]
+        },
+        "match": {
+          "effect": {
+            "conflicts": [
+              "Step requires effect \"read\" but the operation is classified as \"write\"."
+            ],
+            "evidence": [
+              {
+                "kind": "operation.operation_id",
+                "reference": "#/paths/~1notes/post"
+              },
+              {
+                "kind": "operation.summary",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "reasons": [
+              "The source-backed operation effect contradicts the requested effect."
+            ],
+            "status": "incompatible"
+          },
+          "inputs": {
+            "evidence": [
+              {
+                "kind": "operation.inputs",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "gaps": [
+              "The required request-body container has no explicit body value; flattened fields may only partially establish it."
+            ],
+            "missing": [
+              "Required operation input text is not declared by the step contract."
+            ],
+            "reasons": [
+              "0 of 2 source-declared input values have compatible type and requiredness evidence."
+            ],
+            "status": "incompatible"
+          },
+          "outputs": {
+            "evidence": [
+              {
+                "kind": "operation.outputs",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "reasons": [
+              "No expected output values were declared."
+            ],
+            "status": "compatible"
+          },
+          "purpose": {
+            "evidence": [
+              {
+                "kind": "operation.summary",
+                "reference": "#/paths/~1notes/post"
+              }
+            ],
+            "reasons": [
+              "2 of 3 step-purpose terms overlap documented operation wording; this is advisory lexical similarity."
+            ],
+            "score": 13,
+            "status": "compatible"
+          },
+          "score": 13
+        },
+        "operation": {
+          "document_name": "synthetic-notes-openapi",
+          "document_path": "openapi/notes.json",
+          "document_url": "https://notes.example.invalid/openapi.json",
+          "id": "createNote",
+          "method": "POST",
+          "operation_id": "createNote",
+          "path": "/notes",
+          "provenance": "openapi/notes.json#post /notes",
+          "request_body": {
+            "content_types": [
+              "application/json"
+            ],
+            "fields": [
+              {
+                "path": "text",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "required": true,
+            "required_field_paths": [
+              "text"
+            ],
+            "schema": {
+              "properties": [
+                {
+                  "name": "text",
+                  "required": true,
+                  "type": "string"
+                }
+              ],
+              "required": [
+                "text"
+              ],
+              "type": "object"
+            }
+          },
+          "response_body": {
+            "content_types": [
+              "application/json"
+            ],
+            "description": "Created note",
+            "fields": [
+              {
+                "path": "id",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "schema": {
+              "properties": [
+                {
+                  "name": "id",
+                  "required": true,
+                  "type": "string"
+                }
+              ],
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            },
+            "status_code": "201"
+          },
+          "summary": "Create notes records"
+        },
+        "source": {
+          "document_path": "openapi/notes.json",
+          "document_url": "https://notes.example.invalid/openapi.json",
+          "kind": "openapi",
+          "selector": "#/paths/~1notes/post",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1"
+        },
+        "summary": {
+          "description": "Create notes records",
+          "evidence": [
+            {
+              "kind": "operation.summary",
+              "reference": "#/paths/~1notes/post"
+            }
+          ],
+          "inputs": [
+            {
+              "evidence": [
+                {
+                  "kind": "request.body",
+                  "reference": "#/paths/~1notes/post/request"
+                }
+              ],
+              "location": "body",
+              "name": "body",
+              "required": true,
+              "type": "object"
+            },
+            {
+              "container_required": true,
+              "evidence": [
+                {
+                  "kind": "request.body_field",
+                  "reference": "#/paths/~1notes/post/request/fields/text"
+                }
+              ],
+              "location": "body",
+              "name": "text",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "outputs": [
+            {
+              "description": "Created note",
+              "evidence": [
+                {
+                  "kind": "response.body",
+                  "reference": "#/paths/~1notes/post/response"
+                }
+              ],
+              "location": "response",
+              "name": "body",
+              "type": "object"
+            },
+            {
+              "evidence": [
+                {
+                  "kind": "response.field",
+                  "reference": "#/paths/~1notes/post/response/fields/id"
+                }
+              ],
+              "location": "response",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "provider_constrained": false,
+      "qualification_gaps": [
+        "input compatibility is not established",
+        "requested effect compatibility is not established"
+      ],
+      "qualified": false,
+      "references": [
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes",
+          "selector": "#/paths/~1notes/post",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        },
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes-alias",
+          "selector": "#/paths/~1notes/post",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        }
+      ],
+      "sources": [
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "authority": "official-provider",
+          "license_identifier": "unknown",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "provider_id": "example-notes",
+          "redistribution": "unknown",
+          "spec_ref_id": "synthetic-notes-openapi"
+        },
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "authority": "official-provider",
+          "license_identifier": "unknown",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "provider_id": "example-notes-alias",
+          "redistribution": "unknown",
+          "spec_ref_id": "synthetic-notes-openapi"
+        }
+      ]
+    }
+  ],
+  "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+  "coverage": [
+    {
+      "artifact_id": "synthetic-notes-openapi",
+      "provider_id": "example-notes",
+      "spec_ref_id": "synthetic-notes-openapi",
+      "state": "indexed"
+    },
+    {
+      "artifact_id": "synthetic-notes-openapi",
+      "provider_id": "example-notes-alias",
+      "spec_ref_id": "synthetic-notes-openapi",
+      "state": "indexed"
+    }
+  ],
+  "examined_operations": 2,
+  "incomplete": false,
+  "limits": {
+    "max_context_bytes": 524288,
+    "max_operations": 50000,
+    "max_results": 20,
+    "timeout_millis": 30000
+  },
+  "outcome": "match",
+  "qualified_operations": 1,
+  "schema_version": "apitools.catalog-discovery/v1",
+  "scope": {
+    "complete": true,
+    "provider_constrained": false,
+    "provider_ids": [
+      "example-notes",
+      "example-notes-alias"
+    ]
+  },
+  "truncated": false
+}

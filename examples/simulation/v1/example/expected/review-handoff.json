@@ -1,0 +1,138 @@
+{
+  "version": "apitools.review-handoff.v2",
+  "generated_state": "generated",
+  "handoff_inputs": [
+    {
+      "path": "expected/plan.json",
+      "purpose": "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.",
+      "required": true,
+      "sha256": "e175796b80e7a156bdf1816780b2b5d9026bfd3559f0720308ac7cbdfd76c615"
+    },
+    {
+      "path": "expected/quality.json",
+      "purpose": "Deterministic quality gate result.",
+      "required": true,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "expected/refinement.json",
+      "purpose": "Generation/refinement attempts, failed checks, and stop reason.",
+      "required": true,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "expected/review-handoff.json",
+      "purpose": "Machine-readable review handoff manifest for reviewer or orchestrator routing.",
+      "required": true,
+      "sha256": "ddbb12cfdb439be26ac2f2757b77799b4040f8b937696ea08b2827fd851ea14f"
+    },
+    {
+      "path": "expected/review.md",
+      "purpose": "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.",
+      "required": true,
+      "sha256": "8146337aacc80ec51d5e91595c678936ae13f0f8573b081beffa0ff40268035d"
+    },
+    {
+      "path": "project.md",
+      "purpose": "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.",
+      "required": true,
+      "sha256": "853b2cf193d4dfc8811c19780bd045723484e733b0f945c7fa39b73f4e401bb5"
+    },
+    {
+      "path": "workflows/intent.hcl",
+      "purpose": "Structured intent extracted from the project brief.",
+      "required": true,
+      "sha256": "91dd6320b27d1646cf02f0a82f0015e1472a986fb9a4deb385ab604499733962"
+    },
+    {
+      "path": "workflows/workflow.hcl",
+      "purpose": "Public UWS HCL document produced from intent.",
+      "required": true,
+      "sha256": "0b5503aeceedf54d847760fed376720919ed0402e698fd888122d8f3b2b82dcb"
+    },
+    {
+      "path": "workflows/workflow.uws.yaml",
+      "purpose": "Public UWS YAML artifact validated against the public UWS schema and local execution-profile checks.",
+      "required": true,
+      "sha256": "50e87fe1ff580128f1264d74870c66fcc846bdeee04ab22eb1e381e51ed37736"
+    }
+  ],
+  "approval_states": [
+    {
+      "name": "generated",
+      "meaning": "Artifacts were emitted; no approval is implied.",
+      "allowed_next_states": [
+        "validated",
+        "rejected"
+      ]
+    },
+    {
+      "name": "validated",
+      "meaning": "Required validators and quality gates passed, or known warnings are attached.",
+      "allowed_next_states": [
+        "review_required",
+        "rejected"
+      ]
+    },
+    {
+      "name": "review_required",
+      "meaning": "Human review is required before side-effectful execution.",
+      "allowed_next_states": [
+        "approved_for_sandbox",
+        "approved_for_production",
+        "rejected"
+      ]
+    },
+    {
+      "name": "approved_for_sandbox",
+      "meaning": "A reviewer approved sandbox or test-endpoint execution only.",
+      "allowed_next_states": [
+        "review_required",
+        "approved_for_production",
+        "rejected"
+      ]
+    },
+    {
+      "name": "approved_for_production",
+      "meaning": "A reviewer approved production execution through a trusted runner and approved credentials.",
+      "allowed_next_states": [
+        "rejected"
+      ]
+    },
+    {
+      "name": "rejected",
+      "meaning": "A reviewer rejected the artifact or requested regeneration.",
+      "allowed_next_states": [
+        "generated"
+      ]
+    }
+  ],
+  "owner_split": {
+    "external_review_orchestration": [
+      "review routing",
+      "reviewer identity",
+      "audit trail",
+      "workspace linkage",
+      "state transitions",
+      "production-execution enforcement"
+    ],
+    "openudon": [
+      "artifact generation",
+      "deterministic validation",
+      "review evidence",
+      "credential-binding inventory",
+      "trusted-runner command text"
+    ]
+  },
+  "execution_policy": {
+    "side_effectful": false,
+    "direct_production_execution": false
+  },
+  "credential_bindings": {
+    "values_allowed_in_artifacts": false
+  },
+  "trusted_runner": {
+    "command": "openudon run --example example --tier sandbox --approval approvals/example.json",
+    "sandbox_only": false
+  }
+}
