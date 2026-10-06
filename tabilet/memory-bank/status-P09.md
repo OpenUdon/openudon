@@ -7,7 +7,7 @@
 
 ## Dependencies and handoff
 
-[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/memory-bank/status-M82.md); [OpenUdon:M98](status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md).
+[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md).
 The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
 
 **Downstream:** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.
@@ -42,6 +42,32 @@ Source: **Stage 11 planning review — cross-package refactoring** (2026-10-06).
 ## Accepted binding prerequisite — 2026-10-06
 
 UWS:C09 is accepted and independently observed on origin/main at `6a267306032edc687a298cefc8bba7019d3ad059`, whole review 3/10. [Public contract](../../../uws/docs/binding-reference.md) and [qualification](../../../uws/docs/c09-qualification.md) pin source-neutral ShapeTable/Resolver APIs, metadata-only binding checks and deterministic flow observations. Known/unknown evidence remains explicit; nested/typed templates use exact projections and unproved constraints stay indeterminate. Metadata producer claims are independently reproduced/verified before authority. No APItools/private-runtime import, source parser, credential/provider I/O, ordinary-validator/schema change or execution permission is supplied by C09. Retirement closure `8e5be730aa68aa4cb4f6c591a3a9425c6b8bd55c` was independently observed on authorized origin/main, satisfying the prerequisite publication gate. [Publication evidence](../../../uws/docs/c09-publication.md) records accepted-source ancestry.
+
+## Accepted shape producer prerequisite — 2026-10-06
+
+APItools:M82 is accepted after whole review 3 at exact public source
+`54583f9b2f452b7cc522360c5aeeff29ca22f96c`, independently observed on the
+unchanged authorized origin/main. The configured registry resolves
+`v0.0.0-20261006210844-54583f9b2f45` to that full origin hash.
+[Contract](../../../apitools/docs/operation-shapes.md) and
+[qualification](../../../apitools/docs/m82-qualification.md) define the additive
+BuildOperationShapeTable/VerifyOperationShapeTable APIs over accepted UWS C09
+`6a267306032edc687a298cefc8bba7019d3ad059`. The eight-family/twelve-operation
+fixture is 9,829 bytes, SHA-256
+`dc20d2287322a4b20d5d92b1a0d1ec8036f1bec853b642d7df8797ed096c3ba1`.
+
+Consumers must independently reproduce exact source/shape claims, preserve
+native selectors/protocols and OR-of-AND security, and keep partial dialect/
+wire/presence/auth evidence unknown. Source URLs are sanitized provenance only;
+no fetching, credential resolution or execution is supplied. Bounds are 32
+sources, 20 MiB each/64 MiB total raw, 10,000 operations, 8 MiB table/aggregate
+projected schemas, 256 KiB per schema and 100,000 projection nodes total/10,000
+per schema/depth 50. Incremental expansion/serialization checks refuse without
+partial tables; hard CPU/RSS/deadline/mount/network controls remain with workers.
+The source tooling still carries the public UWS Horizon/HCL closure; no HCL-free
+or private runtime claim is made. Current consumer/browser pins remain unchanged
+until this milestone's explicit adoption; Retirement closure `fae9982e42d6b16fe7a5ebfd342a016613a62adb` was independently
+observed on authorized APItools origin/main, satisfying the publication gate.
 
 ## Persisted review
 
