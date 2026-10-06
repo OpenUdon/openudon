@@ -530,7 +530,7 @@ One execution owner, serial execution and task commits under the later confirmed
 ## M98 — Public trust libraries
 
 **Stage/owner.** STG-11 Phase A; OpenUdon. **Priority.** Serial position 8/18, not a review severity.
-**Dependencies.** [UWS:C08](../../../uws/tabilet/memory-bank/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Dependencies.** [UWS:C08](../../../uws/tabilet/docs/history/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
 **Scope.** Extract handoff digest and authority APIs; Define format-neutral verification boundaries; Expose evidence verification; Qualify and publish public interfaces.
 **Acceptance.** Consumers use supported format-neutral trust APIs without internal/private runtime imports or a stable synthesis-coupled v2 construction surface. Existing CLI/trust bytes remain compatible; P09 owns public v3 construction.
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.

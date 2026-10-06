@@ -7,7 +7,7 @@
 
 ## Dependencies and handoff
 
-[UWS:C08](../../../uws/tabilet/memory-bank/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md).
+[UWS:C08](../../../uws/tabilet/docs/history/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md).
 The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
 
 **Downstream:** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.
@@ -37,6 +37,10 @@ One execution owner, serial execution and task commits under the later confirmed
 Source: **Stage 11 planning review — cross-package refactoring** (2026-10-06). Review baseline and full local revalidation HEAD: `7cd7fbb837fb87e1ca4abea2a362790b0f434188`; relevant uncommitted Stage 11 planning changes were included. The review covers the five owner baselines recorded in the coordinator. This is approved intake, not a closing review iteration; the persisted counter remains 0/10.
 
 - **P2-8** — source P2; local P2; confirmed. Evidence: internal/trustedrunner/trustedrunner.go AssessCurrent dependency; original M98.2. Ownership/lineage: M98.2 narrows public compatibility to format-neutral verification; P09 owns v3 construction and A31 respects the resulting surface.
+
+## Accepted expression prerequisite — 2026-10-06
+
+UWS:C08 is accepted and independently observed on origin/main at `0411eea6fc84fbd6aa97cef94f53f301260f4844`, whole review 2/10. [Qualification](../../../uws/docs/c08-qualification.md) and the [supplement manifest](../../../uws/docs/examples/expressions/v1/manifest.json) identify exact source/vector bytes. Ordinary validation and frozen published artifacts are unchanged; strict portability is opt-in, required for new Kinet:W18 packages. Legacy mock numeric/encoded-root adapters remain explicit. Values must use lossless json.Number projections before constructing snapshots because outer UseNumber does not override legacy custom model decoders. C08 supplies no source parsing, credential/provider I/O or execution authority. Retirement closure `5c0c74f48d84588e3ff4f994f0713f199cfcc67c` was independently observed on origin/main; that publication gate is satisfied. [Publication evidence](../../../uws/docs/c08-publication.md) records the accepted-source ancestry.
 
 ## Persisted review
 
