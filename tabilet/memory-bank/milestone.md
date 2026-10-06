@@ -269,9 +269,9 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M98 | Public trust libraries | [status-M98.md](status-M98.md) | UWS:C08, Udon:M48 |
-| P09 | Package v3 | [status-P09.md](status-P09.md) | UWS:C09, APItools:M82, OpenUdon:M98, Kinet:W17 |
-| A31 | Transition cleanup | [status-A31.md](status-A31.md) | Kinet:U14 |
+| M98 | Public trust libraries | [status-M98.md](status-M98.md) | pending; review 0/10 |
+| P09 | Package v3 | [status-P09.md](status-P09.md) | pending; review 0/10 |
+| A31 | Transition cleanup | [status-A31.md](status-A31.md) | pending; review 0/10 |
 
 ## Requested Changes After Initialization
 
