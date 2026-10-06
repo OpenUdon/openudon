@@ -5836,3 +5836,79 @@ Source: tabilet/memory-bank/tech-stack.md — M97 broker commands
 ````markdown
 artifacts. Qualification/publication remain pending under status-M97.md.
 ````
+
+## Stage 11 approved target provenance — 2026-10-06
+
+Source: `AGENTS.md` at `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean). The following literal prior boundary remains evidence for existing behavior. The approved Stage 11 proposal adds a scoped target/transition; it does not claim that code has already moved. Replacement target: [Stage 11](../../../../kinet/docs/stage11.md) and the active milestone specifications. No retired record is changed.
+
+````markdown
+## Boundaries
+
+- `../uws` is the public UWS specification and Go model. Put public workflow semantics there.
+- `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
+- OpenUdon source code must not import `../udon`, udon's private build-time siblings, or any private
+  `genelet/*` executor module. OpenUdon invokes udon only as an external CLI or Docker executor through
+  the trusted run-config handoff.
+- `../apitools` owns OpenAPI-first API metadata tooling: OpenAPI/Swagger discovery, import, search,
+  indexing, summaries, auth/security metadata, ranking, catalog metadata, and upstream
+  Discovery/Smithy import or lowering that is exposed to OpenUdon as OpenAPI-bound operation
+  metadata. OpenUdon owns review state, handoff validation, approval templates, package contents,
+  and local trusted-runner enforcement.
+- `../ramen` owns desired-state conversion into native UWS/Ramen project
+  artifacts. OpenUdon must not expose conversion commands, import parser or
+  conversion packages, or own provider conversion mappings.
+- `../openw8m` owns concrete IaC authoring/planning and is parked; it is not a OpenUdon compatibility
+  gate while the OpenAPI-first apitools boundary is active.
+- `../openudon` owns only the integration layer above those projects.
+
+Rule of thumb:
+
+- If it changes public workflow semantics, it belongs in `../uws`.
+- If it improves generic UWS/OpenAPI execution, it belongs in `../udon`.
+- If it parses, converts, maps, plans, stores, or reconciles desired-state
+  infrastructure input, it belongs in `../ramen` or Ramen-owned parser
+  dependencies, not OpenUdon.
+- If it manages orchestrated project workflow, templates, examples, approval
+  routing, or trusted execution glue, it belongs in OpenUdon.
+````
+
+## Stage 11 candidate promotion — 2026-10-06
+
+Literal prior rows from `tabilet/memory-bank/milestone.md` at `7cd7fbb837fb87e1ca4abea2a362790b0f434188`; user-approved promotion now belongs to the active Stage 11 owners, not a duplicate candidate.
+
+````markdown
+| Consumer-owned LLM drafting | Kinet owns the primary UI and interviews; OpenUdon retains explicit neutral expert evaluation and native generation/review contracts. | A separately approved consumer/producer contract can invoke an optional extractor under exact revision/confirmation protection. No OpenUdon UI or terminal interview is reintroduced by this candidate. |
+````
+
+Replacement: active [Stage 11 milestones](../../memory-bank/milestone.md#stage-11-cross-package-refactoring). Other candidate scope remains deferred.
+
+## Stage 11 planning-review wording reconciliation — 2026-10-06
+
+The owner approved pending-plan amendments after the Stage 11 planning review — cross-package refactoring. Source context: `7cd7fbb837fb87e1ca4abea2a362790b0f434188` plus the original uncommitted Stage 11 planning application. Earlier journal entries and retired records remain frozen. This entry preserves superseded target wording, not an implementation or acceptance claim.
+
+### tabilet/memory-bank/status-M98.md — Tasks
+
+Literal prior wording:
+
+```text
+| M98.2 — Extract package inspection APIs | `[ ]` | Expose package construction/assessment/inspection and simulation functions with bounded source access and unchanged CLI adapters. Untrusted source parsing stays in isolated consumers. |
+```
+
+Reason and replacement: The former scope would expose synthesis-coupled legacy construction publicly before the v3 boundary. Replacement: OpenUdon:M98 format-neutral trust verification, OpenUdon:P09 public v3 construction/assessment, and consumer-owned isolation. See the amended active milestone/status and coordinator contracts.
+
+### tabilet/memory-bank/milestone.md — M98 — Public trust libraries
+
+Literal prior wording:
+
+```text
+## M98 — Public trust libraries
+
+**Stage/owner.** STG-11 Phase A; OpenUdon. **Priority.** Serial position 8/18, not a review severity.
+**Dependencies.** [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. See the coordinator for additional direct consumers.
+**Scope.** Extract handoff digest and authority APIs; Extract package inspection APIs; Expose evidence verification; Qualify and publish public interfaces.
+**Acceptance.** Consumers can use supported trust APIs without importing internal or private runtime code. Existing CLI and trust bytes remain compatible.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+**Tasks/review.** [status-M98.md](status-M98.md), 4 pending task commit units; review 0/10, not started. No implementation, acceptance or publication yet.
+```
+
+Reason and replacement: The former scope would expose synthesis-coupled legacy construction publicly before the v3 boundary. Replacement: OpenUdon:M98 format-neutral trust verification, OpenUdon:P09 public v3 construction/assessment, and consumer-owned isolation. See the amended active milestone/status and coordinator contracts.

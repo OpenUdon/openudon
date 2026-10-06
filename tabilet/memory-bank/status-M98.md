@@ -1,0 +1,49 @@
+# M98 — Public trust libraries
+
+**Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
+**State:** Approved planning on 2026-10-06; 4 pending rows, no implementation or acceptance.
+**Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
+**Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
+
+## Dependencies and handoff
+
+[UWS:C08](../../../uws/tabilet/memory-bank/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md).
+The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
+
+**Downstream:** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.
+
+## Tasks
+
+| Item | State | Notes |
+|---|---|---|
+| M98.1 — Extract handoff digest and authority APIs | `[ ]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
+| M98.2 — Define format-neutral verification boundaries | `[ ]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
+| M98.3 — Expose evidence verification | `[ ]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
+| M98.4 — Qualify and publish public interfaces | `[ ]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
+
+## Acceptance and verification
+
+Consumers use supported format-neutral trust APIs without internal/private runtime imports or a stable synthesis-coupled v2 construction surface. Existing CLI/trust bytes remain compatible; P09 owns public v3 construction.
+
+go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+
+## Execution policy
+
+One execution owner, serial execution and task commits under the later confirmed goal. Planning authorizes no code execution, commit, publication or external operation. Source publication requires separately named authority; a status marker or local build is not publication. Consumers must record exact accepted and published prerequisites before adoption. Default checks are offline, credential-free and model-free. No deployment, live ledger migration, real API/model/mail action or registration change.
+
+## Approved review-intake amendments — 2026-10-06
+
+Source: **Stage 11 planning review — cross-package refactoring** (2026-10-06). Review baseline and full local revalidation HEAD: `7cd7fbb837fb87e1ca4abea2a362790b0f434188`; relevant uncommitted Stage 11 planning changes were included. The review covers the five owner baselines recorded in the coordinator. This is approved intake, not a closing review iteration; the persisted counter remains 0/10.
+
+- **P2-8** — source P2; local P2; confirmed. Evidence: internal/trustedrunner/trustedrunner.go AssessCurrent dependency; original M98.2. Ownership/lineage: M98.2 narrows public compatibility to format-neutral verification; P09 owns v3 construction and A31 respects the resulting surface.
+
+## Persisted review
+
+- Review iteration: **0/10**; not started.
+- Closing-review findings: none; the whole-milestone review has not started. Approved intake requirements above remain pending.
+- Accepted revision: not available.
+- Published revision / artifact evidence: not available.
+- Verification: pending implementation; no test result is claimed by this planning record.
+
+After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.

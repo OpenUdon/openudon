@@ -1,5 +1,9 @@
 # Milestone
 
+## Stage 11 active horizon
+
+Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. This package owns M98, P09, A31; all rows are pending and each review is 0/10. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
+
 ## Stage 9 approved work — 2026-10-05
 
 [M97](../docs/history/status-M97.md) is accepted and retired as this repository's Stage 9 broker handoff. Kinet coordinates `Kinet:M34 -> Udon:M46 -> OpenUdon:M97 -> Kinet:M35 -> Kinet:A14 -> Kinet:W14 -> Kinet:M36 -> Kinet:U12 -> Kinet:M37`; this ledger owns its tasks and closure. No implementation, acceptance or publication is established by planning. Future exact upstream revisions remain unset until observed.
@@ -228,7 +232,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- No active OpenUdon implementation milestone remains. M95 is accepted/published
+- The earlier horizon is complete; Stage 11 M98/P09/A31 are now planned and unimplemented. M95 is accepted/published
   and retired; final Kinet M20/W8M W29 adoption remains in their own ledgers.
   APItools M81/M80, Udon M45 and Authoring M29 stay accepted prerequisites.
 
@@ -265,6 +269,9 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| M98 | Public trust libraries | [status-M98.md](status-M98.md) | UWS:C08, Udon:M48 |
+| P09 | Package v3 | [status-P09.md](status-P09.md) | UWS:C09, APItools:M82, OpenUdon:M98, Kinet:W17 |
+| A31 | Transition cleanup | [status-A31.md](status-A31.md) | Kinet:U14 |
 
 ## Requested Changes After Initialization
 
@@ -489,7 +496,6 @@ fresh scope and dependency review promotes them.
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
 | Trusted-runner capability expansion beyond P07 | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. P07 addresses the existing Browser 1.10 rank-10 dispatch gap without adding executor behavior; the per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap outside the existing rank mapping is demonstrated and scoped without importing private runtime behavior or weakening approval gates. |
-| Consumer-owned LLM drafting | Kinet owns the primary UI and interviews; OpenUdon retains explicit neutral expert evaluation and native generation/review contracts. | A separately approved consumer/producer contract can invoke an optional extractor under exact revision/confirmation protection. No OpenUdon UI or terminal interview is reintroduced by this candidate. |
 
 ## Notes
 
@@ -512,3 +518,48 @@ fresh scope and dependency review promotes them.
   behind the run-config handoff.
 - After a major review or milestone, check whether [tabilet/evolution/](../evolution/) needs a new
   prompt/result version.
+
+## Stage 11 cross-package refactoring
+
+Approved review-intake amendment, 2026-10-06: 18 required milestones / 87 pending rows across the five owners. Scope and milestone IDs are unchanged; the coordinator records the approved publication proposal, which needs a separate execution-time grant. Full local source baseline remains `7cd7fbb837fb87e1ca4abea2a362790b0f434188`, including the reviewed uncommitted planning state. This intake does not start a closing review or authorize implementation.
+
+**Approved source.** User-approved complete proposal, 2026-10-06; source baseline `7cd7fbb837fb87e1ca4abea2a362790b0f434188`. [Coordinated contract](../../../kinet/docs/stage11.md) defines both phases, cross-package order, compatibility and acceptance. The request to implement the proposal authorizes its planning files only.
+
+One execution owner, serial execution and task commits under the later confirmed goal. Planning authorizes no code execution, commit, publication or external operation. Source publication requires separately named authority; a status marker or local build is not publication. Consumers must record exact accepted and published prerequisites before adoption. Default checks are offline, credential-free and model-free. No deployment, live ledger migration, real API/model/mail action or registration change.
+
+## M98 — Public trust libraries
+
+**Stage/owner.** STG-11 Phase A; OpenUdon. **Priority.** Serial position 8/18, not a review severity.
+**Dependencies.** [UWS:C08](../../../uws/tabilet/memory-bank/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Extract handoff digest and authority APIs; Define format-neutral verification boundaries; Expose evidence verification; Qualify and publish public interfaces.
+**Acceptance.** Consumers use supported format-neutral trust APIs without internal/private runtime imports or a stable synthesis-coupled v2 construction surface. Existing CLI/trust bytes remain compatible; P09 owns public v3 construction.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [status-M98.md](status-M98.md), 4 pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. No implementation, acceptance or publication yet.
+
+## P09 — Package v3
+
+**Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 11/18, not a review severity.
+**Dependencies.** [UWS:C09](../../../uws/tabilet/memory-bank/status-C09.md); [APItools:M82](../../../apitools/tabilet/memory-bank/status-M82.md); [OpenUdon:M98](status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Define v3 package and review records; Build directly from UWS; Verify sources and derive authority; Preserve v2 and evidence readers; Qualify and publish v3.
+**Acceptance.** V3 has an independently checked source-to-shape-to-authority chain and exact digest-bound inputs. V2 history stays readable and no authority is inferred from conversion.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [status-P09.md](status-P09.md), 5 pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. No implementation, acceptance or publication yet.
+
+## A31 — Transition cleanup
+
+**Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 17/18, not a review severity.
+**Dependencies.** [Kinet:U14](../../../kinet/tabilet/memory-bank/status-U14.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Inventory complete remaining consumers; Retire only safe superseded surfaces; Qualify publish and hand off deferred cleanup.
+**Acceptance.** The new primary path has clear ownership and dead code is removed only when safe. Every browser-dependent remainder has an explicit Stage 12 owner and deletion gate.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:M48](../../../kinet/tabilet/memory-bank/status-M48.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [status-A31.md](status-A31.md), 3 pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. No implementation, acceptance or publication yet.
+
+## Stage 11 candidate dispositions
+
+Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M98/P09/A31. Browser-dependent retirement goes to Stage 12. Live-read tiers, browser snapshot semantics, real-provider evidence and the frozen Ramen/Authoring catch-up remain deferred.
