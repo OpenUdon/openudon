@@ -166,3 +166,13 @@ network-none/read-only/rootless version probe, returning go1.26.6 and the exact
 clean revision. This is a pin/probe compatibility check, not new browser-capture
 qualification. Browser implementation/dependencies/locks and Kinet paths are
 unchanged; Stage 12 still owns their replacement/removal.
+
+P09 assessment derives expression contracts from exact reviewed data and
+source-backed operation/step outputs through the public core parser. Literal
+input consts preserve numeric text; required response fields retain constraints.
+All supported body/pointer/dot/header reference spellings are checked, and
+missing/forward/cyclic output references block compatible review. Optional,
+nullable, open or unproved paths stay indeterminate; metadata does not invent a
+presence guarantee or resolve arbitrary expressions. A component/top-variable
+collision also stays indeterminate because the retained reference/lowerer
+precedence does not prove one value for the implementing runtime.

@@ -101,3 +101,25 @@ func TestFrozenPublicTrustSurface(t *testing.T) {
 		}
 	}
 }
+
+func TestFrozenPackageV3Surface(t *testing.T) {
+	data, err := os.ReadFile("../../docs/fixtures/package-v3-v1/surface.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest surfaceManifest
+	if json.Unmarshal(data, &manifest) != nil || manifest.Version != "openudon.package-v3-surface.v1" {
+		t.Fatal("surface fixture")
+	}
+	for pkg, expected := range manifest.Packages {
+		actual := exportedSurface(t, filepath.Join("../..", pkg))
+		if len(actual) != len(expected) {
+			t.Fatalf("public %s surface count changed", pkg)
+		}
+		for name, shape := range expected {
+			if actual[name] != shape {
+				t.Errorf("public %s.%s changed shape", pkg, name)
+			}
+		}
+	}
+}

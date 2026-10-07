@@ -8,7 +8,6 @@ import (
 	"errors"
 	"github.com/OpenUdon/uws/uws1"
 	"sort"
-	"strings"
 
 	"github.com/OpenUdon/openudon/authority"
 	"github.com/OpenUdon/openudon/credentialpolicy"
@@ -265,7 +264,11 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 	if err != nil {
 		return Assessment{}, ErrPackage
 	}
+	contracts := newExpressionContracts(ctx, doc, data, manifest.Sources, resolver)
 	for _, op := range doc.Operations {
+		scope := contracts.operationScope(op)
+		contracts.checkOutputs(op.Outputs, scope, add)
+		contracts.checkExpressionValues(op.Request, scope, add)
 		if !op.HasSourceBinding() {
 			add("binding.profile_unproved", "indeterminate")
 			continue
@@ -286,6 +289,7 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 			selectorKind, selector = "ref", op.OpenAPIOperationRef
 		}
 		request := binding.Request{Binding: binding.Binding{Source: binding.Source{ID: source.ID, Kind: source.Kind, SHA256: source.Artifact.SHA256}, SelectorKind: selectorKind, SelectorValue: selector}, ExpressionContext: expressions.Context{Version: doc.UWS}}
+		request.ExpressionTypes = contracts.types(op.Request, scope)
 		for location, value := range op.Request {
 			if location == "body" {
 				request.Inputs = append(request.Inputs, binding.BoundInput{Location: location, Name: "body", Value: value})
@@ -316,15 +320,10 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		})
 		for _, output := range op.Outputs {
 			parsed, err := expressions.Parse(output, expressions.Context{Version: doc.UWS, Field: expressions.Value})
-			if err != nil {
-				continue
-			}
-			source := parsed.Source()
-			if source == "$response.body" || strings.HasPrefix(source, "$response.body#") {
-				pointer := strings.TrimPrefix(source, "$response.body")
-				request.OutputReferences = append(request.OutputReferences, binding.OutputReference{Location: "body", Name: "body", Pointer: pointer})
-			} else if strings.HasPrefix(source, "$response.header.") {
-				request.OutputReferences = append(request.OutputReferences, binding.OutputReference{Location: "header", Name: strings.TrimPrefix(source, "$response.header.")})
+			if err == nil {
+				if reference, ok := responseReference(parsed.Source()); ok {
+					request.OutputReferences = append(request.OutputReferences, reference)
+				}
 			}
 		}
 		report, err := binding.ValidateBinding(ctx, resolver, request)
@@ -360,6 +359,12 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		}
 	}
 	for _, workflow := range doc.Workflows {
+		contracts.checkOutputs(workflow.Outputs, expressionScope{workflow: workflow, index: len(workflow.Steps)}, add)
+		for index, step := range workflow.Steps {
+			if step != nil {
+				contracts.checkOutputs(step.Outputs, expressionScope{workflow: workflow, step: step, operation: contracts.operations[step.OperationRef], index: index}, add)
+			}
+		}
 		walkSteps(workflow.Steps)
 		walkSteps(workflow.Default)
 		for _, branch := range workflow.Cases {
@@ -377,7 +382,7 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 	for _, finding := range flow.Findings {
 		outcome := "compatible"
 		switch finding.Code {
-		case "flow.effect_unknown", "flow.loop_unbounded", "flow.entry_indeterminate", "flow.depth":
+		case "flow.effect_unknown", "flow.loop_unbounded", "flow.entry_indeterminate", "flow.depth", "flow.reference_missing", "flow.reference_ambiguous", "flow.ambiguous_definition", "flow.cycle":
 			outcome = "indeterminate"
 		}
 		add(finding.Code, outcome)

@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, one row pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; whole review 1/10 started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -20,7 +20,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | P09.2 — Build directly from UWS | `[+]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
 | P09.3 — Verify sources and derive authority | `[+]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
 | P09.4 — Preserve v2 and evidence readers | `[+]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
-| P09.5 — Qualify and publish v3 | `[ ]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
+| P09.5 — Qualify and publish v3 | `[~]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
 
 ## Acceptance and verification
 
@@ -71,11 +71,11 @@ observed on authorized APItools origin/main, satisfying the publication gate.
 
 ## Persisted review
 
-- Review iteration: **0/10**; not started.
-- Closing-review findings: none; the whole-milestone review has not started. Approved intake requirements above remain pending.
+- Review iteration: **1/10**; pre-publication whole review started on 2026-10-07; resume this pass if interrupted.
+- Closing-review findings: **R1-F01 P2** output/reference admission and **R1-F02 P2** expression type projection were persisted before fixes and are fixed with regressions/full checks. Review 1 did not pass; review 2 must examine the whole milestone.
 - Accepted revision: not available.
 - Published revision / artifact evidence: not available.
-- Verification: pending implementation; no test result is claimed by this planning record.
+- Verification: P09.1–.4 and P09.5 candidate fixture/default checks are recorded below; clean ordinary source/consumer qualification and publication remain pending.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
 
@@ -334,3 +334,78 @@ Kinet W18/W19/U14 still own cut-over/conversion and fresh exact owner/worker/
 schedule authority. No legacy non-browser fallback, second executor, silent
 migration or carried grant is introduced. P09.5 and whole review 0/10 remain
 required; no source publication or external live operation is claimed.
+
+## P09.5 selection — 2026-10-07
+
+Continue from clean task source f8822b5fdaec5546346cf5a872941465a4627162.
+Select full public contract/schema/tamper/privacy/compatibility qualification,
+clean ordinary owner/SDK/private-adapter build closure, persisted bounded whole
+review and named normal origin/main source publication. Preserve exact existing
+schemas/wires/pins and qualified current restrictions. Final consumer proof must
+resolve the independently observed published SDK source without directory
+replacements; preliminary local bootstrap results are not that proof. Persist
+review starts/findings before reviewing/fixing, then reconcile every pending
+consumer to exact accepted/published sources and retire the complete envelope.
+No deployment, live package inventory, provider/model/API/mail, credential or
+registration operation is included. Whole review remains 0/10, not started;
+first prepare the final public fixture/API/build gate before starting review.
+
+## Persisted whole review 1 started — 2026-10-07
+
+Review the entire P09 implementation from prerequisite handoff c468d9a through
+current f8822b5 plus the P09.5 candidate API/schema/contract fixtures. The stored
+count advances from 0 to 1 before review. Inspect correctness, authority/source
+proof, privacy/bounds/cancellation, schema/wire compatibility, source-family and
+runtime adapters, historical readers, docs and all owning acceptance criteria.
+Source publication waits for all P1/P2 to close and a passing pre-publication
+pass; final clean/published consumer evidence and closing acceptance follow.
+No finding is closed or acceptance inferred by starting this pass.
+
+## Whole review 1 findings persisted before fixes — 2026-10-07
+
+- **R1-F01 (P2, open):** assessment checks only a subset of operation response
+  spellings and no semantic step/workflow output-reference proof. Public core
+  grammar uses `$response.headers` (plural) and 1.11+ body dot paths; current
+  code checks singular header and only body/pointer forms. A workflow output
+  `$steps.missing.outputs.value` passes strict syntax and yields only advisory
+  output_unreferenced; P09 reports compatible and can derive concrete authority.
+  Reproduced by failing TestMissingFlowReferenceCannotQualifyAuthority at the
+  current candidate. Add complete core response/reference admission over exact
+  reviewed source/output contracts; unresolved/ambiguous/unproved references
+  cannot qualify authority. Preserve shared UWS advisory semantics and old wires.
+- **R1-F02 (P2, open):** P09 never supplies independently derived ExpressionTypes
+  to C09 binding checks. Exact reviewed data input `$variables.inputs.n` with
+  data.json n=9007199254740993 becomes binding.expression_type_unknown despite
+  the known matching source schema. This breaks required input/data-flow parity
+  and prevents later direct authoring/execution adoption. Reproduced by failing
+  TestExactReviewedVariableInputCanQualifyBinding. Derive contracts only from
+  exact reviewed variable/input bytes and source-backed output schemas, retain
+  numeric lexemes and null/presence/constraint unknownness, and never accept
+  caller/model type assertions. Qualification must cover chained inputs and
+  every core response spelling, missing/optional paths and stale inputs.
+
+The whole pass continues at iteration 1; these findings are not accepted or
+carried forward. No publication occurs while either remains open.
+
+## Review 1 fixes verified — 2026-10-07
+
+R1-F01/R1-F02 are fixed by exact source-backed response/step/output contracts
+and literal input evidence. The helper uses only the published UWS expression
+parser and independently verified shapes; it does not execute an operation or
+accept model/caller type assertions. Known reviewed data values emit exact const
+schemas with json.Number retained; known required source fields retain their
+constraints. Optional/open/nullable/array paths, component/top-variable collision
+precedence and unproved scope remain indeterminate. Missing/forward/cyclic
+output references cannot qualify compatible review or broker authority. Body,
+pointer, 1.11+ dot and plural headers spellings are checked; old source artifacts
+and all public wire declarations stay unchanged.
+
+The two regressions failed before fixes; after fixes, they and exact chained
+source/output types, missing headers/closed fields, optional/nullable presence,
+future-step and all previous package/security/privacy/history tests pass.
+Full make check, full vet, focused staticcheck and public package/trust/authority/
+approval/evidence races passed. No P1 or additional P2 was found in the rest of
+this complete review pass. Review 1 itself remains failed due to those original
+findings; a new whole pass is required after the fixed source is committed.
+Final clean build/module closure, accepted publication and consumer proof remain
+pending, and no P09 acceptance is claimed.
