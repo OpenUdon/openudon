@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; 5 pending rows, no implementation or acceptance.
+**State:** Confirmed serial Stage 11 execution; P09.1 complete, four rows pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -16,7 +16,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 
 | Item | State | Notes |
 |---|---|---|
-| P09.1 — Define v3 package and review records | `[ ]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
+| P09.1 — Define v3 package and review records | `[x]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
 | P09.2 — Build directly from UWS | `[ ]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
 | P09.3 — Verify sources and derive authority | `[ ]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
 | P09.4 — Preserve v2 and evidence readers | `[ ]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
@@ -145,3 +145,37 @@ consuming worker isolation; A15 follows P09 before W18/M47 integration.
 Both phases remain required with exact named source-publication gates; this
 handoff grants no deployment/live operation or grant carryover. P09 task rows
 and persisted whole review remain 0/10 pending their own execution.
+
+## P09.1 selection — 2026-10-07
+
+Continue from clean OpenUdon c468d9a27c9b42f9cfa4c266c403f1321edec89e after
+Kinet W17 acceptance/review2 and literal retirement closure
+83ddbc3518e31bb07ccf63d84819c0460eba65dd. Exact accepted consumer is c508e97;
+its published upstream gates and qualified public worker are reconciled above.
+Select only v3 package/handoff/assessment records over exact approved YAML,
+data.json, source bytes and operation shapes, excluding authored/packaged HCL.
+Retain digest-v1 algorithm and all old wire/read/browser paths. No construction
+acceptance, authority, publication, live action or consumer pin is inferred;
+P09.2–.5 and whole review remain required.
+
+## P09.1 implementation checkpoint — 2026-10-07
+
+Public packagev3 defines exact YAML/data/shapes/source input manifest and
+separately linked handoff/assessment records, with additive v3 schemas.
+Canonical scope/path/SHA/role/source inventory and symbolic-only review-required
+metadata are validated. Strict decoders reject unknown/duplicate/case aliases,
+missing/null fields and trailing documents under existing public wire limits.
+InputDigest delegates unchanged digest-v1 identity/scope/sort rules; reports
+have separate identities and final package construction remains P09.2.
+Authored/packaged HCL/private/browser paths are excluded, and no record
+manufactures source proof, assessment success or approval. Existing wire/schema/
+private legacy readers and root dependency versions are unchanged.
+
+Focused public API/schema/closed-wire/HCL/duplicate/source/identity and old
+digest parity tests pass; compatible focused staticcheck passed. Full owner
+`GOWORK=off GOPROXY=off make check`, `go vet ./...` and focused public
+`go test -race ./packagev3 ./handoff ./trust ./wire` passed. The default public
+import guard now covers packagev3 and rejects internal/private runtime imports.
+P09.1 is complete as structural records only; construction, source proof,
+authority, publication and downstream adoption remain P09.2–.5. Persisted
+whole review remains 0/10.

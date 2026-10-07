@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.package.v3.schema.json",
+  "title": "openudon.package.v3",
+  "description": "Closed structural record only; Go validation additionally enforces canonical public paths, inventories and cross-field identity. No authority is created.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "scope",
+    "workflow",
+    "data",
+    "shapes",
+    "shape_version",
+    "sources"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.package.v3"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "allOf": [
+            {
+              "not": {
+                "pattern": "(?i)\\.hcl$"
+              }
+            },
+            {
+              "not": {
+                "pattern": "\\.icot"
+              }
+            },
+            {
+              "not": {
+                "pattern": "^browser[/\\-]"
+              }
+            }
+          ],
+          "const": "workflows/workflow.uws.yaml"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "allOf": [
+            {
+              "not": {
+                "pattern": "(?i)\\.hcl$"
+              }
+            },
+            {
+              "not": {
+                "pattern": "\\.icot"
+              }
+            },
+            {
+              "not": {
+                "pattern": "^browser[/\\-]"
+              }
+            }
+          ],
+          "const": "expected/data.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "shapes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "allOf": [
+            {
+              "not": {
+                "pattern": "(?i)\\.hcl$"
+              }
+            },
+            {
+              "not": {
+                "pattern": "\\.icot"
+              }
+            },
+            {
+              "not": {
+                "pattern": "^browser[/\\-]"
+              }
+            }
+          ],
+          "const": "expected/operation-shapes.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "shape_version": {
+      "const": "uws.shape-table.v1"
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "artifact"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "kind": {
+            "enum": [
+              "openapi",
+              "google-discovery",
+              "aws-smithy",
+              "asyncapi",
+              "graphql",
+              "openrpc",
+              "grpc-protobuf",
+              "odata"
+            ]
+          },
+          "artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "allOf": [
+                  {
+                    "not": {
+                      "pattern": "(?i)\\.hcl$"
+                    }
+                  },
+                  {
+                    "not": {
+                      "pattern": "\\.icot"
+                    }
+                  },
+                  {
+                    "not": {
+                      "pattern": "^browser[/\\-]"
+                    }
+                  }
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

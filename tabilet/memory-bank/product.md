@@ -1,5 +1,9 @@
 # Product
 
+## P09.1 structural record implementation
+
+P09.1 implementation adds explicit v3 package/handoff/assessment structural records over exact approved YAML, data.json, source artifacts and ShapeTable identity. Authored/packaged HCL/private/browser inputs are excluded. Record validation creates no source-semantic proof, assessment success or approval; P09.2–.5 remain pending.
+
 ## Stage 11 public trust libraries — M98 accepted
 
 M98 passed closing review 3/10 at qualified source

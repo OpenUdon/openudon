@@ -7,7 +7,7 @@ import (
 )
 
 func TestPublicTrustImportBoundary(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "-f", "{{.ImportPath}}", "./approval", "./authority", "./digest", "./handoff", "./trust", "./wire", "./udonreport", "./runevidence")
+	cmd := exec.Command("go", "list", "-deps", "-f", "{{.ImportPath}}", "./approval", "./authority", "./digest", "./handoff", "./trust", "./wire", "./udonreport", "./runevidence", "./packagev3")
 	cmd.Dir = "../.."
 	output, err := cmd.CombinedOutput()
 	if err != nil {

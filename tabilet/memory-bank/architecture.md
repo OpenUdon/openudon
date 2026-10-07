@@ -1,5 +1,9 @@
 # Architecture
 
+## P09.1 structural record implementation
+
+P09.1 adds public packagev3 structural records and strict closed/canonical decoding using the existing public wire bounds. Manifest inputs, assessment and handoff have separate linked identities; the existing digest-v1 envelope/scope/order algorithm is delegated to public handoff.DigestFiles. New records have no I/O or private executor import. Construction/reproduction/authority remain later row gates.
+
 ## Stage 11 public trust libraries — M98 accepted
 
 M98 passed closing review 3/10 at qualified source

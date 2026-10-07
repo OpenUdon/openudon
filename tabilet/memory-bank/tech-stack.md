@@ -1,5 +1,9 @@
 # Tech Stack
 
+## P09.1 structural record implementation
+
+P09.1 introduces additive openudon.package.v3, openudon.review-handoff.v3 and openudon.assessment.v3 schemas under docs/schemas and pure packagev3 record APIs. Limits: 512 files/8 MiB each/32 MiB total, 32 sources, 128 value-free findings. Ordinary modules/toolchain and all existing schema/wire files stay unchanged; standalone GOWORK=off offline checks and public import/schema/digest fixtures qualify the row.
+
 ## Stage 11 public trust libraries — M98 accepted
 
 M98 passed closing review 3/10 at qualified source
