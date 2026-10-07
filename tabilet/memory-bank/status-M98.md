@@ -76,3 +76,8 @@ authority. Shared C08/M08 grammar/import/provenance and existing report schemas
 are retained, while supported private execution uses explicit capabilities and
 scoped lossless response snapshots. No current OpenUdon/Kinet/browser/media
 pin is moved by this prerequisite. All M98 rows/review remain pending.
+
+Udon closure/evidence head 4ec2bdf155ced16dbd3303dc6c45f7359631811f was also
+independently observed on its unchanged authorized origin/main after normal
+source-only push, containing exact accepted runtime ancestry and passed closing
+review. This satisfies the full prerequisite source/closure publication gate.
