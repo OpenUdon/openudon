@@ -1,5 +1,9 @@
 # Tech Stack
 
+## P09.2 construction and assessment
+
+Current owner adoption is APItools v0.0.0-20261006210844-54583f9b2f45 and UWS root/codec v0.0.0-20261006224744-c0b19385a3b0, without replacements or unrelated upgrades. The same Go 1.26.6 and existing schema/YAML libraries are retained. Exact core schema entries are embedded from the selected M08 archive and all 17 are byte-compared in tests. Historical qualification source, independently pinned browser dependencies/locks and old wire fixtures remain frozen. Current content-trust regression now checks the adopted root core and unchanged Browsertools pin; it does not rerun historical acceptance.
+
 ## P09.1 structural record implementation
 
 P09.1 introduces additive openudon.package.v3, openudon.review-handoff.v3 and openudon.assessment.v3 schemas under docs/schemas and pure packagev3 record APIs. Limits: 512 files/8 MiB each/32 MiB total, 32 sources, 128 value-free findings. Ordinary modules/toolchain and all existing schema/wire files stay unchanged; standalone GOWORK=off offline checks and public import/schema/digest fixtures qualify the row.
@@ -161,9 +165,9 @@ manifest ID and path-derived candidate ID. Kinet owns the preceding
 user-confirmation gate.
 Candidates scans the eight supported local source families, including the
 legacy `discovery/` directory as a Google Discovery alias, and calls published
-APItools operation-candidate metadata at adopted M81/M80
-`v0.0.0-20260930205753-fb132631c982` (commit
-`fb132631c9827eae5f2ec4503d03f21eabfb4113`); the legacy candidates path still
+APItools operation-candidate metadata at the P09.2 adopted M82
+`v0.0.0-20261006210844-54583f9b2f45` (commit
+`54583f9b2f452b7cc522360c5aeeff29ca22f96c`), preserving M81/M80 contracts; the legacy candidates path still
 does not fetch URLs. It preserves
 consumer summaries, compatibility evidence, source-backed effect classes,
 authentication alternatives, and source capabilities while omitting paths
@@ -1140,9 +1144,10 @@ currently selected, authorized later-reuse row, never by replaying closed M93.0.
 
 ## M94.1 published APItools and explicit discovery
 
-Current APItools pin: `v0.0.0-20260930205753-fb132631c982`, exact source
-`fb132631c9827eae5f2ec4503d03f21eabfb4113`; module sum
-`h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=`. No replacement or sibling
+Current APItools pin: `v0.0.0-20261006210844-54583f9b2f45`, exact source
+`54583f9b2f452b7cc522360c5aeeff29ca22f96c`; module sum
+`h1:fKo+aEjOudaeZK/lfnjoJ+du+DZCoLaKBHGmDskRvEk=`. P09.2 adopts the additive
+M82 contracts; M94's original accepted dependency remains frozen in history. No replacement or sibling
 checkout is used. M79 remains a rollback/historical reference, not the current
 pin. `openudon step discover --request FILE|- [--catalog-root DIR]
 [--catalog-registry REL] [--catalog-index REL] [--catalog-metadata FILE]

@@ -269,7 +269,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P09 | Package v3 | [status-P09.md](status-P09.md) | one row complete, four pending; review 0/10 |
+| P09 | Package v3 | [status-P09.md](status-P09.md) | two complete, three pending; review 0/10 |
 | A31 | Transition cleanup | [status-A31.md](status-A31.md) | pending; review 0/10 |
 
 ## Requested Changes After Initialization
@@ -535,7 +535,7 @@ One execution owner, serial execution and task commits under the later confirmed
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
 Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
 **Downstream.** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-P09.md](status-P09.md), P09.1 complete and four pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. Structural records are implemented; construction, authority, milestone acceptance and publication remain pending.
+**Tasks/review.** [status-P09.md](status-P09.md), P09.1–.2 complete and three pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. Structural records, construction and assessment are implemented; concrete authority, compatibility, milestone acceptance and publication remain pending.
 
 ## A31 — Transition cleanup
 
@@ -546,7 +546,7 @@ Use only disposable roots and fixtures. Preserve published schemas/wires, histor
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
 Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
 **Downstream.** [Kinet:M48](../../../kinet/tabilet/memory-bank/status-M48.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-A31.md](status-A31.md), 3 pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. Structural records are implemented; construction, authority, milestone acceptance and publication remain pending.
+**Tasks/review.** [status-A31.md](status-A31.md), 3 pending task commit units; review 0/10, not started. Approved intake provenance and consumer requirements are in that status. No implementation, acceptance or publication yet.
 
 ## Stage 11 candidate dispositions
 

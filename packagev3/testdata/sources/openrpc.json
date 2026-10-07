@@ -1,0 +1,21 @@
+{
+  "openrpc": "1.3.2",
+  "info": {"title": "Pets RPC", "version": "1.0.0"},
+  "methods": [
+    {
+      "name": "pets.get",
+      "summary": "Get a pet",
+      "params": [
+        {"name": "petId", "required": true, "schema": {"type": "string"}}
+      ],
+      "result": {
+        "name": "pet",
+        "schema": {
+          "type": "object",
+          "required": ["id"],
+          "properties": {"id": {"type": "string"}, "name": {"type": "string"}}
+        }
+      }
+    }
+  ]
+}

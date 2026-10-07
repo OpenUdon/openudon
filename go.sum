@@ -8,6 +8,8 @@ github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e h1:mfzAV16/OKg/r
 github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
 github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982 h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=
 github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
+github.com/OpenUdon/apitools v0.0.0-20261006210844-54583f9b2f45 h1:fKo+aEjOudaeZK/lfnjoJ+du+DZCoLaKBHGmDskRvEk=
+github.com/OpenUdon/apitools v0.0.0-20261006210844-54583f9b2f45/go.mod h1:QZjBxJtjFz2GF78KJBXs0EmXtVdcN1P4gjez98JSQ8E=
 github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4=
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
 github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583 h1:NjQ6S2XEk9iiK72rqWxuayd7zBBkIsVed3bVnMkCFkI=
@@ -34,6 +36,10 @@ github.com/OpenUdon/uws v0.0.0-20260925154821-80ee9bfb24a6 h1:4qZplaKCTKhiavGnBB
 github.com/OpenUdon/uws v0.0.0-20260925154821-80ee9bfb24a6/go.mod h1:Qa5BAWWPuYeYeN/HnmEnMvQc2hoKrygyaZyzHgsHqwo=
 github.com/OpenUdon/uws v0.0.0-20260927134327-a7688f54c68f h1:q2Wg4+bwKEv5PvAU429NvFyQjQfiFf1Pk9nGJkx7Wxw=
 github.com/OpenUdon/uws v0.0.0-20260927134327-a7688f54c68f/go.mod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=
+github.com/OpenUdon/uws v0.0.0-20261006224744-c0b19385a3b0 h1:CXaT3naUUi4hKM4UfE41l5VxwDQ96Y8uVv5EOpheaU8=
+github.com/OpenUdon/uws v0.0.0-20261006224744-c0b19385a3b0/go.mod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=
+github.com/OpenUdon/uws/hcl v0.0.0-20261006224744-c0b19385a3b0 h1:v42UQhy/CCLAe2+BKUDQzuofjziBXcDqMJgPIXCvIRM=
+github.com/OpenUdon/uws/hcl v0.0.0-20261006224744-c0b19385a3b0/go.mod h1:0cR/xLzEP8vJ9FAUhsLbaKVkU7UarXPc51nJjEaMP5Q=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/xmlquery v1.5.1 h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78=

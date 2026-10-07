@@ -1,0 +1,25 @@
+asyncapi: 3.0.0
+info:
+  title: Pet Events
+  version: 1.0.0
+operations:
+  publishPet:
+    action: send
+    summary: Publish a pet event
+    channel:
+      $ref: '#/channels/pets'
+    messages:
+      - $ref: '#/channels/pets/messages/petChanged'
+channels:
+  pets:
+    address: pets.events
+    messages:
+      petChanged:
+        payload:
+          type: object
+          required: [petId]
+          properties:
+            petId:
+              type: string
+            name:
+              type: string

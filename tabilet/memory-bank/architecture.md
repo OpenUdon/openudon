@@ -1,5 +1,9 @@
 # Architecture
 
+## P09.2 construction and assessment
+
+packagev3 Build copies bounded explicit bytes, independently reproduces APItools shapes, embeds exact published UWS core schemas with a closed loader, restores lossless open values after custom model decode, then emits linked assessment/handoff identities under unchanged digest-v1. Public credentialpolicy shares existing literal policy through legacy internal adapters; browser artifact masking stays private. Source-to-shape proof is reproduced for assessment; concrete operation/input/worker authority remains P09.3. The transitive guard permits only the qualified public Horizon subtree among genelet modules, retaining all private-executor/OpenUdon-internal refusals.
+
 ## P09.1 structural record implementation
 
 P09.1 adds public packagev3 structural records and strict closed/canonical decoding using the existing public wire bounds. Manifest inputs, assessment and handoff have separate linked identities; the existing digest-v1 envelope/scope/order algorithm is delegated to public handoff.DigestFiles. New records have no I/O or private executor import. Construction/reproduction/authority remain later row gates.
@@ -145,8 +149,8 @@ self-digest clears its own field before canonical JSON hashing.
   AsyncAPI maps to `asyncapi`, GraphQL maps to `graphql`, OpenRPC maps to `openrpc`,
   gRPC/protobuf maps to `grpc-protobuf`, and OData maps to `odata`.
 - OpenUdon's non-interactive step-authoring CLI consumes APItools' published operation-candidate
-  contract, now adopted at published APItools M81/M80 revision
-  `fb132631c9827eae5f2ec4503d03f21eabfb4113`. `step candidates` scans bounded local family directories and returns path-free exact
+  contract, now adopted at published APItools M82 revision
+  `54583f9b2f452b7cc522360c5aeeff29ca22f96c`, preserving M81/M80 behavior. `step candidates` scans bounded local family directories and returns path-free exact
   source/digest references, consumer summaries, match evidence, auth alternatives, effects, and
   capability gaps. `step check` revalidates that exact operation and effect against current local
   bytes, including source request locations, colliding unqualified names,

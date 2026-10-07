@@ -1,0 +1,32 @@
+{
+  "discoveryVersion": "v1",
+  "name": "pets",
+  "version": "v1",
+  "title": "Pets Discovery API",
+  "rootUrl": "https://example.invalid/",
+  "servicePath": "pets/v1/",
+  "schemas": {
+    "Pet": {
+      "id": "Pet",
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string", "required": true}
+      }
+    }
+  },
+  "resources": {
+    "pets": {
+      "methods": {
+        "get": {
+          "id": "pets.pets.get",
+          "path": "pets/{petId}",
+          "httpMethod": "GET",
+          "parameters": {"petId": {"type": "string", "required": true, "location": "path"}},
+          "response": {"$ref": "Pet"},
+          "scopes": ["https://example.invalid/auth/pets.readonly"]
+        }
+      }
+    }
+  }
+}

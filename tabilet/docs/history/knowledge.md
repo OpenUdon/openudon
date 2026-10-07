@@ -5979,3 +5979,22 @@ implementation packages remain internal and are not a supported Go API.
 Release archives co-version `openudon` and `udon-runner`, while
 `openudon version --json` is the archive's build-metadata authority.
 ````
+
+## P09.2 current owner dependency adoption — 2026-10-07
+
+Source: current memory bank at task baseline d5b4e33. Reason: approved Stage 11 public v3 construction now adopts the exact accepted/published M82/M08 closure. Replacement: current P09.2 sections and go.mod. Historical browser locks, source qualifications and accepted records remain frozen.
+
+### tech-stack.md M94.1
+
+````markdown
+Current APItools pin: `v0.0.0-20260930205753-fb132631c982`, exact source
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`; module sum
+`h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=`.
+````
+
+### architecture.md APItools boundary
+
+````markdown
+contract, now adopted at published APItools M81/M80 revision
+  `fb132631c9827eae5f2ec4503d03f21eabfb4113`.
+````

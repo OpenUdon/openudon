@@ -1,0 +1,20 @@
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="Demo" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="Pet">
+        <Property Name="ID" Type="Edm.String" Nullable="false"/>
+        <Property Name="Name" Type="Edm.String"/>
+      </EntityType>
+      <Action Name="UpdatePet">
+        <Parameter Name="ID" Type="Edm.String" Nullable="false"/>
+      </Action>
+      <Function Name="GetPet">
+        <Parameter Name="ID" Type="Edm.String" Nullable="false"/>
+        <ReturnType Type="Demo.Pet" Nullable="false"/>
+      </Function>
+      <EntityContainer Name="Container">
+        <EntitySet Name="Pets" EntityType="Demo.Pet"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1 complete, four rows pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.2 complete, three rows pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -16,8 +16,8 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 
 | Item | State | Notes |
 |---|---|---|
-| P09.1 — Define v3 package and review records | `[x]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
-| P09.2 — Build directly from UWS | `[ ]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
+| P09.1 — Define v3 package and review records | `[+]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
+| P09.2 — Build directly from UWS | `[+]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
 | P09.3 — Verify sources and derive authority | `[ ]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
 | P09.4 — Preserve v2 and evidence readers | `[ ]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
 | P09.5 — Qualify and publish v3 | `[ ]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
@@ -179,3 +179,44 @@ import guard now covers packagev3 and rejects internal/private runtime imports.
 P09.1 is complete as structural records only; construction, source proof,
 authority, publication and downstream adoption remain P09.2–.5. Persisted
 whole review remains 0/10.
+
+## P09.2 selection — 2026-10-07
+
+P09.1 structural record task is committed at d5b4e33. Correct its completed
+marker to this owner’s `[+]` convention. Select public explicit-byte construction
+and assessment; adopt only the exact accepted/published APItools M82 and UWS
+M08 closure already consumed by the qualified Kinet worker. No directory
+replacements, old schema edits, credential loading, network or execution.
+Source reproduction is mandatory; independently checked execution authority
+remains P09.3 and publication remains P09.5. Whole review stays 0/10.
+
+## P09.2 completion — 2026-10-07
+
+Public Build/Assess now construct exact byte snapshots without intent synthesis,
+ambient file/network/credential access or runtime binding. Independent APItools
+shape reproduction, exact artifact hashes, closed embedded core schemas,
+lossless json.Number restoration, strict portability, pending/executable and
+entrypoint/source/binding checks precede review assessment. Partial runtime,
+step/type/output/work/effect evidence remains indeterminate; incompatible
+packages remain reviewable but cannot qualify approval. Handoff stays
+review_required, final digest uses unchanged digest-v1 and no grant is created.
+
+Current owner adopts only accepted/published APItools M82
+54583f9b2f452b7cc522360c5aeeff29ca22f96c and UWS root/codec M08
+c0b19385a3b034cd45de16726668b9150f0633f2, using ordinary exact pseudo-versions
+without replacements. The qualified public Horizon/HCL transitive subtree is
+allowed by the new surface's import guard; private executor and OpenUdon
+internal imports still refuse. Public credentialpolicy shares the unchanged
+literal scan through legacy wrappers; browser artifact masking stays private.
+The current-owner content-trust pin assertion follows M08; historical evidence,
+browser/consumer locks, old schemas/wires and installed M44 stay frozen.
+
+Offline tests prove exact immutable YAML/data/source bytes, deterministic
+identities, all eight native families against the unchanged 9,829-byte M82
+fixture, 17 exact embedded core schema entries, precise numeric mismatches,
+pending/unsupported/stale/forged/privacy/alias/duplicate/size/cancellation
+refusals and unknown output/type evidence. GOWORK=off GOPROXY=off make check,
+full go vet, focused staticcheck and public/policy/legacy-content-trust races
+passed. The first full check caught the stale current-owner UWS pin assertion;
+it was reconciled before the final full check passed. No publication or
+milestone acceptance is claimed. P09.3–.5 and whole review 0/10 remain required.

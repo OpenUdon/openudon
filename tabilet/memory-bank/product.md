@@ -1,5 +1,9 @@
 # Product
 
+## P09.2 construction and assessment
+
+Public packagev3 Build/Assess construct exact reviewed YAML/data/API-source snapshots without intent synthesis. Independently reproduced shapes and strict portability support review; pending and mismatched contracts refuse, partial runtime/type/output evidence remains indeterminate. Compatible means the checks proved review metadata, never approval. Construction is isolated by consumers; P09.3–.5 authority/compatibility/publication remain pending.
+
 ## P09.1 structural record implementation
 
 P09.1 implementation adds explicit v3 package/handoff/assessment structural records over exact approved YAML, data.json, source artifacts and ShapeTable identity. Authored/packaged HCL/private/browser inputs are excluded. Record validation creates no source-semantic proof, assessment success or approval; P09.2–.5 remain pending.

@@ -3,6 +3,7 @@ package credentialpolicy
 import (
 	"bytes"
 	"encoding/json"
+	policy "github.com/OpenUdon/openudon/credentialpolicy"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -144,22 +145,7 @@ func ContainsArtifactValue(data []byte, declared []string) bool {
 	return ContainsLikelyValue(masked)
 }
 
-func portableBindingName(name string) bool {
-	if len(name) == 0 || len(name) > 128 {
-		return false
-	}
-	for i, c := range name {
-		if c != '_' && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (i == 0 || c != '-' && (c < '0' || c > '9')) {
-			return false
-		}
-	}
-	for _, pattern := range providerPatterns {
-		if pattern.MatchString(name) {
-			return false
-		}
-	}
-	return !bearerPattern.MatchString(name) && !isJWT(name)
-}
+func portableBindingName(name string) bool { return policy.ValidBindingName(name) }
 func scalarOffset(data []byte, line, column int) int {
 	if line < 1 || column < 1 {
 		return -1

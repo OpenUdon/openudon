@@ -178,9 +178,11 @@ func TestContentTrustQualificationLegacyPackageIsUnchanged(t *testing.T) {
 	}
 }
 
-func TestContentTrustQualificationUsesPinnedUWSAndBrowsertools(t *testing.T) {
+// Current owner regression uses the accepted Stage 11 core. Historical E12/M86
+// qualification source and browser locks remain frozen in their evidence records.
+func TestContentTrustCurrentOwnerUsesStage11UWSAndRetainedBrowsertools(t *testing.T) {
 	const (
-		wantUWS          = "v0.0.0-20260927134327-a7688f54c68f"
+		wantUWS          = "v0.0.0-20261006224744-c0b19385a3b0"
 		wantBrowsertools = "v0.0.0-20260925161530-3abe70efc03d"
 	)
 	_, filename, _, ok := runtime.Caller(0)
