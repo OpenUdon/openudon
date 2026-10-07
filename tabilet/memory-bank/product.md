@@ -1,24 +1,29 @@
 # Product
 
-## P09 review-1 fixes
+## Stage 11 package v3 SDK — P09 accepted
 
-P09 review fixes derive exact expression input contracts from reviewed data and source-backed outputs. Missing/forward/cyclic references cannot qualify compatible review or broker authority; optional/null/open paths and unproved runtime scope remain indeterminate. No model/caller assertion or operation evaluation supplies evidence.
+P09 accepted all five rows after pre-publication review 3 and closing review 4
+at qualified source a6a3ef010fe27f277f8191204c1c81ea1cc0334b. Normal publication
+da6653145c8624f862e3c21adb413345d0cb4be2 and ordinary module
+v0.1.1-0.20261007094531-a6a3ef010fe2 are independently verified.
+[Contract](../../docs/package-v3.md), [qualification](../../docs/p09-qualification.md)
+and [publication](../../docs/p09-publication.md) bind the exact evidence.
 
-## P09.4 historical compatibility
+Public packagev3 constructs exact reviewed YAML/data/source/shape packages
+without intent/HCL synthesis. Strict byte inventory, independent API-source
+reproduction and trusted runtime-owned catalog/admission adapters precede exact
+operation/input/worker plans and unchanged-wire broker/approval checks. Literal
+and source-backed expression contracts retain exact numbers and constraints;
+unresolved, stale or forged evidence refuses, and unproved presence/type/parent
+constraints remain indeterminate. A compatible assessment is review metadata,
+not host authority. Kinet still owns private policy, exact confirmation, grants,
+ledger publication and consuming worker isolation/lifecycle.
 
-P09.4 adds explicit read-only v2/v3 history inspection without conversion, private runtime/source proof, approval or fallback execution. V3 unsupported-execution/function history stays readable using artifact identities; executable verification remains separate. Old approval/report/evidence golden readers and browser pin remain qualified and unchanged. V2-to-v3 successors have new identities and require Kinet-owned exact confirmation/fresh worker authority; P09.5 whole qualification/publication remains pending.
-
-## P09.3 verified execution constraints
-
-P09.3 supplies independently verified private byte snapshots, exact operation/input/worker plans and unchanged-wire broker authority derivation. Symbolic security inventories come from selected verified sources; producer flags, conversion and package hashes do not grant execution. Runtime function catalogs require the trusted implementing consumer’s independent reproduction and non-effectful admission. Knownness stays explicit, browser/unsupported leaves refuse, and host owner/grant/destination policy remains independent. P09.4/.5 compatibility/publication and whole acceptance remain pending.
-
-## P09.2 construction and assessment
-
-Public packagev3 Build/Assess construct exact reviewed YAML/data/API-source snapshots without intent synthesis. Independently reproduced shapes and strict portability support review; pending and mismatched contracts refuse, partial runtime/type/output evidence remains indeterminate. Compatible means the checks proved review metadata, never approval. Construction is isolated by consumers; P09.3–.5 authority/compatibility/publication remain pending.
-
-## P09.1 structural record implementation
-
-P09.1 implementation adds explicit v3 package/handoff/assessment structural records over exact approved YAML, data.json, source artifacts and ShapeTable identity. Authored/packaged HCL/private/browser inputs are excluded. Record validation creates no source-semantic proof, assessment success or approval; P09.2–.5 remain pending.
+Explicit v2/v3 history inspection stays read-only and supplies no source proof
+or conversion/grant. Old approval/report/evidence wires and the separately
+pinned browser path remain frozen; no dual non-browser executor is introduced.
+Kinet W18/M47/W19 and Stage 12 retain their distinct adoption/cleanup acceptance.
+No deployment, installed M44, live ledger/provider/mail or registration action.
 
 ## Stage 11 public trust libraries — M98 accepted
 

@@ -30,7 +30,7 @@ Review 1 found output/reference admission and absent expression-contract proof;
 review 2 found dropped restricting parent constraints. Their regressions failed
 before fixes and now pass. The complete pre-publication review 3 is recorded in
 the active owner status. Source publication and ordinary public/private SDK consumers now pass; see
-[publication](p09-publication.md). Whole closing acceptance remains pending.
+[publication](p09-publication.md). Closing whole review 4 passed; P09 is accepted and its complete record is [retired](../tabilet/docs/history/status-P09.md).
 
 The public SDK never imports private Udon. The preliminary actual private
 adapter uses ordinary published Udon M48 da43e57be37af4e18e633558580f740c525f139d,

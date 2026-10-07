@@ -44,3 +44,17 @@ Consume OpenUdon:M98’s narrowed public surface and P09’s v3 APIs; retained b
 - Verification: pending implementation; no test result is claimed by this planning record.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
+
+## Accepted P09 public-surface lineage — 2026-10-07
+
+P09 accepts qualified/public source a6a3ef010fe27f277f8191204c1c81ea1cc0334b,
+SDK v0.1.1-0.20261007094531-a6a3ef010fe2 after closing review 4. Public
+packagev3 supplies explicit construction/assessment/source/plan/authority and
+read-only v2/v3 history, with public credentialpolicy and runtime-owned trusted
+catalog/admission adapters. Existing M98 neutral surface and old wires stay
+frozen; no private Udon import or stable legacy v2 synthesis contract enters
+public SDK. A31 inventory must retain this full public closure and all pending
+Kinet accepted consumers before deleting private legacy/browser compatibility.
+[Contract](../../docs/package-v3.md) and [qualification](../../docs/p09-qualification.md)
+record exact source/owner/consumer scope. Browser-dependent retirement remains
+Stage 12; no row/review starts here before Kinet U14.

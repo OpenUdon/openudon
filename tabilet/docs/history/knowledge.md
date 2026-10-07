@@ -5998,3 +5998,83 @@ Current APItools pin: `v0.0.0-20260930205753-fb132631c982`, exact source
 contract, now adopted at published APItools M81/M80 revision
   `fb132631c9827eae5f2ec4503d03f21eabfb4113`.
 ````
+
+## P09 accepted SDK consolidation — 2026-10-07
+
+Source: current product/architecture/stack checkpoints at 8bef74268fce81379b752deaf7b4f512845fdfe7, including recorded review-4 changes. Reason: all tasks, qualified source publication/consumers and closing review 4 pass. Replacement: accepted P09 sections, docs/package-v3.md, docs/p09-qualification.md and docs/p09-publication.md. Historical records stay frozen.
+
+### product.md — P09 implementation checkpoints
+
+`````markdown
+## P09 review-1 fixes
+
+P09 review fixes derive exact expression input contracts from reviewed data and source-backed outputs. Missing/forward/cyclic references cannot qualify compatible review or broker authority; optional/null/open paths and unproved runtime scope remain indeterminate. No model/caller assertion or operation evaluation supplies evidence.
+
+## P09.4 historical compatibility
+
+P09.4 adds explicit read-only v2/v3 history inspection without conversion, private runtime/source proof, approval or fallback execution. V3 unsupported-execution/function history stays readable using artifact identities; executable verification remains separate. Old approval/report/evidence golden readers and browser pin remain qualified and unchanged. V2-to-v3 successors have new identities and require Kinet-owned exact confirmation/fresh worker authority; P09.5 whole qualification/publication remains pending.
+
+## P09.3 verified execution constraints
+
+P09.3 supplies independently verified private byte snapshots, exact operation/input/worker plans and unchanged-wire broker authority derivation. Symbolic security inventories come from selected verified sources; producer flags, conversion and package hashes do not grant execution. Runtime function catalogs require the trusted implementing consumer’s independent reproduction and non-effectful admission. Knownness stays explicit, browser/unsupported leaves refuse, and host owner/grant/destination policy remains independent. P09.4/.5 compatibility/publication and whole acceptance remain pending.
+
+## P09.2 construction and assessment
+
+Public packagev3 Build/Assess construct exact reviewed YAML/data/API-source snapshots without intent synthesis. Independently reproduced shapes and strict portability support review; pending and mismatched contracts refuse, partial runtime/type/output evidence remains indeterminate. Compatible means the checks proved review metadata, never approval. Construction is isolated by consumers; P09.3–.5 authority/compatibility/publication remain pending.
+
+## P09.1 structural record implementation
+
+P09.1 implementation adds explicit v3 package/handoff/assessment structural records over exact approved YAML, data.json, source artifacts and ShapeTable identity. Authored/packaged HCL/private/browser inputs are excluded. Record validation creates no source-semantic proof, assessment success or approval; P09.2–.5 remain pending.
+`````
+
+### architecture.md — P09 implementation checkpoints
+
+`````markdown
+## P09 review fixes
+
+Assessment now uses the public core expression parser with private source-backed contract projection. Literal data consts retain numeric lexemes; required response/step outputs retain source constraints, and all body/pointer/dot/plural-header forms are checked. Contract traversal refuses unproved presence/collision/scope and does not evaluate leaves or load resources.
+
+Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+
+## P09.4 historical compatibility
+
+A private snapshot integrity helper is shared by Verify and InspectHistory; only Verify independently reproduces source/shape/assessment and can construct VerifiedPackage. Explicit history dispatch returns scalar identities with ReadOnly=true/SourceProof=false, using unchanged M98 trust inspection for v2. No legacy artifact is passed into v3 verification or a new executor. Existing approval/report/evidence paths and independently pinned browser CLI remain untouched.
+
+## P09.3 verified execution constraints
+
+VerifiedPackage retains copied bytes behind private fields and rechecks closed canonical inventory/report identities and API-source shapes. Runtime catalog source/table verification is delegated only to a trusted implementing consumer, receiving independent copies and exact module revision. ExecutionPlan binds raw operation/step/data constraints plus binary/closure/runtime identity; broker authority uses the existing v1 wire and exact native APItools security details. CheckExecutionApproval requires the trusted host’s separately confirmed plan digest and current bounded approval, with HTTP broker v2 and native-admitted pure-function v1 profiles. No private runtime imports or effect dispatch enter the public SDK.
+
+## P09.2 construction and assessment
+
+packagev3 Build copies bounded explicit bytes, independently reproduces APItools shapes, embeds exact published UWS core schemas with a closed loader, restores lossless open values after custom model decode, then emits linked assessment/handoff identities under unchanged digest-v1. Public credentialpolicy shares existing literal policy through legacy internal adapters; browser artifact masking stays private. Source-to-shape proof is reproduced for assessment; concrete operation/input/worker authority remains P09.3. The transitive guard permits only the qualified public Horizon subtree among genelet modules, retaining all private-executor/OpenUdon-internal refusals.
+
+## P09.1 structural record implementation
+
+P09.1 adds public packagev3 structural records and strict closed/canonical decoding using the existing public wire bounds. Manifest inputs, assessment and handoff have separate linked identities; the existing digest-v1 envelope/scope/order algorithm is delegated to public handoff.DigestFiles. New records have no I/O or private executor import. Construction/reproduction/authority remain later row gates.
+`````
+
+### tech-stack.md — P09 implementation checkpoints
+
+`````markdown
+## P09 review fixes
+
+Review-1 regression fixtures cover unresolved outputs, exact large-number inputs/chains, body/header spellings, nullable/optional presence and future steps. New execution-plan schema compiles against the deterministic package/plan/authority/API fixtures; the explicit developer generator never runs from default tests. Compatible staticcheck, full owner/vet and public trust/authority races pass at affd575; clean ordinary publication qualification remains P09.5.
+
+Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+
+## P09.4 historical compatibility
+
+P09.4 preserves old public declarations/wires/schema fixtures; history dispatch explicitly selects apitools.review-handoff.v2 or openudon.package.v3. Whole owner checks/vet, focused staticcheck, public trust/history/approval/report races and private legacy identity regressions pass. The exact Kinet browser image labels and an actual network-none/read-only/rootless CLI version probe match source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary 072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4 and Go 1.26.6. This does not requalify browser capture; no affected browser implementation or pin changed.
+
+## P09.3 verified execution constraints
+
+P09.3 adds Verify/ExecutionPlan/broker/approval checks, one reserved runtime-function source, and trusted RuntimeVerifier/RuntimeAdmission adapters. Bounds retain 32 API sources plus one runtime catalog (33 total), 512 files/8 MiB each/32 MiB combined, 128 findings, and the existing 100-operation authority limit. Exact Udon M48 produces/verifies the seven-entry catalog fixture using the ordinary published module; default SDK checks consume synthetic independent fixtures. The preliminary private adapter uses a local SDK bootstrap and synthetic worker hashes; final clean ordinary publication/closure is P09.5. No owner dependency upgrade beyond P09.2 or schema/old-wire/browser pin change.
+
+## P09.2 construction and assessment
+
+Current owner adoption is APItools v0.0.0-20261006210844-54583f9b2f45 and UWS root/codec v0.0.0-20261006224744-c0b19385a3b0, without replacements or unrelated upgrades. The same Go 1.26.6 and existing schema/YAML libraries are retained. Exact core schema entries are embedded from the selected M08 archive and all 17 are byte-compared in tests. Historical qualification source, independently pinned browser dependencies/locks and old wire fixtures remain frozen. Current content-trust regression now checks the adopted root core and unchanged Browsertools pin; it does not rerun historical acceptance.
+
+## P09.1 structural record implementation
+
+P09.1 introduces additive openudon.package.v3, openudon.review-handoff.v3 and openudon.assessment.v3 schemas under docs/schemas and pure packagev3 record APIs. Limits: 512 files/8 MiB each/32 MiB total, 32 sources, 128 value-free findings. Ordinary modules/toolchain and all existing schema/wire files stay unchanged; standalone GOWORK=off offline checks and public import/schema/digest fixtures qualify the row.
+`````

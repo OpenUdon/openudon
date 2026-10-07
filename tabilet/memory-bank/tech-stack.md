@@ -1,26 +1,31 @@
 # Tech Stack
 
-## P09 review fixes
+## Stage 11 package v3 SDK — P09 accepted
 
-Review-1 regression fixtures cover unresolved outputs, exact large-number inputs/chains, body/header spellings, nullable/optional presence and future steps. New execution-plan schema compiles against the deterministic package/plan/authority/API fixtures; the explicit developer generator never runs from default tests. Compatible staticcheck, full owner/vet and public trust/authority races pass at affd575; clean ordinary publication qualification remains P09.5.
+Qualified SDK source a6a3ef010fe27f277f8191204c1c81ea1cc0334b resolves as
+v0.1.1-0.20261007094531-a6a3ef010fe2, sum
+h1:Tomt06dU+DCTEqrTNlDlcFnFZGl/r8fvpIXaSUOwu7s= and go.mod sum
+h1:kol8tnW9phAZtwTfHJ2z9Oa8eUnfUYcQIwcxPcyvl4g=.
+Exact accepted APItools M82 and UWS root/codec M08 dependencies are recorded in
+go.mod without owner replacements. Existing Go 1.26.6/schema/YAML dependencies
+and all old wire/schema/browser locks remain frozen. New package/assessment/
+handoff/plan schemas and API/identity fixtures are additive.
 
-Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+Bounds: 32 API sources plus one runtime catalog, 512 files/8 MiB each/32 MiB
+total, 128 findings, 100 concrete operations; strict JSON 100,000 nodes/64 levels.
+All 17 embedded core schema entries are byte-compared to the selected UWS module.
+[Qualified build](../../docs/p09-qualified-build.json) records clean Go1.26.6
+owner91 modules/90 ordinary archives and reproduced CLI bytes. Independent
+published public73/private171 consumers have no directory replacements; the
+private graph retains only the qualified M48 Docker-to-Moby version replacement.
+Consumers are narrower than owner closure and use synthetic worker identities;
+Kinet M47 still qualifies real worker provenance/isolation.
 
-## P09.4 historical compatibility
-
-P09.4 preserves old public declarations/wires/schema fixtures; history dispatch explicitly selects apitools.review-handoff.v2 or openudon.package.v3. Whole owner checks/vet, focused staticcheck, public trust/history/approval/report races and private legacy identity regressions pass. The exact Kinet browser image labels and an actual network-none/read-only/rootless CLI version probe match source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary 072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4 and Go 1.26.6. This does not requalify browser capture; no affected browser implementation or pin changed.
-
-## P09.3 verified execution constraints
-
-P09.3 adds Verify/ExecutionPlan/broker/approval checks, one reserved runtime-function source, and trusted RuntimeVerifier/RuntimeAdmission adapters. Bounds retain 32 API sources plus one runtime catalog (33 total), 512 files/8 MiB each/32 MiB combined, 128 findings, and the existing 100-operation authority limit. Exact Udon M48 produces/verifies the seven-entry catalog fixture using the ordinary published module; default SDK checks consume synthetic independent fixtures. The preliminary private adapter uses a local SDK bootstrap and synthetic worker hashes; final clean ordinary publication/closure is P09.5. No owner dependency upgrade beyond P09.2 or schema/old-wire/browser pin change.
-
-## P09.2 construction and assessment
-
-Current owner adoption is APItools v0.0.0-20261006210844-54583f9b2f45 and UWS root/codec v0.0.0-20261006224744-c0b19385a3b0, without replacements or unrelated upgrades. The same Go 1.26.6 and existing schema/YAML libraries are retained. Exact core schema entries are embedded from the selected M08 archive and all 17 are byte-compared in tests. Historical qualification source, independently pinned browser dependencies/locks and old wire fixtures remain frozen. Current content-trust regression now checks the adopted root core and unchanged Browsertools pin; it does not rerun historical acceptance.
-
-## P09.1 structural record implementation
-
-P09.1 introduces additive openudon.package.v3, openudon.review-handoff.v3 and openudon.assessment.v3 schemas under docs/schemas and pure packagev3 record APIs. Limits: 512 files/8 MiB each/32 MiB total, 32 sources, 128 value-free findings. Ordinary modules/toolchain and all existing schema/wire files stay unchanged; standalone GOWORK=off offline checks and public import/schema/digest fixtures qualify the row.
+Required offline checks, vet, focused staticcheck/races, source/schema/API/wire/
+tamper/privacy/history regressions and ordinary published consumer proof pass.
+Use GOWORK=off, GOPROXY=off and the pinned toolchain for qualified checks. The
+explicit tools/packagev3-fixtures developer utility regenerates candidate
+fixtures only after deliberate review; default tests never rewrite them.
 
 ## Stage 11 public trust libraries — M98 accepted
 

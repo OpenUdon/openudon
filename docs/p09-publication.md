@@ -32,6 +32,8 @@ build-closure fetching authority so the public full graph could be recorded;
 no dependency version was upgraded. Both then pass with GOPROXY=off. Local
 bootstrap evidence is superseded by these ordinary published-module results.
 
-P09.5 publication task is complete; whole closing review, downstream exact-source
-reconciliation and literal retirement are still required before Kinet adoption.
+P09.5 and closing whole review 4 pass. Current contracts are consolidated,
+downstream exact-source requirements reconciled and the [full record](../tabilet/docs/history/status-P09.md)
+is retired. Acceptance/retirement closure publication is independently recorded
+below before Kinet adoption.
 No deployment/live ledger/provider/model/API/mail/registration change occurred.

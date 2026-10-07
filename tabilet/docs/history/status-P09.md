@@ -1,7 +1,40 @@
+# Retired milestone P09 - Package v3
+
+**Milestone.** P09
+**Outcome.** completed
+**Retired.** 2026-10-07
+**Source status.** tabilet/memory-bank/status-P09.md
+**Source specification.** tabilet/memory-bank/milestone.md#p09-package-v3
+**Evidence.** 8bef74268fce81379b752deaf7b4f512845fdfe7
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 4
+**Verification.** Full owner/default make check/vet, compatible focused staticcheck, public trust/authority/history/approval/evidence races, schema/API/wire/golden/tamper/privacy regressions, clean ordinary source/91-module/90-archive build reproduction and exact published public73/private171 consumers passed; docs/p09-qualification.md, docs/p09-qualified-build.json and docs/p09-publication.md bind evidence. No directory replacements; private consumer retains qualified M48 version replacement.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, AGENTS.md; old checkpoint wording in knowledge.md; exact downstream Kinet A15/W18/M47/W19 and OpenUdon A31 reconciled.
+
+## Milestone specification
+
+``````markdown
+## P09 — Package v3
+
+**Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 11/18, not a review severity.
+**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/docs/history/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Define v3 package and review records; Build directly from UWS; Verify sources and derive authority; Preserve v2 and evidence readers; Qualify and publish v3.
+**Acceptance.** V3 has an independently checked source-to-shape-to-authority chain and exact digest-bound inputs. V2 history stays readable and no authority is inferred from conversion.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [P09 history](../docs/history/status-P09.md), all five task rows complete; closing whole review 4/10 started. Approved intake provenance and consumer requirements are in that status. Structural records, construction, assessment and verified exact authority APIs are implemented; Compatibility readers are verified; whole review 4 passed and exact source/SDK publication is independently verified; retirement closure publication follows.
+
+``````
+
+## Status record
+
+``````markdown
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; all five task rows complete; whole closing review pending; pre-publication review 3/10 passed; closing publication review pending.
+**State:** All five task rows complete; accepted after closing whole review 4/10 on 2026-10-07; consolidation/reconciliation/retirement in progress.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -71,10 +104,10 @@ observed on authorized APItools origin/main, satisfying the publication gate.
 
 ## Persisted review
 
-- Review iteration: **3/10**; pre-publication whole review passed at fixed source a6a3ef010fe27f277f8191204c1c81ea1cc0334b; closing publication/consumer acceptance remains pending.
+- Review iteration: **4/10**; closing whole review passed on 2026-10-07 against qualified source a6a3ef010fe27f277f8191204c1c81ea1cc0334b and source/consumer records at 8bef74268fce81379b752deaf7b4f512845fdfe7.
 - Closing-review findings: R1-F01/R1-F02 and R2-F01 are fixed with regressions/full checks. Reviews 1 and 2 did not pass their initial gates; complete pre-publication review 3 passed with no remaining P1/P2.
-- Accepted revision: not available.
-- Published revision / artifact evidence: not available.
+- Accepted revision: a6a3ef010fe27f277f8191204c1c81ea1cc0334b (qualified source); closing review 4 passed.
+- Published revision / artifact evidence: independently observed origin/main da6653145c8624f862e3c21adb413345d0cb4be2 contains accepted source; ordinary SDK and consumer proofs are docs/p09-publication.md and docs/p09-consumer-proof.json. Retirement/acceptance closure publication follows.
 - Verification: P09.1–.4 and P09.5 candidate fixture/default checks are recorded below; clean ordinary source/consumer qualification and publication remain pending.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
@@ -510,3 +543,37 @@ existing build-closure authority, then passed offline without version change.
 All task rows are terminal, but terminal rows do not prove acceptance. Closing
 whole review, current-fact consolidation, exact downstream reconciliation and
 literal retirement remain required before advancing. No deployment/live action.
+
+## Persisted closing whole review 4 started — 2026-10-07
+
+All five rows are complete; the stored review 3 results/fixed findings and exact
+published source/consumer evidence were read before advancing to iteration 4.
+Review the full implementation and final qualification/publication/consumer
+records, current contracts, security/privacy/cancellation/bounds, supported and
+indeterminate behavior, unchanged wires and browser pins. Check complete owner
+module graph against the narrower public/private consumer evidence and retain
+required version replacements precisely. No acceptance is inferred by starting
+this pass. Review/consolidation/reconciliation/literal retirement and required
+closure publication must finish before selecting Kinet A15.
+
+## Closing review 4 passed and acceptance — 2026-10-07
+
+The full closing review passes with no remaining P1/P2. It re-examines all P09
+source/contracts, the three persisted review findings/fixes, complete owner
+build graph, narrower public/private consumer graphs, exact schema/API/wire/
+fixture/archive/binary identities, context/privacy/bounds and old/new history/
+approval/browser separation. Runtime code is unchanged after qualified
+ a6a3ef010fe27f277f8191204c1c81ea1cc0334b; actual artifact/hash/consumer module
+records were independently compared to retained files and no-directory module
+resolution. Owner91/90, public73 and private171 scopes remain distinct; the
+private qualified Docker-to-Moby version replacement is retained precisely.
+
+All five task rows, required owner/default/vet/static/race/schema/import/wire
+checks, clean ordinary build reproduction and independently published source/
+SDK/consumer prerequisites pass. P09 is accepted at the qualified source above;
+current-fact consolidation, downstream exact reconciliation and literal
+retirement/closure publication are performed next under the same serial owner.
+Kinet author/execution/observation/migration integrations retain their own
+acceptance; no actual worker or live authority is inferred from SDK metadata.
+No new evolution version is needed: v50 already owns this approved direction.
+``````

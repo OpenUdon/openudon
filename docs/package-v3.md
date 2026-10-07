@@ -1,9 +1,9 @@
-# Explicit-byte package v3 (P09 in progress)
+# Explicit-byte package v3 (P09 accepted)
 
 The public `packagev3` package defines structural records and explicit-byte
 `Build`/`Assess` APIs. P09.1–.2 provide construction and review assessment;
 Concrete plan/authority verification is implemented in P09.3;
-Compatibility readers are implemented; whole review, clean qualification and publication remain P09.5. A valid record or compatible assessment never grants execution.
+Compatibility, clean ordinary source/consumer qualification, publication and closing review 4 pass; see [qualification](p09-qualification.md). A valid record or compatible assessment never grants execution.
 
 The package uses exact approved `workflows/workflow.uws.yaml` bytes,
 `expected/data.json`, `expected/operation-shapes.json` and explicit source

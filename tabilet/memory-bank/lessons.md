@@ -258,3 +258,28 @@ schema checks. Keep generic normalization compatible, enforce canonical field
 spelling at authority boundaries, and apply owned embedded wire schemas through
 a closed loader before claiming byte verification. The corrected regressions
 and clean source are recorded in [M98 qualification](../../docs/m98-qualification.md).
+
+## Preserve unproved parent constraints in expression projections
+
+When a reviewed source schema supplies an expression type, use exact source
+bytes and retain presence/null and parent restrictions. A child type by itself
+can erase constraints and turn an unproved or contradictory source into a
+compatible binding. Literal consts keep json.Number lexemes; validate a const
+against its whole schema and keep unsupported restricting parent keywords
+unknown. Shared advisory findings and valid grammar alone do not prove a
+reference exists. P09 review regressions reproduce missing/forward outputs,
+exact chained inputs, optional/null paths and lost parent restrictions; see
+[retired P09](../docs/history/status-P09.md) and [qualification](../../docs/p09-qualification.md).
+
+## Separate snapshot inspection from source proof and confirmed worker plans
+
+Read-only history should remain available without an executing/private runtime,
+but cannot supply source proof or a verified authority value. Keep independent
+source/shape reproduction in the explicit verifier, and bind new execution to
+both the reviewed package and the separately confirmed worker/closure plan.
+Changing package/worker bytes must refuse old authority. Runtime-owned catalogs
+need independently qualified consumer evidence, not producer booleans. P09
+qualifies neutral v2/v3 history, exact source/plan/authority/approval checks and
+ordinary published public/private consumers; Kinet still owns actual worker
+isolation and current host grant custody. See [contract](../../docs/package-v3.md),
+[publication](../../docs/p09-publication.md) and [P09](../docs/history/status-P09.md).

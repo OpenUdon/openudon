@@ -2,7 +2,7 @@
 
 ## Stage 11 active horizon
 
-Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. This package owns pending P09/A31, each review 0/10. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
+Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. P09 is accepted after closing review 4 at qualified/public a6a3ef010fe27f277f8191204c1c81ea1cc0334b; A31 remains pending behind Kinet U14, review 0/10. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
 
 ## Stage 9 approved work — 2026-10-05
 
@@ -232,7 +232,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- The earlier horizon is complete; Stage 11 M98 is accepted; P09.1 structural records are complete; P09.2–.5/A31 remain pending. M95 is accepted/published
+- The earlier horizon is complete; Stage 11 M98 is accepted; P09 is accepted after closing review 4; A31 remains pending. M95 is accepted/published
   and retired; final Kinet M20/W8M W29 adoption remains in their own ledgers.
   APItools M81/M80, Udon M45 and Authoring M29 stay accepted prerequisites.
 
@@ -269,7 +269,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P09 | Package v3 | [status-P09.md](status-P09.md) | all five rows complete; pre-publication review 3/10 passed; closing acceptance pending |
 | A31 | Transition cleanup | [status-A31.md](status-A31.md) | pending; review 0/10 |
 
 ## Requested Changes After Initialization
@@ -525,17 +524,6 @@ Approved review-intake amendment, 2026-10-06: 18 required milestones / 87 pendin
 **Approved source.** User-approved complete proposal, 2026-10-06; source baseline `7cd7fbb837fb87e1ca4abea2a362790b0f434188`. [Coordinated contract](../../../kinet/docs/stage11.md) defines both phases, cross-package order, compatibility and acceptance. The request to implement the proposal authorizes its planning files only.
 
 One execution owner, serial execution and task commits under the later confirmed goal. Planning authorizes no code execution, commit, publication or external operation. Source publication requires separately named authority; a status marker or local build is not publication. Consumers must record exact accepted and published prerequisites before adoption. Default checks are offline, credential-free and model-free. No deployment, live ledger migration, real API/model/mail action or registration change.
-
-## P09 — Package v3
-
-**Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 11/18, not a review severity.
-**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/docs/history/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
-**Scope.** Define v3 package and review records; Build directly from UWS; Verify sources and derive authority; Preserve v2 and evidence readers; Qualify and publish v3.
-**Acceptance.** V3 has an independently checked source-to-shape-to-authority chain and exact digest-bound inputs. V2 history stays readable and no authority is inferred from conversion.
-**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
-Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
-**Downstream.** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-P09.md](status-P09.md), all five task rows complete; pre-publication review 3/10 passed; publication/closing acceptance pending. Approved intake provenance and consumer requirements are in that status. Structural records, construction, assessment and verified exact authority APIs are implemented; Compatibility readers are verified; whole-milestone acceptance and publication remain pending.
 
 ## A31 — Transition cleanup
 

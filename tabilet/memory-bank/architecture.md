@@ -1,26 +1,31 @@
 # Architecture
 
-## P09 review fixes
+## Stage 11 package v3 SDK — P09 accepted
 
-Assessment now uses the public core expression parser with private source-backed contract projection. Literal data consts retain numeric lexemes; required response/step outputs retain source constraints, and all body/pointer/dot/plural-header forms are checked. Contract traversal refuses unproved presence/collision/scope and does not evaluate leaves or load resources.
+P09 closing review 4 accepts qualified/public source
+ a6a3ef010fe27f277f8191204c1c81ea1cc0334b and its ordinary exact SDK module.
+[Contract](../../docs/package-v3.md) and [qualified closure](../../docs/p09-qualified-build.json)
+define the supported public surface; SDK imports no OpenUdon internal/private
+executor. The approved public Horizon/HCL transitive subtree remains explicit.
 
-Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+Build copies bounded explicit bytes, reproduces APItools shapes, validates the
+exact embedded published UWS core schemas with a closed loader, restores open
+values losslessly and emits linked manifest/assessment/handoff identities under
+unchanged digest-v1. Only Verify constructs a private independent VerifiedPackage
+after complete source/shape/assessment proof. InspectHistory shares byte integrity
+but returns ReadOnly=true/SourceProof=false and never constructs authority.
 
-## P09.4 historical compatibility
-
-A private snapshot integrity helper is shared by Verify and InspectHistory; only Verify independently reproduces source/shape/assessment and can construct VerifiedPackage. Explicit history dispatch returns scalar identities with ReadOnly=true/SourceProof=false, using unchanged M98 trust inspection for v2. No legacy artifact is passed into v3 verification or a new executor. Existing approval/report/evidence paths and independently pinned browser CLI remain untouched.
-
-## P09.3 verified execution constraints
-
-VerifiedPackage retains copied bytes behind private fields and rechecks closed canonical inventory/report identities and API-source shapes. Runtime catalog source/table verification is delegated only to a trusted implementing consumer, receiving independent copies and exact module revision. ExecutionPlan binds raw operation/step/data constraints plus binary/closure/runtime identity; broker authority uses the existing v1 wire and exact native APItools security details. CheckExecutionApproval requires the trusted host’s separately confirmed plan digest and current bounded approval, with HTTP broker v2 and native-admitted pure-function v1 profiles. No private runtime imports or effect dispatch enter the public SDK.
-
-## P09.2 construction and assessment
-
-packagev3 Build copies bounded explicit bytes, independently reproduces APItools shapes, embeds exact published UWS core schemas with a closed loader, restores lossless open values after custom model decode, then emits linked assessment/handoff identities under unchanged digest-v1. Public credentialpolicy shares existing literal policy through legacy internal adapters; browser artifact masking stays private. Source-to-shape proof is reproduced for assessment; concrete operation/input/worker authority remains P09.3. The transitive guard permits only the qualified public Horizon subtree among genelet modules, retaining all private-executor/OpenUdon-internal refusals.
-
-## P09.1 structural record implementation
-
-P09.1 adds public packagev3 structural records and strict closed/canonical decoding using the existing public wire bounds. Manifest inputs, assessment and handoff have separate linked identities; the existing digest-v1 envelope/scope/order algorithm is delegated to public handoff.DigestFiles. New records have no I/O or private executor import. Construction/reproduction/authority remain later row gates.
+Core expression contracts come from exact data and independently verified
+response/step schemas. Required source constraints and numeric text remain;
+optional/null/open/unproved paths and restricting parent keywords remain unknown.
+RuntimeVerifier/RuntimeAdmission receive independent supplied copies and must
+bind the actual qualified runtime revision; they perform no operation in SDK.
+Concrete bounded plans bind package/handoff/inputs/raw operation/step/data plus
+worker binary/closure/runtime identities. Broker v1 requires known fixed HTTP/
+auth details and current symbolic revisions. Execution approval also requires
+the trusted host's separately confirmed exact plan digest; HTTP uses broker v2,
+pure functions use v1 after native admission. Host owner/grant/revocation/egress
+and actual worker provenance remain independent authority boundaries.
 
 ## Stage 11 public trust libraries — M98 accepted
 
