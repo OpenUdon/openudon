@@ -4,8 +4,6 @@ package evidencefile
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/OpenUdon/openudon/digest"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 )
 
@@ -162,10 +161,7 @@ func scanJSONValue(dec *json.Decoder, depth int) error {
 	return nil
 }
 
-func SHA256(data []byte) string {
-	digest := sha256.Sum256(data)
-	return hex.EncodeToString(digest[:])
-}
+func SHA256(data []byte) string { return digest.SHA256(data) }
 
 // WriteDigestSidecar atomically writes the canonical digest sidecar for path.
 func WriteDigestSidecar(path string, data []byte, mode os.FileMode) error {
@@ -176,18 +172,5 @@ func WriteDigestSidecar(path string, data []byte, mode os.FileMode) error {
 	return atomicfile.Write(path+".sha256", []byte(line), mode)
 }
 
-func ValidSHA256(value string) bool { return validHex(value, 64) }
-
-// ValidGitObject accepts only complete SHA-1 or SHA-256 Git object IDs.
-func ValidGitObject(value string) bool {
-	return validHex(value, 40) || validHex(value, 64)
-}
-
-func validHex(value string, size int) bool {
-	value = strings.TrimSpace(value)
-	if len(value) != size {
-		return false
-	}
-	_, err := hex.DecodeString(value)
-	return err == nil
-}
+func ValidSHA256(value string) bool    { return digest.ValidSHA256(value) }
+func ValidGitObject(value string) bool { return digest.ValidGitObject(value) }

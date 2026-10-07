@@ -1,7 +1,7 @@
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; 4 pending rows, no implementation or acceptance.
+**State:** Confirmed serial Stage 11 execution; M98.1 complete, three rows pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -16,7 +16,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 
 | Item | State | Notes |
 |---|---|---|
-| M98.1 — Extract handoff digest and authority APIs | `[ ]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
+| M98.1 — Extract handoff digest and authority APIs | `[+]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
 | M98.2 — Define format-neutral verification boundaries | `[ ]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
 | M98.3 — Expose evidence verification | `[ ]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
 | M98.4 — Qualify and publish public interfaces | `[ ]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
@@ -81,3 +81,32 @@ Udon closure/evidence head 4ec2bdf155ced16dbd3303dc6c45f7359631811f was also
 independently observed on its unchanged authorized origin/main after normal
 source-only push, containing exact accepted runtime ancestry and passed closing
 review. This satisfies the full prerequisite source/closure publication gate.
+
+## M98.1 selection — 2026-10-07
+
+Continue from clean owner head 538f7bc9b97c094176c90c0d336207c629ac4301 after
+exact accepted/published Udon M48 reconciliation. Its final factual-summary
+closure head 496240b0c7c68a2097ce3ecac89ac9759fc4ea63 is independently observed
+on unchanged authorized Udon origin/main; runtime/module/binary source stays
+da43e57be37af4e18e633558580f740c525f139d. The sole execution owner now selects
+M98.1; no other general task row is in progress. Extract only deliberate
+format-neutral public handoff/digest/approval/Authority APIs with unchanged
+canonicalization/discriminators/wires. Do not expose synthesis-coupled v2
+construction or import private Udon; other M98 rows and whole review stay pending.
+
+## M98.1 completion — 2026-10-07
+
+Public `handoff`, `digest`, `authority` and `approval` packages now own the
+existing neutral manifests, canonical self/policy digests, approval wire and
+value validators. Internal adapters alias/delegate without changing CLI
+construction, assessment or execution. Published fixture JSON hashes and
+embedded self/policy digests pass; the public dependency guard excludes all
+OpenUdon internals and private genelet modules. No module/pin changed.
+
+Verification passed: public and affected internal tests; `go vet ./...`;
+`make check` (standalone CLI/runner build, full tests, sibling and APItools
+boundary checks); focused public/broker/evidence race tests; tabilet
+`check-doc-memory`; `git diff --check`. Existing mock simulation and browser
+adapter unit regressions passed in the full suite. No browser runtime/capture
+code changed, so no live browser smoke was selected. Full M98 acceptance and
+publication remain pending; whole review remains 0/10.

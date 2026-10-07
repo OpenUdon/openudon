@@ -5,6 +5,10 @@
 [Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. OpenUdon:M98 will expose format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. OpenUdon:P09 owns supported public v3 construction and source/shape verification; isolation belongs to the consuming worker. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
 Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
 
+## Stage 11 implementation progress
+
+M98.1 implements public `handoff`, `digest`, `authority` and `approval` value APIs for existing review/trust metadata. They preserve current JSON/canonical digests and perform no I/O or execution. Synthesis-coupled v2 package construction remains private. Whole M98 acceptance/publication and bounded verification remain pending.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

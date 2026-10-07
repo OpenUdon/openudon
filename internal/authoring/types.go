@@ -8,6 +8,7 @@ import (
 	"time"
 
 	sharedengine "github.com/OpenUdon/authoring/engine"
+	"github.com/OpenUdon/openudon/handoff"
 )
 
 // Transcript records the authoring conversation and tool observations that led
@@ -25,13 +26,7 @@ type TranscriptTurn struct {
 }
 
 // Diagnostic describes an authoring or validation issue.
-type Diagnostic struct {
-	Severity    string `json:"severity"`
-	Code        string `json:"code"`
-	Message     string `json:"message"`
-	Path        string `json:"path,omitempty"`
-	Remediation string `json:"remediation,omitempty"`
-}
+type Diagnostic = handoff.Diagnostic
 
 // Slot describes a missing or variable value needed by a draft artifact.
 type Slot struct {

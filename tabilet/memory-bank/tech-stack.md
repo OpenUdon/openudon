@@ -5,6 +5,10 @@
 [Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. Exact published module revisions, frozen build closures and standalone verification are acceptance gates. go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
 Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
 
+## Stage 11 implementation progress
+
+M98.1 adds public fixture tests against retained review-handoff, broker-authority and approval wire bytes plus `go test ./internal/publicapi` for the transitive import boundary. No dependency version or frozen browser/media pin changes. Full M98 standalone qualification and source publication remain pending.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,
