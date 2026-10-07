@@ -1,0 +1,24 @@
+{
+  "version": "openudon.p09-qualified-build.v1",
+  "source": "a6a3ef010fe27f277f8191204c1c81ea1cc0334b",
+  "source_archive_sha256": "1efbe6c5236b7d1ff05ed94bb1f4f2039d02320bb3e9b8ff09bbf380232b6b4e",
+  "go_version": "go1.26.6",
+  "go_binary_sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45",
+  "go_mod_sha256": "bbe880ccc9109f9b7fb2e73d142da7b6e42f60dfb113d24676b162e3c26ecaa0",
+  "go_sum_sha256": "048394c87c17b4e3a46a2bcee0215107ce1e0baf42ad0d512c3b399814388177",
+  "module_count": 91,
+  "ordinary_archive_count": 90,
+  "module_archive_manifest_sha256": "8f48cacad640b1c1e73942c2760d4f10c17141405f11e79c2c4cfb93f2dede47",
+  "package_surface_sha256": "6de76f7e0dda2e46cadd8efe9a35ecfd06d8263007522c269f0d997b954d4e1f",
+  "m98_surface_sha256": "8ac50a0eb84ba7a28ab2fda375bfc536b0df568272017e3f0674b9ca315b1e7e",
+  "package_fixture_sha256": "f8b3d4c3a328166bded7b413c0b08ef478d2d003a90e50553727a24eef24d521",
+  "artifacts": {
+    "openudon-qualified": "ffa7dc3be990755da7ee9af1fa9fd08642bb423e4491a9cfae564925270aefdb",
+    "openudon-reproduced": "ffa7dc3be990755da7ee9af1fa9fd08642bb423e4491a9cfae564925270aefdb",
+    "runner-qualified": "f089f467142952fc0f7b84e412af41ae59e9cf37e6bc9539776c24a1bb0836eb"
+  },
+  "vcs_modified": false,
+  "owner_checks": "clean ordinary clone: standalone make check and full vet passed offline",
+  "public_consumer": "pending ordinary published SDK resolution",
+  "private_consumer": "preliminary exact published Udon M48 module plus local SDK bootstrap; native admission and zero-effect approval proof only"
+}

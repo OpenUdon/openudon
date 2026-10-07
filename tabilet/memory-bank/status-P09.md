@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; whole review 2/10 started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; pre-publication review 3/10 passed; closing publication review pending.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -71,8 +71,8 @@ observed on authorized APItools origin/main, satisfying the publication gate.
 
 ## Persisted review
 
-- Review iteration: **2/10**; pre-publication whole review started on 2026-10-07 at fixed source affd575ecaa2043da29badd599870efd7102614e; resume this pass if interrupted.
-- Closing-review findings: R1-F01/R1-F02 and R2-F01 are fixed with regressions/full checks. Reviews 1 and 2 did not pass their initial gates; review 3 remains required.
+- Review iteration: **3/10**; pre-publication whole review passed at fixed source a6a3ef010fe27f277f8191204c1c81ea1cc0334b; closing publication/consumer acceptance remains pending.
+- Closing-review findings: R1-F01/R1-F02 and R2-F01 are fixed with regressions/full checks. Reviews 1 and 2 did not pass their initial gates; complete pre-publication review 3 passed with no remaining P1/P2.
 - Accepted revision: not available.
 - Published revision / artifact evidence: not available.
 - Verification: P09.1–.4 and P09.5 candidate fixture/default checks are recorded below; clean ordinary source/consumer qualification and publication remain pending.
@@ -453,3 +453,35 @@ with zero effects. This local SDK bootstrap remains preliminary, not published
 consumer or actual worker qualification. No additional P1/P2 was found in the
 rest of this whole pass. Review 2 did not pass because R2-F01 was originally
 open; review 3 must re-examine the full milestone after the fixed commit.
+
+## Persisted whole review 3 started — 2026-10-07
+
+Read review-2 finding/fix/verification before advancing the counter to 3. Review
+all P09 source/contracts/fixtures and earlier fixes at exact clean
+ a6a3ef010fe27f277f8191204c1c81ea1cc0334b (including ordinary dependency closure,
+privacy, authority, supported/unknown semantics, old/new readers and source/schema
+constraint preservation). Fresh clean ordinary owner/build qualification is
+selected as final pre-publication evidence. No passed review, publication or
+milestone acceptance is inferred by this start.
+
+## Pre-publication review 3 and clean owner qualification — 2026-10-07
+
+The complete whole review passes at a6a3ef010fe27f277f8191204c1c81ea1cc0334b
+with no remaining P1/P2. Earlier source/authority/output/type/parent fixes,
+privacy/bounds/context and old/new compatibility were re-examined across the
+full milestone; current capability/unknownness and host trust split remain
+explicit. Frozen earlier schemas/wires and browser/runtime/media pins remain.
+
+Clean ordinary owner make check/vet and reproduced CLI builds pass; actual VCS
+probe names the full source, Go 1.26.6 and vcs.modified=false. Complete closure
+is 91 modules/90 hashed ordinary archives, no replacements or missing archives.
+[Qualification](../../docs/p09-qualification.md), [build](../../docs/p09-qualified-build.json)
+and [archives](../../docs/p09-module-archives.json) persist exact identities.
+Openudon CLI SHA ffa7dc3be990755da7ee9af1fa9fd08642bb423e4491a9cfae564925270aefdb;
+runner SHA f089f467142952fc0f7b84e412af41ae59e9cf37e6bc9539776c24a1bb0836eb.
+
+Pre-publication review passing does not close P09.5 or the milestone: normal
+named origin/main source/closure publication, independently resolved ordinary
+published public/private SDK consumers, closing review, downstream exact-source
+reconciliation and literal retirement remain required. No deployment/live action
+or consumer adoption is authorized by this preliminary source qualification.
