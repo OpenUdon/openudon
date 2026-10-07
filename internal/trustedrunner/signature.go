@@ -17,18 +17,12 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/runevidence"
 )
 
-const RunEvidenceSignatureVersion = "openudon.run-evidence-signature.v1"
+const RunEvidenceSignatureVersion = runevidence.SignatureVersion
 
-type RunEvidenceSignature struct {
-	Version         string `json:"version"`
-	Algorithm       string `json:"algorithm"`
-	KeyFingerprint  string `json:"key_fingerprint"`
-	EvidenceSHA256  string `json:"evidence_sha256"`
-	PublicKeyPEM    string `json:"public_key_pem"`
-	SignatureBase64 string `json:"signature_base64"`
-}
+type RunEvidenceSignature = runevidence.Signature
 
 type VerifyRunEvidenceOptions struct {
 	TrustedPublicKey string

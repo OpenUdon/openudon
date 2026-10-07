@@ -10,7 +10,7 @@ import (
 )
 
 func TestV5ConformanceFixtures(t *testing.T) {
-	root := filepath.Join("..", "..", "docs", "fixtures", "per-step-run-evidence-v3")
+	root := filepath.Join("..", "docs", "fixtures", "per-step-run-evidence-v3")
 	data, err := os.ReadFile(filepath.Join(root, "expected.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestV5ConformanceFixtures(t *testing.T) {
 }
 
 func TestV5RejectsUntrustedRecordAndTimeMutations(t *testing.T) {
-	data, err := os.ReadFile("../../docs/fixtures/per-step-run-evidence-v3/success.report.json")
+	data, err := os.ReadFile("../docs/fixtures/per-step-run-evidence-v3/success.report.json")
 	if err != nil {
 		t.Fatal(err)
 	}

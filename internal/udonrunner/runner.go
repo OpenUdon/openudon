@@ -18,6 +18,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/udonreport"
+	"github.com/OpenUdon/openudon/runevidence"
 )
 
 const (
@@ -51,32 +52,9 @@ type Config struct {
 	Broker                *brokerhandoff.Authority `json:"broker,omitempty"`
 }
 
-// BrowserConfig is the complete value-free browser replay contract. Secret
-// and session values stay in the named environment variables.
-type BrowserConfig struct {
-	DriverPath                    string               `json:"driver_path,omitempty"`
-	DriverArgs                    []string             `json:"driver_args,omitempty"`
-	DriverEnvironment             []string             `json:"driver_environment,omitempty"`
-	Protocol                      string               `json:"protocol"`
-	RegistrationInputUI           bool                 `json:"registration_input_ui,omitempty"`
-	RegistrationInputService      string               `json:"registration_input_service,omitempty"`
-	RegistrationInputTokenEnv     string               `json:"registration_input_token_env,omitempty"`
-	RegistrationInputExpectedEnv  string               `json:"registration_input_expected_env,omitempty"`
-	CredentialEnvironment         []EnvironmentBinding `json:"credential_environment,omitempty"`
-	SessionEnvironment            []EnvironmentBinding `json:"session_environment,omitempty"`
-	ApprovedOperations            []string             `json:"approved_operations,omitempty"`
-	ApprovedAuthentication        []string             `json:"approved_authentication,omitempty"`
-	ApprovedRegistration          []string             `json:"approved_registration,omitempty"`
-	AttestedRegistration          []string             `json:"attested_registration,omitempty"`
-	RegistrationAttestationSHA256 string               `json:"registration_attestation_sha256,omitempty"`
-}
-
-// EnvironmentBinding maps a reviewed symbolic runtime name to its canonical
-// allowlisted environment-variable name; it never contains a value.
-type EnvironmentBinding struct {
-	Name        string `json:"name"`
-	Environment string `json:"environment"`
-}
+// BrowserConfig and EnvironmentBinding retain the neutral public wire types.
+type BrowserConfig = runevidence.BrowserConfig
+type EnvironmentBinding = runevidence.EnvironmentBinding
 
 // Invocation is the complete, auditable process boundary used by trusted
 // runner callers and tests. Argv always includes argv[0].

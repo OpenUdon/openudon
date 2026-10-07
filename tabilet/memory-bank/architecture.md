@@ -11,6 +11,8 @@ M98.1 moves existing neutral review manifest, broker authority, approval and dig
 
 M98.2 verifies explicit required byte inventories with canonical safe paths, manifest self digest and artifact hashes, using the unchanged package-digest-v1 envelope. The host supplies format-specific required paths; no discovery, filesystem, synthesis or simulation is imported. Limits are 1,024 files / 8 MiB each / 64 MiB total, and strict JSON 8 MiB / 100,000 nodes / 64 levels. Private v2 adapters are unchanged.
 
+M98.3 moves report-v2–v5 pure validation/observation to public `udonreport`, retaining private workflow inventory derivation. Public `runevidence` owns unchanged run/async/signature and browser metadata wires. Internal aliases keep the CLI on those types; non-browser intrinsic validation delegates publicly, while browser runtime/validation remain private. Byte verification reads no evidence paths and preserves conservative uncertainty; supplied expected identity/inventory and trusted key bytes establish only their stated provenance.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

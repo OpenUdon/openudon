@@ -11,6 +11,8 @@ M98.1 adds public fixture tests against retained review-handoff, broker-authorit
 
 M98.2 adds public `trust`/`wire` and bounded artifact-identity `handoff.DigestFiles`. Public/private package-digest parity, golden digest-v1, duplicate/unknown/multiple-document and size/depth/node/cancellation refusals are tested. Retained private mock simulation regression tests still pass without a public simulation API.
 
+M98.3 adds public report conformance/uncertainty fixtures, broker evidence JSON golden, private/public dry-run evidence parity, exact report/attempt/inventory mismatch and deterministic offline signature/key tests. Public evidence limits are 8 MiB per artifact/evidence, 1,024 artifacts, 64 MiB total; report-v5 retains 256 KiB/256 steps; signatures 1 MiB and trusted key 64 KiB. No private Udon module or frozen browser/media pin changes.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

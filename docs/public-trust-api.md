@@ -15,6 +15,8 @@ The public packages are:
 | `approval` | Approval v1/v2 and existing scope, package, tier, state and broker-authority checks. |
 | `trust` | Bounded inventory/digest verification of caller-supplied required artifact bytes. |
 | `wire` | Bounded strict JSON decoding, with lossless-number option and duplicate-key rejection. |
+| `udonreport` | Existing execution-report v2–v5 types, validation and conservative v5 observations. |
+| `runevidence` | Existing run-evidence v1–v4/async/signature wires and bounded non-browser byte verification. |
 
 These APIs accept values and perform no filesystem, credential, provider,
 network or runtime operation. They preserve existing JSON field order,
@@ -29,7 +31,7 @@ assess or simulate an OpenUdon v2 workflow package. Synthesis-coupled v2
 construction and orchestration remain private CLI adapters; supported v3
 construction belongs to P09. Workers must bound and strictly decode untrusted
 inputs, and redact private values in legacy diagnostics before display or
-storage. Evidence verification and whole qualification remain pending.
+storage. Whole M98 qualification, acceptance and publication remain pending.
 
 `trust.Inspect` requires a context, canonical package scope and manifest path,
 and one immutable byte map containing precisely the required manifest inputs.
@@ -49,6 +51,34 @@ The caller owns stable input bytes during inspection, isolation, safe regular
 file reads, format-specific inventory, source/shape validation and assessment.
 `handoff.DigestFiles` separately hashes bounded sorted artifact identities with
 the retained digest-v1 envelope; it does not verify the artifacts themselves.
+
+`runevidence.Verify` takes exact evidence bytes, exactly the referenced report
+and async artifact bytes, optional signature bytes and optional trusted public
+key PEM. It performs no path reads. Limits are 8 MiB for evidence/each artifact,
+1,024 artifacts and 64 MiB total, 1 MiB for a signature and 64 KiB for the trusted
+key. Report v5 keeps its tighter 256 KiB bound and 256-step maximum.
+The public verifier supports non-browser profiles; a browser record returns
+`ErrUnsupportedBrowser` and uses the retained exact CLI verification path.
+Browser wire types are shared metadata; no public browser execution API exists.
+
+Hosts can supply independent `Expected` identity and `ExpectedInventory` to
+reject a stale or unrelated attempt. Without them, verification checks the
+supplied record's intrinsic consistency and integrity. Gates describe evidence,
+not current grants, revocation state, source assessment or execution authority.
+Historical broker validity checks the recorded interval's shape, not whether
+an old grant is currently usable. `SignatureVerified` proves integrity under
+the embedded key; `SignerTrusted` additionally binds it to supplied trusted
+key bytes. Neither flag establishes authority. Legacy v1 is read-only and
+cannot bind an executor report/signature to an exact attempt.
+
+Missing, invalid or mismatched v5 reports retain conservative unknown outcomes;
+they never imply successful dispatch or a safe retry. Validated incomplete
+reports preserve observed terminal steps and unknown/unstarted remainder.
+Public report parsing shares the retained CLI's wire validators. Workflow-based
+inventory derivation and browser runtime enforcement stay private. `Verify`
+returns fixed errors for invalid evidence; typed validators retain legacy
+diagnostic text and require caller redaction. Returned wire records contain
+legacy local paths and metadata; consumers choose appropriate reduced views.
 
 Golden tests consume the retained published simulation, broker-handoff and
 broker-execution fixtures, including their embedded policy/self digests.

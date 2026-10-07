@@ -1,7 +1,7 @@
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; M98.1/M98.2 complete, two rows pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -18,7 +18,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 |---|---|---|
 | M98.1 — Extract handoff digest and authority APIs | `[+]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
 | M98.2 — Define format-neutral verification boundaries | `[+]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
-| M98.3 — Expose evidence verification | `[ ]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
+| M98.3 — Expose evidence verification | `[+]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
 | M98.4 — Qualify and publish public interfaces | `[ ]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
 
 ## Acceptance and verification
@@ -137,3 +137,38 @@ and private v2 orchestration regressions passed. Full `make check`,
 `check-doc-memory` and `git diff --check` passed. No dependency/pin, browser
 runtime or installed behavior changed. Evidence verification, whole review
 0/10 and publication remain pending.
+
+## M98.3 selection — 2026-10-07
+
+M98.2 task commit fcdd8fb passed all row verification. Select only M98.3:
+public neutral report/run-evidence byte verification and exact-attempt
+uncertainty fixtures without private runtime imports. Retained browser
+execution remains separately pinned; no executor, provider or live call.
+
+## M98.3 completion — 2026-10-07
+
+Public `udonreport` owns existing v2–v5 report validation and conservative v5
+observations; private workflow inventory derivation stays private. Public
+`runevidence` owns unchanged run/async/signature/browser metadata wires and
+bounded non-browser explicit-byte verification. Internal type aliases and
+non-browser validation delegate to the public implementation; browser
+execution/verification retain their private exact pinned path. No private
+Udon dependency or filesystem/credential/executor operation is exposed.
+
+Verification requires all exact referenced report/async bytes and can bind
+independent attempt and approved inventory identities. Missing or untrusted
+reports remain conservative unknown observations. Embedded-key signature
+integrity and supplied-key trust are separate, neither grants authority.
+Legacy v1 stays read-only. docs/public-trust-api.md records limits, provenance
+and reduction/redaction responsibilities. The public ObserveV5 entry validates
+its expected inventory before treating a report as validated.
+
+Published report/uncertainty fixtures, broker run wire golden, approval/broker
+downgrade/drift, report bytes/attempt/approved inventory mismatch, explicit
+private/public dry-run/async parity and deterministic signature/trusted-key
+tests passed. Full `make check`, `go vet ./...`, focused public/report/CLI/runner
+races, tabilet `check-doc-memory` and `git diff --check` passed. One test setup
+initially omitted the fixture inventory's explicit not_started outcomes; it
+was corrected to the existing qualified inventory contract before passing.
+All published fixtures/schemas/module pins remain unchanged. Whole M98 review
+0/10 and standalone consumer qualification/publication remain pending.

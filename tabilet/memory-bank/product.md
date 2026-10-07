@@ -11,6 +11,8 @@ M98.1 implements public `handoff`, `digest`, `authority` and `approval` value AP
 
 M98.2 adds bounded, read-only `trust.Inspect` over explicit byte snapshots and `wire` decoding. Inventory/digest verification does not claim a passing workflow assessment or grant authority; host isolation, source/shape validation and safe file custody remain consumer-owned.
 
+M98.3 implements public neutral Udon report wires and non-browser run-evidence byte verification, with explicit artifact/signature/key bytes and optional independent attempt/inventory provenance. Evidence is observation, not authority; legacy v1 remains read-only, and browser records use the retained exact CLI verifier.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

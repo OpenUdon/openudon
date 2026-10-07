@@ -27,6 +27,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/udonreport"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 	"github.com/OpenUdon/openudon/internal/uwsexec"
+	"github.com/OpenUdon/openudon/runevidence"
 )
 
 const (
@@ -222,70 +223,12 @@ type VerifyRunEvidenceResult struct {
 
 type RunConfig = udonrunner.Config
 
-type RunEvidence struct {
-	StepExecution      *udonreport.ObservationV5 `json:"step_execution,omitempty"`
-	Version            string                    `json:"version"`
-	RunID              string                    `json:"run_id"`
-	CreatedAt          string                    `json:"created_at"`
-	Scope              string                    `json:"scope"`
-	Tier               string                    `json:"tier"`
-	DryRun             bool                      `json:"dry_run"`
-	ApprovalState      string                    `json:"approval_state"`
-	PackageSHA256      string                    `json:"package_sha256"`
-	HandoffSHA256      string                    `json:"handoff_sha256"`
-	ApprovalSHA256     string                    `json:"approval_sha256"`
-	RunConfigSHA256    string                    `json:"run_config_sha256"`
-	RunConfigPath      string                    `json:"run_config_path"`
-	PackageRoot        string                    `json:"package_root"`
-	WorkDir            string                    `json:"workdir"`
-	StageKind          string                    `json:"stage_kind"`
-	StagePath          string                    `json:"stage_path"`
-	WorkflowPath       string                    `json:"workflow_path"`
-	PackagePaths       []string                  `json:"package_paths"`
-	APISourcePaths     []string                  `json:"api_source_paths,omitempty"`
-	CredentialBindings []string                  `json:"credential_bindings,omitempty"`
-	CredentialEnvNames []string                  `json:"credential_env_names,omitempty"`
-	Browser            *udonrunner.BrowserConfig `json:"browser,omitempty"`
-	Gates              []RunEvidenceGate         `json:"gates"`
-	Executor           RunEvidenceExecutor       `json:"executor"`
-	AsyncEvidenceFiles []RunEvidenceAsyncFile    `json:"async_evidence_files,omitempty"`
-	Broker             *brokerhandoff.Authority  `json:"broker,omitempty"`
-}
-
-type RunEvidenceGate struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-}
-
-type RunEvidenceExecutor struct {
-	Invoked      bool     `json:"invoked"`
-	Mode         string   `json:"mode"`
-	RunnerPath   string   `json:"runner_path,omitempty"`
-	Argv         []string `json:"argv,omitempty"`
-	ReportPath   string   `json:"report_path,omitempty"`
-	ReportSHA256 string   `json:"report_sha256,omitempty"`
-	ReportSize   int64    `json:"report_size,omitempty"`
-}
-
-type RunEvidenceAsyncFile struct {
-	Path    string `json:"path"`
-	Digest  string `json:"digest"`
-	Records int    `json:"records"`
-	Purpose string `json:"purpose"`
-}
-
-type AsyncEvidenceBundle struct {
-	Version string                `json:"version"`
-	Records []AsyncEvidenceRecord `json:"records"`
-}
-
-type AsyncEvidenceRecord struct {
-	Kind                        string                                     `json:"kind"`
-	ExecutionRequest            *asyncevidence.ExecutionRequest            `json:"execution_request,omitempty"`
-	ExecutionResponse           *asyncevidence.ExecutionResponse           `json:"execution_response,omitempty"`
-	StatusObservation           *asyncevidence.StatusObservation           `json:"status_observation,omitempty"`
-	ConfirmationReadObservation *asyncevidence.ConfirmationReadObservation `json:"confirmation_read_observation,omitempty"`
-}
+type RunEvidence = runevidence.RunEvidence
+type RunEvidenceGate = runevidence.RunEvidenceGate
+type RunEvidenceExecutor = runevidence.RunEvidenceExecutor
+type RunEvidenceAsyncFile = runevidence.RunEvidenceAsyncFile
+type AsyncEvidenceBundle = runevidence.AsyncEvidenceBundle
+type AsyncEvidenceRecord = runevidence.AsyncEvidenceRecord
 
 type UdonExecutionReport = udonreport.Report
 
@@ -721,6 +664,9 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 }
 
 func validateRunEvidenceForVerify(evidence RunEvidence) error {
+	if evidence.Browser == nil {
+		return runevidence.Validate(evidence)
+	}
 	if err := validateBrokerEvidence(evidence); err != nil {
 		return err
 	}
