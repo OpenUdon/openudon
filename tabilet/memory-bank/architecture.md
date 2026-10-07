@@ -9,6 +9,8 @@ Both phases belong to one stage. Current facts below remain the observed impleme
 
 M98.1 moves existing neutral review manifest, broker authority, approval and digest implementations into public packages. Internal authoring/trusted-runner/evidence aliases delegate to the same implementation, preserving CLI behavior. The transitive public closure contains no OpenUdon internal or private Udon imports. [API contract](../../docs/public-trust-api.md) defines the value-only boundary; package construction/assessment/simulation stay private.
 
+M98.2 verifies explicit required byte inventories with canonical safe paths, manifest self digest and artifact hashes, using the unchanged package-digest-v1 envelope. The host supplies format-specific required paths; no discovery, filesystem, synthesis or simulation is imported. Limits are 1,024 files / 8 MiB each / 64 MiB total, and strict JSON 8 MiB / 100,000 nodes / 64 levels. Private v2 adapters are unchanged.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

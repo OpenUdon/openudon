@@ -43,3 +43,18 @@ func TestPublishedHandoffCanonicalBytes(t *testing.T) {
 		t.Fatal("artifact digest drift was ignored")
 	}
 }
+
+func TestPackageDigestV1Golden(t *testing.T) {
+	files := []handoff.DigestFile{{Path: "project.md", SHA256: digest.SHA256([]byte("brief\n"))}, {Path: "expected/quality.json", SHA256: digest.SHA256([]byte("{}\n"))}}
+	got, err := handoff.DigestFiles("examples/demo", "openudon.handoff-package-digest.v1", files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "96922a875b13b2fca26ab644d3ed879b508a6a4a0afc6a55b06c41c22934339c" {
+		t.Fatal("package digest-v1 envelope changed")
+	}
+	files = append(files, files[0])
+	if _, err := handoff.DigestFiles("examples/demo", "", files); err == nil {
+		t.Fatal("ambiguous file inventory accepted")
+	}
+}

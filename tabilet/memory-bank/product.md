@@ -9,6 +9,8 @@ Both phases belong to one stage. Current facts below remain the observed impleme
 
 M98.1 implements public `handoff`, `digest`, `authority` and `approval` value APIs for existing review/trust metadata. They preserve current JSON/canonical digests and perform no I/O or execution. Synthesis-coupled v2 package construction remains private. Whole M98 acceptance/publication and bounded verification remain pending.
 
+M98.2 adds bounded, read-only `trust.Inspect` over explicit byte snapshots and `wire` decoding. Inventory/digest verification does not claim a passing workflow assessment or grant authority; host isolation, source/shape validation and safe file custody remain consumer-owned.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

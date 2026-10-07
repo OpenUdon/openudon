@@ -1,7 +1,7 @@
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; M98.1 complete, three rows pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; M98.1/M98.2 complete, two rows pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -17,7 +17,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | Item | State | Notes |
 |---|---|---|
 | M98.1 — Extract handoff digest and authority APIs | `[+]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
-| M98.2 — Define format-neutral verification boundaries | `[ ]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
+| M98.2 — Define format-neutral verification boundaries | `[+]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
 | M98.3 — Expose evidence verification | `[ ]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
 | M98.4 — Qualify and publish public interfaces | `[ ]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
 
@@ -110,3 +110,30 @@ boundary checks); focused public/broker/evidence race tests; tabilet
 adapter unit regressions passed in the full suite. No browser runtime/capture
 code changed, so no live browser smoke was selected. Full M98 acceptance and
 publication remain pending; whole review remains 0/10.
+
+## M98.2 selection — 2026-10-07
+
+M98.1 task commit is 739b862. Select only M98.2: bounded caller-supplied byte
+snapshot verification and public snapshot digest; no filesystem discovery,
+construction, assessment, simulation, credentials or executor capability.
+Retained private v2 CLI orchestration stays intact.
+
+## M98.2 completion — 2026-10-07
+
+`trust.Inspect` verifies the caller's explicit required byte inventory with safe
+canonical paths, unchanged manifest self digest, artifact hashes and neutral
+policy. It computes the existing package-digest-v1 envelope through public
+`handoff.DigestFiles`. It provides no source assessment, construction,
+simulation, discovery or I/O; the host owns format-specific required paths,
+stable bytes, safe file reads and isolation. Public `wire` provides bounded
+strict JSON and lossless-number decoding. Limits and API responsibilities are
+documented in docs/public-trust-api.md. Inspection errors are fixed/value-free.
+
+Public/private legacy package identity parity, digest-v1 golden, mutation,
+missing/unlisted inventory, path, byte/node/depth, duplicate/unknown JSON,
+large-number and cancellation checks passed. Existing mock runtime simulation
+and private v2 orchestration regressions passed. Full `make check`,
+`go vet ./...`, focused races including trustedrunner/simulation, tabilet
+`check-doc-memory` and `git diff --check` passed. No dependency/pin, browser
+runtime or installed behavior changed. Evidence verification, whole review
+0/10 and publication remain pending.

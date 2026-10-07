@@ -9,6 +9,8 @@ Both phases belong to one stage. Current facts below remain the observed impleme
 
 M98.1 adds public fixture tests against retained review-handoff, broker-authority and approval wire bytes plus `go test ./internal/publicapi` for the transitive import boundary. No dependency version or frozen browser/media pin changes. Full M98 standalone qualification and source publication remain pending.
 
+M98.2 adds public `trust`/`wire` and bounded artifact-identity `handoff.DigestFiles`. Public/private package-digest parity, golden digest-v1, duplicate/unknown/multiple-document and size/depth/node/cancellation refusals are tested. Retained private mock simulation regression tests still pass without a public simulation API.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,
