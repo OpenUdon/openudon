@@ -7,7 +7,7 @@
 
 ## Dependencies and handoff
 
-[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md).
+[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/docs/history/status-W17.md).
 The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
 
 **Downstream:** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.
@@ -114,3 +114,34 @@ M98 acceptance/retirement closure `b8eaf1626037561b19f62642329a5c0b5f928f45` is 
 on unchanged authorized OpenUdon origin/main. It contains exact qualified
 source/module ancestry and passed closing review 3; the full prerequisite
 source/closure publication gate is satisfied. P09 still waits for W17.
+
+## Accepted Kinet W17 Phase A prerequisite — 2026-10-07
+
+Kinet W17 is accepted after whole review 2 at fixed consumer source
+c508e97e6099936286c9746660427e8af0a3930a.
+[Phase A checkpoint](../../../kinet/docs/w17-phase-a-checkpoint.md),
+[comparable profile](../../../kinet/docs/w17-profile-comparison.json) and
+[view qualification](../../../kinet/docs/w17-views-qualification.md) establish
+matched old authoring/corpus/pin behavior, qualified advisory/verified views
+and actual local/rootless/CLI/API/privacy/ownership/sandbox evidence. All
+original M45 investigation budgets pass; dirty capture context is derived
+truthfully and original baseline evidence remains frozen.
+
+The public-only author module uses exact accepted APItools/UWS/SDK dependencies;
+current immutable worker source d557eaddd232c446d272f6881e70c9726899ff26,
+binary 0708704481cef72ff0cec2b090ec2171ab6e02013326d8f1c6bc1d7dc55d3897 and
+image sha256:5924cf6f3e5196a0b9b7f3d245122e7c42ad0cd5597ff05fa248036306db8225
+are reproduced and qualified in the [pin/closure](../../../kinet/docs/w17-author-worker-pin.json).
+Host resource admission is fixed before buffering; source parsing/reproduction/
+codec verification remain worker-owned. Root imports no source parser/private
+runtime. Old execution/browser/media pins, schema/wires and installed M44 stay
+unchanged; no authority is derived from metadata/views or audit.
+
+P09 remains the next separately owned required milestone under the original
+confirmed goal: public v3 construction/assessment, exact source-shape proof
+and concrete authority. Do not require public v2 synthesis APIs or broaden
+hosted support. Kinet owns private model/confirmation/ledger publication and
+consuming worker isolation; A15 follows P09 before W18/M47 integration.
+Both phases remain required with exact named source-publication gates; this
+handoff grants no deployment/live operation or grant carryover. P09 task rows
+and persisted whole review remain 0/10 pending their own execution.

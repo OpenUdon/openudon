@@ -529,7 +529,7 @@ One execution owner, serial execution and task commits under the later confirmed
 ## P09 — Package v3
 
 **Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 11/18, not a review severity.
-**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/docs/history/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
 **Scope.** Define v3 package and review records; Build directly from UWS; Verify sources and derive authority; Preserve v2 and evidence readers; Qualify and publish v3.
 **Acceptance.** V3 has an independently checked source-to-shape-to-authority chain and exact digest-bound inputs. V2 history stays readable and no authority is inferred from conversion.
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
