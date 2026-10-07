@@ -1,5 +1,9 @@
 # Architecture
 
+## P09.3 verified execution constraints
+
+VerifiedPackage retains copied bytes behind private fields and rechecks closed canonical inventory/report identities and API-source shapes. Runtime catalog source/table verification is delegated only to a trusted implementing consumer, receiving independent copies and exact module revision. ExecutionPlan binds raw operation/step/data constraints plus binary/closure/runtime identity; broker authority uses the existing v1 wire and exact native APItools security details. CheckExecutionApproval requires the trusted host’s separately confirmed plan digest and current bounded approval, with HTTP broker v2 and native-admitted pure-function v1 profiles. No private runtime imports or effect dispatch enter the public SDK.
+
 ## P09.2 construction and assessment
 
 packagev3 Build copies bounded explicit bytes, independently reproduces APItools shapes, embeds exact published UWS core schemas with a closed loader, restores lossless open values after custom model decode, then emits linked assessment/handoff identities under unchanged digest-v1. Public credentialpolicy shares existing literal policy through legacy internal adapters; browser artifact masking stays private. Source-to-shape proof is reproduced for assessment; concrete operation/input/worker authority remains P09.3. The transitive guard permits only the qualified public Horizon subtree among genelet modules, retaining all private-executor/OpenUdon-internal refusals.

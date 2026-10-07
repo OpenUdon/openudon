@@ -1,5 +1,9 @@
 # Tech Stack
 
+## P09.3 verified execution constraints
+
+P09.3 adds Verify/ExecutionPlan/broker/approval checks, one reserved runtime-function source, and trusted RuntimeVerifier/RuntimeAdmission adapters. Bounds retain 32 API sources plus one runtime catalog (33 total), 512 files/8 MiB each/32 MiB combined, 128 findings, and the existing 100-operation authority limit. Exact Udon M48 produces/verifies the seven-entry catalog fixture using the ordinary published module; default SDK checks consume synthetic independent fixtures. The preliminary private adapter uses a local SDK bootstrap and synthetic worker hashes; final clean ordinary publication/closure is P09.5. No owner dependency upgrade beyond P09.2 or schema/old-wire/browser pin change.
+
 ## P09.2 construction and assessment
 
 Current owner adoption is APItools v0.0.0-20261006210844-54583f9b2f45 and UWS root/codec v0.0.0-20261006224744-c0b19385a3b0, without replacements or unrelated upgrades. The same Go 1.26.6 and existing schema/YAML libraries are retained. Exact core schema entries are embedded from the selected M08 archive and all 17 are byte-compared in tests. Historical qualification source, independently pinned browser dependencies/locks and old wire fixtures remain frozen. Current content-trust regression now checks the adopted root core and unchanged Browsertools pin; it does not rerun historical acceptance.

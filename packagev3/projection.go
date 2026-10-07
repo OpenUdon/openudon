@@ -157,6 +157,10 @@ func restoreOpenValues(value reflect.Value, raw any) {
 				restoreOpenValues(value.Field(i), raw)
 				continue
 			}
+			if field.Name == "Extensions" {
+				restoreOpenValues(value.Field(i), raw)
+				continue
+			}
 			name := strings.Split(field.Tag.Get("json"), ",")[0]
 			if name == "" || name == "-" {
 				continue

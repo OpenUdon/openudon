@@ -226,3 +226,43 @@ func TestBuildPreservesEightNativeSourceFamilies(t *testing.T) {
 		t.Fatal("pending became executable")
 	}
 }
+
+func TestEachNativeSelectedOperationCanBePackagedForReview(t *testing.T) {
+	tableBytes, err := os.ReadFile("testdata/eight-families.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := binding.ParseTable(tableBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]string{"openapi": "openapi.yaml", "google-discovery": "google-discovery.json", "aws-smithy": "aws-smithy.json", "asyncapi": "asyncapi.yaml", "graphql": "graphql.graphql", "openrpc": "openrpc.json", "grpc-protobuf": "grpc.proto", "odata": "odata.xml"}
+	for kind, name := range names {
+		t.Run(kind, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("testdata", "sources", name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var selected *binding.OperationShape
+			for i := range table.Operations {
+				if table.Operations[i].Source.Kind == kind {
+					selected = &table.Operations[i]
+					break
+				}
+			}
+			if selected == nil {
+				t.Fatal("fixture missing native selector")
+			}
+			path := "sources/" + kind + "/" + name
+			doc := map[string]any{"uws": "1.13.0", "info": map[string]any{"title": "Selected family", "version": "1"}, "sourceDescriptions": []any{map[string]any{"name": "api", "type": kind, "url": path}}, "operations": []any{map[string]any{"operationId": "selected", "sourceDescription": "api", "sourceOperationRef": selected.Selector.Value, "effect": "read"}}, "workflows": []any{map[string]any{"workflowId": "main", "type": "sequence", "steps": []any{map[string]any{"stepId": "selected", "operationRef": "selected"}}}}}
+			raw, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = packagev3.Build(context.Background(), packagev3.BuildOptions{Scope: "workflows/W01-selected", WorkflowYAML: raw, DataJSON: []byte(`{}`), Sources: []packagev3.SourceInput{{ID: "api", Kind: kind, Path: path, Bytes: data}}})
+			if err != nil {
+				t.Fatal("native metadata review refused", err)
+			}
+		})
+	}
+}

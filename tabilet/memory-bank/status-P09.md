@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.2 complete, three rows pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.3 complete, two rows pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -18,7 +18,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 |---|---|---|
 | P09.1 — Define v3 package and review records | `[+]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
 | P09.2 — Build directly from UWS | `[+]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
-| P09.3 — Verify sources and derive authority | `[ ]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
+| P09.3 — Verify sources and derive authority | `[+]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
 | P09.4 — Preserve v2 and evidence readers | `[ ]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
 | P09.5 — Qualify and publish v3 | `[ ]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
 
@@ -220,3 +220,80 @@ full go vet, focused staticcheck and public/policy/legacy-content-trust races
 passed. The first full check caught the stale current-owner UWS pin assertion;
 it was reconciled before the final full check passed. No publication or
 milestone acceptance is claimed. P09.3–.5 and whole review 0/10 remain required.
+
+## P09.3 selection — 2026-10-07
+
+Continue from clean task source 157a31e5638e42739994b0ebb2eeb94731c8fff4.
+Select independent closed snapshot verification and exact source/shape/operation,
+input and worker-bound authority derivation. Retain broker-authority v1 wire;
+current supported authority profile stays bounded, concrete HTTP sequence.
+Runtime function catalogs remain runtime-owned, with explicit independent
+consumer verification rather than private OpenUdon imports. Unknown metadata
+or producer flags never create authority. P09.4/.5 and whole review remain
+required. Doc-memory warning was reviewed against v50: implementation advances
+its approved direction, so no new evolution version is warranted.
+
+## P09.3 verification checkpoint — 2026-10-07
+
+Uncommitted public Verify now owns an independent bounded copied snapshot;
+callers supply exact expected scope/package digest. It checks canonical closed
+manifest/handoff, exact complete inventory, every input/report hash and linked
+identity, reproduces API-source shapes and reruns assessment. VerifiedPackage
+has private state; its zero value is unverified and Snapshot/Assessment return
+independent copies. Extra/private/HCL/missing artifacts, stale/forged shapes,
+rehashed report/scope/credential claims and noncanonical records refuse with
+fixed errors. Current constructor declares no credential slots; verifier rejects
+invented ones until P09.3's independent symbolic security derivation supplies
+that contract. No verification flag becomes approval or execution authority.
+
+Focused verification/import tests and compatible staticcheck pass. `go test -race ./packagev3 ./internal/publicapi` also passed. Concrete operation/input/
+worker authority and runtime-owned function catalog integration are unfinished;
+P09.3 remains the sole in-progress row, whole review remains 0/10, and no
+publication/consumer adoption or external operation is claimed.
+
+## P09.3 implementation and preliminary consumer evidence — 2026-10-07
+
+Verify now independently derives selected known symbolic credential inventory
+and rejects fabricated handoff names. Up to 32 API sources plus one reserved
+runtime-function catalog are admitted. Exact API shapes are reproduced in the
+public SDK; runtime catalog claims require the trusted implementing worker's
+independent verifier. Catalog identity/revision, security, native selector and
+partial type/invocation metadata cannot be replaced by producer booleans.
+Unknown source security remains indeterminate and does not invent credentials.
+
+ExecutionPlan binds full package/handoff/inputs, exact source/native operation,
+raw operation/step/data constraints and worker binary/closure/runtime revision.
+Concrete profile remains the qualified bounded sequence; pending, unknown
+controls/overrides/browser/non-HTTP and ambiguity refuse. Pure functions require
+catalog revision equality and the selected runtime's non-effectful admission
+adapter, preserving partial metadata. Broker authority v1 is derived only from
+compatible complete HTTP review, one fixed server/security alternative, native
+APItools bearer/API-key evidence and exact current symbolic revisions. Basic,
+OAuth/scopes, altered placements, extra credentials, old populated seeds and
+changed package/input/worker authorities refuse. Existing wires are unchanged.
+
+Execution approval additionally requires the trusted host's exact confirmed
+PlanSHA256 and current explicit-expiry scope/package approval; HTTP needs broker
+v2 and pure functions use v1 after native admission. Host owner/grant custody,
+revocation, destinations, actual compiled worker identity and lifecycle remain
+independently enforced by Kinet. No library flag, audit or artifact is authority.
+
+The ordinary published Udon M48 module independently generated and verified
+catalog.json (3,468 bytes/SHA 67933ec02e3b8808ef32637272295908661a39555c13f9f0bfb057af54097812)
+and shapes.json (4,189 bytes/SHA 7b8c176eb07315ca076a282887c4f9a54cda810f49a8820eed21bde303bde35e).
+Preliminary private consumer /var/tmp/openudon-p09-private-adapter-prepub-20261007
+passed actual VerifyRuntimeFunctionCatalog and Compile/CheckSupported adapters,
+public Build/Verify/plan and exact approval checks with zero effects. It uses
+one temporary local SDK replacement and synthetic worker hashes, so it is not
+final published consumer/worker qualification. P09.5 supplies ordinary published
+SDK resolution; Kinet M47 qualifies actual worker provenance/isolation.
+
+All eight selected native-family operations can be packaged for review without
+invented HTTP/known security; separate pending fixture preserves the exact M82
+golden. Full make check/vet, focused staticcheck and public trust/authority races
+pass. Latest focused regression, vet and public trust/authority races after the
+unknown-security inventory correction also pass. Doc-memory check passes;
+its evolution reminder was checked against approved v50, with no direction
+change or new evolution version. P09.3 is complete as public verification and
+exact constraints/authority APIs, not downstream worker acceptance. P09.4/.5
+and persisted whole review 0/10 remain required; no publication or live action.

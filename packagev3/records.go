@@ -28,7 +28,7 @@ const HandoffPath = "expected/review-handoff.json"
 const MaxFiles = 512
 const MaxFileBytes = 8 << 20
 const MaxTotalBytes = 32 << 20
-const MaxSources = 32
+const MaxSources = 33
 
 var ErrRecord = errors.New("invalid v3 package record")
 
@@ -97,7 +97,7 @@ func scopeValid(scope string) bool {
 }
 func kindValid(kind string) bool {
 	switch kind {
-	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata":
+	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", RuntimeSourceKind:
 		return true
 	}
 	return false
@@ -107,10 +107,22 @@ func (m Manifest) Validate() error {
 	if m.Version != PackageVersion || !scopeValid(m.Scope) || m.ShapeVersion != ShapeVersion || m.Workflow.Path != WorkflowPath || m.Data.Path != DataPath || m.Shapes.Path != ShapesPath || !m.Workflow.Valid() || !m.Data.Valid() || !m.Shapes.Valid() || m.Sources == nil || len(m.Sources) > MaxSources {
 		return ErrRecord
 	}
+	apiSources, runtimeSources := 0, 0
 	ids := map[string]bool{}
 	paths := map[string]bool{WorkflowPath: true, DataPath: true, ShapesPath: true, ManifestPath: true, AssessmentPath: true, HandoffPath: true}
 	for _, source := range m.Sources {
 		if !authority.Identifier(source.ID) || !kindValid(source.Kind) || !source.Artifact.Valid() || ids[source.ID] || paths[source.Artifact.Path] || !strings.HasPrefix(source.Artifact.Path, "sources/"+source.Kind+"/") {
+			return ErrRecord
+		}
+		if source.Kind == RuntimeSourceKind {
+			runtimeSources++
+			if source.ID != RuntimeSourceID {
+				return ErrRecord
+			}
+		} else {
+			apiSources++
+		}
+		if apiSources > MaxAPISources || runtimeSources > 1 {
 			return ErrRecord
 		}
 		ids[source.ID] = true

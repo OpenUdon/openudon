@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/authority"
 	"github.com/OpenUdon/openudon/credentialpolicy"
 	"github.com/OpenUdon/openudon/handoff"
@@ -23,20 +22,22 @@ import (
 var ErrPackage = errors.New("invalid, unsafe or bounded v3 package")
 
 type SourceInput struct {
-	ID    string
-	Kind  string
-	Path  string
-	Bytes []byte
+	ID         string
+	Kind       string
+	Path       string
+	Bytes      []byte
+	ShapesJSON []byte
 }
 
 // BuildOptions contains only explicit reviewed bytes. Privacy is a host policy
 // predicate, never a credential loader. The host must bind and isolate its calls.
 type BuildOptions struct {
-	Scope        string
-	WorkflowYAML []byte
-	DataJSON     []byte
-	Sources      []SourceInput
-	Private      func([]byte) bool
+	Scope           string
+	WorkflowYAML    []byte
+	DataJSON        []byte
+	Sources         []SourceInput
+	Private         func([]byte) bool
+	RuntimeVerifier RuntimeVerifier
 }
 type Package struct {
 	Manifest   Manifest
@@ -94,24 +95,22 @@ func Build(ctx context.Context, options BuildOptions) (Package, error) {
 		return Package{}, ErrPackage
 	}
 	manifest := Manifest{Version: PackageVersion, Scope: options.Scope, Workflow: artifactFor(WorkflowPath, files[WorkflowPath]), Data: artifactFor(DataPath, files[DataPath]), ShapeVersion: ShapeVersion, Sources: []Source{}}
-	sourceOptions := apitools.OperationShapeOptions{MaxBytes: MaxFileBytes}
+	claims := map[string][]byte{}
 	for _, source := range options.Sources {
 		if !authorityID(source.ID) || !kindValid(source.Kind) || put(source.Path, source.Bytes) != nil {
 			return Package{}, ErrPackage
 		}
 		manifest.Sources = append(manifest.Sources, Source{ID: source.ID, Kind: source.Kind, Artifact: artifactFor(source.Path, files[source.Path])})
-		sourceOptions.Sources = append(sourceOptions.Sources, apitools.ShapeSourceInput{ID: source.ID, OperationSourceInput: apitools.OperationSourceInput{Kind: apitools.OperationSourceKind(source.Kind), Content: files[source.Path]}})
-	}
-	var table binding.ShapeTable
-	var err error
-	if len(sourceOptions.Sources) == 0 {
-		table = binding.ShapeTable{Version: ShapeVersion, Sources: []binding.Source{}, Operations: []binding.OperationShape{}}
-	} else {
-		table, err = apitools.BuildOperationShapeTable(ctx, sourceOptions)
-		if err == nil {
-			err = apitools.VerifyOperationShapeTable(ctx, sourceOptions, table)
+		if source.Kind == RuntimeSourceKind {
+			if len(source.ShapesJSON) > MaxFileBytes {
+				return Package{}, ErrPackage
+			}
+			claims[source.ID] = append([]byte(nil), source.ShapesJSON...)
+		} else if len(source.ShapesJSON) > 0 {
+			return Package{}, ErrPackage
 		}
 	}
+	table, err := buildShapes(ctx, manifest.Sources, files, claims, options.RuntimeVerifier)
 	if ctx.Err() != nil {
 		return Package{}, ctx.Err()
 	}
@@ -128,7 +127,7 @@ func Build(ctx context.Context, options BuildOptions) (Package, error) {
 	if err != nil || put(ManifestPath, bytes) != nil {
 		return Package{}, ErrPackage
 	}
-	assessment, err := Assess(ctx, manifest, files)
+	assessment, err := Assess(ctx, manifest, files, options.RuntimeVerifier)
 	if err != nil {
 		return Package{}, err
 	}
@@ -136,7 +135,15 @@ func Build(ctx context.Context, options BuildOptions) (Package, error) {
 	if err != nil || put(AssessmentPath, bytes) != nil {
 		return Package{}, ErrPackage
 	}
-	review := Handoff{Version: HandoffVersion, Scope: options.Scope, InputsSHA256: assessment.InputsSHA256, ManifestSHA256: hashBytes(files[ManifestPath]), AssessmentSHA256: hashBytes(files[AssessmentPath]), ReviewState: "review_required", Credentials: []string{}, Artifacts: []Artifact{}}
+	document, _, err := DecodeWorkflow(ctx, files[WorkflowPath])
+	if err != nil {
+		return Package{}, ErrPackage
+	}
+	credentials, err := declaredCredentials(ctx, document, manifest.Sources, table)
+	if err != nil {
+		return Package{}, err
+	}
+	review := Handoff{Version: HandoffVersion, Scope: options.Scope, InputsSHA256: assessment.InputsSHA256, ManifestSHA256: hashBytes(files[ManifestPath]), AssessmentSHA256: hashBytes(files[AssessmentPath]), ReviewState: "review_required", Credentials: credentials, Artifacts: []Artifact{}}
 	for path, data := range files {
 		review.Artifacts = append(review.Artifacts, artifactFor(path, data))
 	}
@@ -162,8 +169,8 @@ func authorityID(value string) bool { return authority.Identifier(value) }
 
 // Assess independently reproduces input identities and API shapes. It supplies
 // structural/binding review only: compatible never grants executable authority.
-func Assess(ctx context.Context, manifest Manifest, files map[string][]byte) (Assessment, error) {
-	if ctx == nil || manifest.Validate() != nil {
+func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, runtimeVerifiers ...RuntimeVerifier) (Assessment, error) {
+	if ctx == nil || manifest.Validate() != nil || len(runtimeVerifiers) > 1 {
 		return Assessment{}, ErrPackage
 	}
 	if ctx.Err() != nil {
@@ -174,7 +181,6 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte) (As
 		return Assessment{}, ErrPackage
 	}
 	total := 0
-	sourceOptions := apitools.OperationShapeOptions{MaxBytes: MaxFileBytes}
 	for _, input := range inputs {
 		data, ok := files[input.Path]
 		if !ok || len(data) == 0 || len(data) > MaxFileBytes || len(data) > MaxTotalBytes-total || hashBytes(data) != input.SHA256 || credentialpolicy.ContainsLikelyValue(data) {
@@ -186,22 +192,16 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte) (As
 	if wire.DecodeStrictNumbers(files[DataPath], &data) != nil || data == nil {
 		return Assessment{}, ErrPackage
 	}
-	for _, source := range manifest.Sources {
-		sourceOptions.Sources = append(sourceOptions.Sources, apitools.ShapeSourceInput{ID: source.ID, OperationSourceInput: apitools.OperationSourceInput{Kind: apitools.OperationSourceKind(source.Kind), Content: files[source.Artifact.Path]}})
-	}
 	table, err := binding.ParseTable(files[ShapesPath])
 	if err != nil {
 		return Assessment{}, ErrPackage
 	}
-	if len(sourceOptions.Sources) > 0 {
-		if apitools.VerifyOperationShapeTable(ctx, sourceOptions, table) != nil {
-			if ctx.Err() != nil {
-				return Assessment{}, ctx.Err()
-			}
-			return Assessment{}, ErrPackage
-		}
-	} else if len(table.Sources) != 0 || len(table.Operations) != 0 {
-		return Assessment{}, ErrPackage
+	var verifier RuntimeVerifier
+	if len(runtimeVerifiers) == 1 {
+		verifier = runtimeVerifiers[0]
+	}
+	if err := verifyShapes(ctx, manifest.Sources, files, table, verifier); err != nil {
+		return Assessment{}, err
 	}
 	encoded, err := manifest.Marshal()
 	if err != nil {
@@ -246,7 +246,13 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte) (As
 	for _, s := range manifest.Sources {
 		sourceByID[s.ID] = s
 	}
-	if len(doc.SourceDescriptions) != len(manifest.Sources) {
+	apiCount := 0
+	for _, source := range manifest.Sources {
+		if source.Kind != RuntimeSourceKind {
+			apiCount++
+		}
+	}
+	if len(doc.SourceDescriptions) != apiCount {
 		add("source.inventory", "incompatible")
 	}
 	for _, s := range doc.SourceDescriptions {
@@ -292,6 +298,16 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte) (As
 			}
 			for name, value := range fields {
 				request.Inputs = append(request.Inputs, binding.BoundInput{Location: location, Name: name, Value: value})
+			}
+		}
+		resolved, resolveErr := resolver.Resolve(ctx, request.Binding)
+		if resolveErr != nil {
+			return Assessment{}, ErrPackage
+		}
+		if resolved.Status == binding.Resolved && resolved.Shape != nil {
+			request.Security, err = symbolicSecurity(resolved.Shape.Security)
+			if err != nil {
+				return Assessment{}, ErrPackage
 			}
 		}
 		sort.Slice(request.Inputs, func(i, j int) bool {

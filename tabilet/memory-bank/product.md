@@ -1,5 +1,9 @@
 # Product
 
+## P09.3 verified execution constraints
+
+P09.3 supplies independently verified private byte snapshots, exact operation/input/worker plans and unchanged-wire broker authority derivation. Symbolic security inventories come from selected verified sources; producer flags, conversion and package hashes do not grant execution. Runtime function catalogs require the trusted implementing consumer’s independent reproduction and non-effectful admission. Knownness stays explicit, browser/unsupported leaves refuse, and host owner/grant/destination policy remains independent. P09.4/.5 compatibility/publication and whole acceptance remain pending.
+
 ## P09.2 construction and assessment
 
 Public packagev3 Build/Assess construct exact reviewed YAML/data/API-source snapshots without intent synthesis. Independently reproduced shapes and strict portability support review; pending and mismatched contracts refuse, partial runtime/type/output evidence remains indeterminate. Compatible means the checks proved review metadata, never approval. Construction is isolated by consumers; P09.3–.5 authority/compatibility/publication remain pending.
