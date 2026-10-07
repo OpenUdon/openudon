@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; pre-publication review 3/10 passed; closing publication review pending.
+**State:** Confirmed serial Stage 11 execution; all five task rows complete; whole closing review pending; pre-publication review 3/10 passed; closing publication review pending.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -20,7 +20,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | P09.2 — Build directly from UWS | `[+]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
 | P09.3 — Verify sources and derive authority | `[+]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
 | P09.4 — Preserve v2 and evidence readers | `[+]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
-| P09.5 — Qualify and publish v3 | `[~]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
+| P09.5 — Qualify and publish v3 | `[+]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
 
 ## Acceptance and verification
 
@@ -485,3 +485,28 @@ named origin/main source/closure publication, independently resolved ordinary
 published public/private SDK consumers, closing review, downstream exact-source
 reconciliation and literal retirement remain required. No deployment/live action
 or consumer adoption is authorized by this preliminary source qualification.
+
+## P09.5 published-source completion — 2026-10-07
+
+Normal named origin/main publication da6653145c8624f862e3c21adb413345d0cb4be2
+is independently observed by ls-remote/fetch at the unchanged authorized target
+and contains qualified a6a3ef010fe27f277f8191204c1c81ea1cc0334b. Ordinary SDK
+v0.1.1-0.20261007094531-a6a3ef010fe2 resolves to that full origin hash, sum
+h1:Tomt06dU+DCTEqrTNlDlcFnFZGl/r8fvpIXaSUOwu7s=, go.mod sum
+h1:kol8tnW9phAZtwTfHJ2z9Oa8eUnfUYcQIwcxPcyvl4g=.
+[Publication](../../docs/p09-publication.md) and [consumer proof](../../docs/p09-consumer-proof.json)
+record exact archive/closure evidence and the no-deployment skip-CI source push.
+
+Ordinary public consumer passes package/plan/broker/approval/history/tamper
+with 73 modules and no replacements. Ordinary private consumer passes actual
+M48 catalog reproduction/native admission plus published SDK package/plan/
+approval with 171 modules and no directory replacements. It retains the exact
+M48-required docker->moby v24.0.7 version replacement; no new one is introduced.
+Both use controlled synthetic worker/time identities, zero effects and pinned
+Go 1.26.6; actual Kinet worker qualification remains M47. Full graph observation
+needed one already-selected historical x/telemetry archive/metadata fetch under
+existing build-closure authority, then passed offline without version change.
+
+All task rows are terminal, but terminal rows do not prove acceptance. Closing
+whole review, current-fact consolidation, exact downstream reconciliation and
+literal retirement remain required before advancing. No deployment/live action.

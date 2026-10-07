@@ -29,8 +29,8 @@ probe retains the separately pinned browser binary, without requalifying capture
 Review 1 found output/reference admission and absent expression-contract proof;
 review 2 found dropped restricting parent constraints. Their regressions failed
 before fixes and now pass. The complete pre-publication review 3 is recorded in
-the active owner status. Final source publication, ordinary published SDK/public
-and private consumers and closing milestone acceptance remain pending.
+the active owner status. Source publication and ordinary public/private SDK consumers now pass; see
+[publication](p09-publication.md). Whole closing acceptance remains pending.
 
 The public SDK never imports private Udon. The preliminary actual private
 adapter uses ordinary published Udon M48 da43e57be37af4e18e633558580f740c525f139d,
@@ -40,3 +40,10 @@ approval checks with zero effects. This is not final SDK/worker qualification.
 Kinet M47 owns actual private-worker identity/isolation; Kinet W18/W19 own exact
 confirmation/publication/conversion and fresh authority. No source digest,
 metadata flag, conversion or audit creates a grant.
+
+Final ordinary published source proof uses the exact SDK pseudo-version at
+qualified a6a3ef0 and full recorded origin hash. The public/private consumers
+pass with 73/171 modules and no directory replacements; the private graph
+retains M48's required Docker-to-Moby version replacement. Synthetic worker
+identities and zero-effect checks qualify library/adapters only. Kinet's
+actual worker/pin/lifecycle qualification remains separately owned.

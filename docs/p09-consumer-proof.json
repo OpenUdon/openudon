@@ -1,0 +1,31 @@
+{
+  "public": {
+    "module_count": 73,
+    "sdk_version": "v0.1.1-0.20261007094531-a6a3ef010fe2",
+    "directory_replacements": 0,
+    "required_version_replacements": [],
+    "go_mod_sha256": "361cb2935f8d415d74b2b2db0440143793e7e926aa65c9598848a25e278c1598",
+    "go_sum_sha256": "1d47a9ce46d48cda270973a91218088462b5e15503dcf9aa6fb4003db7e7a7a9"
+  },
+  "private": {
+    "module_count": 171,
+    "sdk_version": "v0.1.1-0.20261007094531-a6a3ef010fe2",
+    "directory_replacements": 0,
+    "required_version_replacements": [
+      {
+        "path": "github.com/docker/docker",
+        "replacement_path": "github.com/moby/moby",
+        "replacement_version": "v24.0.7+incompatible"
+      }
+    ],
+    "go_mod_sha256": "3e1ac400ec49df520aa2e3ab7e40f90450a22b3f88021f3ba0910202d808826a",
+    "go_sum_sha256": "9192fce0e60c2e5a7567f7347dff754f38d5bb30cbd6fa81cd1d8113f0ddcca0"
+  },
+  "sdk": {
+    "source": "a6a3ef010fe27f277f8191204c1c81ea1cc0334b",
+    "version": "v0.1.1-0.20261007094531-a6a3ef010fe2",
+    "sum": "h1:Tomt06dU+DCTEqrTNlDlcFnFZGl/r8fvpIXaSUOwu7s=",
+    "go_mod_sum": "h1:kol8tnW9phAZtwTfHJ2z9Oa8eUnfUYcQIwcxPcyvl4g=",
+    "archive_sha256": "380499a3209b780a62115ee53a922298cb8a25f011d56c103a6738762de219d8"
+  }
+}

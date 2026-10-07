@@ -19,6 +19,6 @@
   },
   "vcs_modified": false,
   "owner_checks": "clean ordinary clone: standalone make check and full vet passed offline",
-  "public_consumer": "pending ordinary published SDK resolution",
-  "private_consumer": "preliminary exact published Udon M48 module plus local SDK bootstrap; native admission and zero-effect approval proof only"
+  "public_consumer": "ordinary published SDK, 73 modules, no directory/version replacements; package/plan/broker/approval/history/tamper, zero effects",
+  "private_consumer": "ordinary published SDK and qualified Udon M48, 171 modules, no directory replacements; exact qualified docker->moby v24.0.7 version replacement; catalog/native admission/plan/approval, zero effects"
 }
