@@ -38,3 +38,14 @@ were explicitly pinned to cached Go 1.26.6. No source, dependency version or
 operator tool configuration was upgraded.
 
 Closing review 3, acceptance and consumer reconciliation passed; the complete record is [retired M98](../tabilet/docs/history/status-M98.md). Source closure publication is recorded below after independent observation.
+
+## Accepted retirement closure publication
+
+Normal authorized origin/main push also published closing-review-3 acceptance,
+consumer reconciliation and literal owner retirement at `b8eaf1626037561b19f62642329a5c0b5f928f45`.
+A separate ls-remote query confirmed that exact head, containing qualified
+source `08a3839f357ec40c7e50c8668e4bd7c8d86bb55a`. Only maintained documentation
+and ledger closure differ from qualified runtime; source/module/artifact
+identities and all pins stay unchanged. The complete prerequisite publication
+gate is satisfied. The final closure commit uses [skip ci]; no force/tag,
+deployment, hosted CI or live operation is claimed.

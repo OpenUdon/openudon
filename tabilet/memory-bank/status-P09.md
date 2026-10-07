@@ -109,3 +109,8 @@ verification. Extend API/import guards for its new surface while preserving
 M98's frozen existing declarations and wires. M98 supplies no stable legacy
 synthesis types; the consumer worker owns isolation and lifecycle. W17 remains
 the serial predecessor, so no P09 task is selected by this reconciliation.
+
+M98 acceptance/retirement closure `b8eaf1626037561b19f62642329a5c0b5f928f45` is independently observed
+on unchanged authorized OpenUdon origin/main. It contains exact qualified
+source/module ancestry and passed closing review 3; the full prerequisite
+source/closure publication gate is satisfied. P09 still waits for W17.
