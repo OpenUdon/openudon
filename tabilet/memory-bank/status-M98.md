@@ -1,7 +1,7 @@
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 in progress; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -19,7 +19,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | M98.1 — Extract handoff digest and authority APIs | `[+]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
 | M98.2 — Define format-neutral verification boundaries | `[+]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
 | M98.3 — Expose evidence verification | `[+]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
-| M98.4 — Qualify and publish public interfaces | `[ ]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
+| M98.4 — Qualify and publish public interfaces | `[~]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
 
 ## Acceptance and verification
 
@@ -172,3 +172,26 @@ initially omitted the fixture inventory's explicit not_started outcomes; it
 was corrected to the existing qualified inventory contract before passing.
 All published fixtures/schemas/module pins remain unchanged. Whole M98 review
 0/10 and standalone consumer qualification/publication remain pending.
+
+## M98.4 selection — 2026-10-07
+
+M98.3 task commit b52fa1e passed required row checks. Select only M98.4 for
+public standalone/import/surface/wire qualification, affected consumers,
+persisted pre-publication review, exact source publication under the existing
+STG11_SOURCE_PUBLICATION grant, then closing review and normal retirement.
+No Kinet push, deployment, private runtime import or live operation.
+
+M98.4 preliminary standalone public tests passed with GOWORK=off, GOPROXY=off.
+API surface fixture SHA-256 is
+8ac50a0eb84ba7a28ab2fda375bfc536b0df568272017e3f0674b9ca315b1e7e;
+it preserves existing exported signatures/types and rejects legacy construction
+names. The module graph contains main plus 89 ordinary modules, no replacements.
+Seven uncached exact already-selected dependency archives are being acquired
+under the existing build-closure grant, without version changes. Full frozen
+source qualification, review and publication remain pending.
+
+The owner docs workflow on main changes uses mkdocs gh-deploy --force; release
+publication is tag-only and the public browser workflow is manual. Source-only
+publication will use a final [skip ci] commit, as already established for UWS
+source publication, to avoid the unrelated docs deployment. Local verification
+will be recorded independently; no hosted CI result or docs deployment is claimed.
