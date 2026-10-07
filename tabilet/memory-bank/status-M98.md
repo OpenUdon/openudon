@@ -51,3 +51,28 @@ UWS:C08 is accepted and independently observed on origin/main at `0411eea6fc84fb
 - Verification: pending implementation; no test result is claimed by this planning record.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
+
+## Accepted/published Udon M48 prerequisite — 2026-10-07
+
+Udon:M48 is accepted after all four tasks, pre-publication review 1 and closing
+review 2 at exact qualified runtime
+da43e57be37af4e18e633558580f740c525f139d. Normal authorized origin/main
+publication e338c6bb542c927f7eb5ba559616fbfc7add6aa8 was independently observed
+and contains that source. Exact private module
+v0.0.0-20261007023819-da43e57be37a resolves to the full origin hash.
+[Handoff](../../../udon/docs/m48-release-handoff.md),
+[qualification](../../../udon/docs/m48-qualification.md) and
+[publication](../../../udon/docs/m48-publication.md) record full ordinary
+337-module owner graph/336 dependency archives, independent no-directory
+private consumer and reproduced CLI SHA-256
+5de04144464357d5f300e2a051bdf218068aea08aad88e46792ffa2aa426d021.
+
+Public OpenUdon must not import Udon or its private dependencies. M98 evidence
+verification consumes neutral immutable wire/identity data and preserves its
+existing CLI execution adapter/pins; new v3 construction remains P09. The
+private runtime's function catalog/shape table are exact reproduced metadata
+with incomplete native invocation/domain constraints; metadata grants no
+authority. Shared C08/M08 grammar/import/provenance and existing report schemas
+are retained, while supported private execution uses explicit capabilities and
+scoped lossless response snapshots. No current OpenUdon/Kinet/browser/media
+pin is moved by this prerequisite. All M98 rows/review remain pending.
