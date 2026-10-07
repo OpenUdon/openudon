@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; whole review 1/10 started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, P09.5 in progress; whole review 2/10 started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -71,8 +71,8 @@ observed on authorized APItools origin/main, satisfying the publication gate.
 
 ## Persisted review
 
-- Review iteration: **1/10**; pre-publication whole review started on 2026-10-07; resume this pass if interrupted.
-- Closing-review findings: **R1-F01 P2** output/reference admission and **R1-F02 P2** expression type projection were persisted before fixes and are fixed with regressions/full checks. Review 1 did not pass; review 2 must examine the whole milestone.
+- Review iteration: **2/10**; pre-publication whole review started on 2026-10-07 at fixed source affd575ecaa2043da29badd599870efd7102614e; resume this pass if interrupted.
+- Closing-review findings: R1-F01/R1-F02 and R2-F01 are fixed with regressions/full checks. Reviews 1 and 2 did not pass their initial gates; review 3 remains required.
 - Accepted revision: not available.
 - Published revision / artifact evidence: not available.
 - Verification: P09.1–.4 and P09.5 candidate fixture/default checks are recorded below; clean ordinary source/consumer qualification and publication remain pending.
@@ -409,3 +409,47 @@ this complete review pass. Review 1 itself remains failed due to those original
 findings; a new whole pass is required after the fixed source is committed.
 Final clean build/module closure, accepted publication and consumer proof remain
 pending, and no P09 acceptance is claimed.
+
+## Persisted whole review 2 started — 2026-10-07
+
+Review 1 findings/fixes and final checks were read before advancing the stored
+counter to 2. Review the full milestone from c468d9a through affd575ecaa2043da29badd599870efd7102614e,
+including all contracts, trust/privacy/bounds, ordinary dependency adoption,
+old/new compatibility and the exact expression/source proof fixes. Clean build,
+publication and final ordinary published consumer gates remain pending. This
+start does not infer a passed review or milestone acceptance.
+
+## Review 2 finding persisted before fixes — 2026-10-07
+
+- **R2-F01 (P2, open):** the new response child projection discards restricting
+  parent/sibling schema keywords. A known response schema requiring n while
+  setting maxProperties=0 becomes a simple child integer contract; the chained
+  input is assessed compatible despite the impossible parent. Reproduced by
+  failing TestParentResponseConstraintsCannotDisappearDuringProjection at
+  affd575. Preserve supported parent constraints or retain explicit unknownness
+  when projection cannot prove them. Const projection must likewise validate
+  the entire retained schema rather than dropping restricting siblings. Keep
+  exact numeric handling and all existing public wires. Fix/reverify before
+  beginning review 3; no source publication while this finding remains open.
+
+The separate exact-input contradictory-schema regression already passes, so
+its full C09 validation is not a new finding. Review 2 continues across the
+whole scope; fixture-only source regeneration/build evidence remains pending.
+
+## Review 2 fix verified — 2026-10-07
+
+R2-F01 is fixed: child projection admits only its proved structural parent
+subset; any additional restricting parent keyword remains unknown rather than
+being discarded. A const source is checked against the entire retained schema
+with the existing closed resource loader before its child value is projected.
+Numeric values still use strict json.Number decoding. The parent-constraint
+regression failed before and passes after; the direct contradictory-input
+schema regression, all review-1 regressions and prior fixture suites pass.
+
+Full owner make check/vet, focused staticcheck and public package/trust/authority/
+approval/evidence races pass. The exact published Udon M48 preliminary private
+adapter again passes catalog reproduction, native admission, plan and approval
+with zero effects. This local SDK bootstrap remains preliminary, not published
+consumer or actual worker qualification. No additional P1/P2 was found in the
+rest of this whole pass. Review 2 did not pass because R2-F01 was originally
+open; review 3 must re-examine the full milestone after the fixed commit.

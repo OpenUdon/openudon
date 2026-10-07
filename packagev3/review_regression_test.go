@@ -94,3 +94,40 @@ func TestSourceBackedChainedInputTypesRemainExact(t *testing.T) {
 		t.Fatal("future step qualified", p.Assessment.Findings)
 	}
 }
+
+func TestContradictoryReviewedSourceCannotAcquireCompatibleProjection(t *testing.T) {
+	o := buildOptions()
+	o.Sources[0].Bytes = []byte(strings.Replace(apiFixture, "schema: {type: integer, minimum: 9007199254740993}", "schema: {type: integer, const: 1, minimum: 2}", 1))
+	o.WorkflowYAML = []byte(strings.Replace(yamlFixture, "n: 9007199254740993", "n: '$variables.inputs.n'", 1))
+	o.DataJSON = []byte(`{"inputs":{"n":1}}`)
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Assessment.Outcome == "compatible" {
+		t.Fatal("contradictory schema qualified", p.Assessment.Findings)
+	}
+}
+
+func TestParentResponseConstraintsCannotDisappearDuringProjection(t *testing.T) {
+	spec := strings.Replace(apiFixture, "schema: {type: object, properties: {ok: {type: boolean}}}", "schema: {type: object, properties: {n: {type: integer, minimum: 9007199254740993}}, required: [n], maxProperties: 0}", 1)
+	o := buildOptions()
+	o.Sources[0].Bytes = []byte(spec)
+	yaml := strings.Replace(yamlFixture, "    effect: read", "    effect: read\n    outputs: {n: '$response.body.n'}", 1)
+	second := `  - operationId: second
+    sourceDescription: api
+    sourceOperationId: fetch
+    effect: read
+    request: {query: {n: '$steps.fetch.outputs.n'}}
+`
+	yaml = strings.Replace(yaml, "workflows:\n", second+"workflows:\n", 1)
+	yaml = strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}]", "steps: [{stepId: fetch, operationRef: fetch}, {stepId: second, operationRef: second}]", 1)
+	o.WorkflowYAML = []byte(yaml)
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Assessment.Outcome == "compatible" {
+		t.Fatal("parent constraints disappeared", p.Assessment.Findings)
+	}
+}

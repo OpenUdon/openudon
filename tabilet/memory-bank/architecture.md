@@ -1,5 +1,11 @@
 # Architecture
 
+## P09 review fixes
+
+Assessment now uses the public core expression parser with private source-backed contract projection. Literal data consts retain numeric lexemes; required response/step outputs retain source constraints, and all body/pointer/dot/plural-header forms are checked. Contract traversal refuses unproved presence/collision/scope and does not evaluate leaves or load resources.
+
+Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+
 ## P09.4 historical compatibility
 
 A private snapshot integrity helper is shared by Verify and InspectHistory; only Verify independently reproduces source/shape/assessment and can construct VerifiedPackage. Explicit history dispatch returns scalar identities with ReadOnly=true/SourceProof=false, using unchanged M98 trust inspection for v2. No legacy artifact is passed into v3 verification or a new executor. Existing approval/report/evidence paths and independently pinned browser CLI remain untouched.

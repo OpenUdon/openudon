@@ -11,6 +11,7 @@ import (
 	"github.com/OpenUdon/uws/binding"
 	"github.com/OpenUdon/uws/expressions"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 type expressionScope struct {
@@ -137,11 +138,31 @@ func childContract(schema binding.Schema, parts []string) binding.Schema {
 			return binding.Schema{}
 		}
 		if constant, exists := object["const"]; exists {
+			compiler := jsonschema.NewCompiler()
+			compiler.UseLoader(closedSchemaLoader{})
+			const uri = "https://openudon.invalid/const-source"
+			if compiler.AddResource(uri, object) != nil {
+				return binding.Schema{}
+			}
+			compiled, err := compiler.Compile(uri)
+			if err != nil || compiled.Validate(constant) != nil {
+				return binding.Schema{}
+			}
+
 			value, ok := lookupLiteral(constant, parts[index:])
 			if !ok {
 				return binding.Schema{Known: true, JSON: json.RawMessage(`false`)}
 			}
 			return literalContract(value)
+		}
+		// A child schema alone cannot represent additional restricting parent
+		// keywords. Preserve unknownness instead of erasing those restrictions.
+		for keyword := range object {
+			switch keyword {
+			case "type", "properties", "required", "additionalProperties":
+			default:
+				return binding.Schema{}
+			}
 		}
 		kind, ok := object["type"].(string)
 		if !ok || kind != "object" {

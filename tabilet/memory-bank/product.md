@@ -1,5 +1,9 @@
 # Product
 
+## P09 review-1 fixes
+
+P09 review fixes derive exact expression input contracts from reviewed data and source-backed outputs. Missing/forward/cyclic references cannot qualify compatible review or broker authority; optional/null/open paths and unproved runtime scope remain indeterminate. No model/caller assertion or operation evaluation supplies evidence.
+
 ## P09.4 historical compatibility
 
 P09.4 adds explicit read-only v2/v3 history inspection without conversion, private runtime/source proof, approval or fallback execution. V3 unsupported-execution/function history stays readable using artifact identities; executable verification remains separate. Old approval/report/evidence golden readers and browser pin remain qualified and unchanged. V2-to-v3 successors have new identities and require Kinet-owned exact confirmation/fresh worker authority; P09.5 whole qualification/publication remains pending.

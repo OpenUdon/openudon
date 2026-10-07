@@ -3,7 +3,7 @@
 The public `packagev3` package defines structural records and explicit-byte
 `Build`/`Assess` APIs. P09.1–.2 provide construction and review assessment;
 Concrete plan/authority verification is implemented in P09.3;
-compatibility qualification and publication remain P09.4–.5. A valid record or compatible assessment never grants execution.
+Compatibility readers are implemented; whole review, clean qualification and publication remain P09.5. A valid record or compatible assessment never grants execution.
 
 The package uses exact approved `workflows/workflow.uws.yaml` bytes,
 `expected/data.json`, `expected/operation-shapes.json` and explicit source
@@ -176,3 +176,9 @@ nullable, open or unproved paths stay indeterminate; metadata does not invent a
 presence guarantee or resolve arbitrary expressions. A component/top-variable
 collision also stays indeterminate because the retained reference/lowerer
 precedence does not prove one value for the implementing runtime.
+
+Response child projection does not discard restricting parent schema keywords.
+Unproved parent restrictions retain unknownness; a const is validated against
+its complete source schema through a closed loader before projection. Direct
+input/schema contradictions and contradictory response parents cannot acquire
+compatible review by reducing their contracts to a weaker child type.

@@ -1,5 +1,11 @@
 # Tech Stack
 
+## P09 review fixes
+
+Review-1 regression fixtures cover unresolved outputs, exact large-number inputs/chains, body/header spellings, nullable/optional presence and future steps. New execution-plan schema compiles against the deterministic package/plan/authority/API fixtures; the explicit developer generator never runs from default tests. Compatible staticcheck, full owner/vet and public trust/authority races pass at affd575; clean ordinary publication qualification remains P09.5.
+
+Review 2 additionally keeps unproved restricting parent schema keywords unknown and validates const values against their entire source schema. The failing parent-constraint regression now passes; no constraint is dropped to acquire compatible review. Full owner checks, trust races and preliminary actual M48 private admission pass. Review 3 and clean/publication qualification remain required.
+
 ## P09.4 historical compatibility
 
 P09.4 preserves old public declarations/wires/schema fixtures; history dispatch explicitly selects apitools.review-handoff.v2 or openudon.package.v3. Whole owner checks/vet, focused staticcheck, public trust/history/approval/report races and private legacy identity regressions pass. The exact Kinet browser image labels and an actual network-none/read-only/rootless CLI version probe match source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary 072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4 and Go 1.26.6. This does not requalify browser capture; no affected browser implementation or pin changed.
