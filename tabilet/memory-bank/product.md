@@ -1,5 +1,9 @@
 # Product
 
+## P09.4 historical compatibility
+
+P09.4 adds explicit read-only v2/v3 history inspection without conversion, private runtime/source proof, approval or fallback execution. V3 unsupported-execution/function history stays readable using artifact identities; executable verification remains separate. Old approval/report/evidence golden readers and browser pin remain qualified and unchanged. V2-to-v3 successors have new identities and require Kinet-owned exact confirmation/fresh worker authority; P09.5 whole qualification/publication remains pending.
+
 ## P09.3 verified execution constraints
 
 P09.3 supplies independently verified private byte snapshots, exact operation/input/worker plans and unchanged-wire broker authority derivation. Symbolic security inventories come from selected verified sources; producer flags, conversion and package hashes do not grant execution. Runtime function catalogs require the trusted implementing consumer’s independent reproduction and non-effectful admission. Knownness stays explicit, browser/unsupported leaves refuse, and host owner/grant/destination policy remains independent. P09.4/.5 compatibility/publication and whole acceptance remain pending.

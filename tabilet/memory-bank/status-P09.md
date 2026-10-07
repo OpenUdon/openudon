@@ -1,7 +1,7 @@
 # P09 — Package v3
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; P09.1–.3 complete, two rows pending; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; P09.1–.4 complete, one row pending; whole review 0/10 not started.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -19,7 +19,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | P09.1 — Define v3 package and review records | `[+]` | Define package/handoff/assessment versions covering approved YAML bytes, data.json, source artifacts and operation shapes. Exclude authored intent.hcl and packaged workflow.hcl; retain the existing package digest algorithm. |
 | P09.2 — Build directly from UWS | `[+]` | Build and assess v3 packages from standard UWS without intent synthesis. Preserve source-family limits, pending refusals, credential filtering and public package policy. This is the first supported public v3 construction/assessment surface; do not require stable public v2 synthesis APIs from M98. |
 | P09.3 — Verify sources and derive authority | `[+]` | Provide library verification that reproduces or validates shapes against exact source artifacts before approval; the consuming author/execution worker supplies isolation, bounded source access and lifecycle controls. Derive exact operation/input/worker authority and reject forged tables, provenance, security alternatives or stale sources. |
-| P09.4 — Preserve v2 and evidence readers | `[ ]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
+| P09.4 — Preserve v2 and evidence readers | `[+]` | Keep historical v2 inspection, approval and report readers and the legacy browser path. Converted bytes get new identities; no reader silently upgrades a package or carries a grant forward. Kinet cut-over retains read-only non-browser v2 history; future runs need explicit conversion and fresh approval. Preserve the independently pinned browser path without introducing a dual non-browser executor. |
 | P09.5 — Qualify and publish v3 | `[ ]` | Exercise tampering, unsupported versions, missing artifacts, privacy and old/new compatibility. Publish exact public trust APIs/schema fixtures under named authority before Kinet adoption. |
 
 ## Acceptance and verification
@@ -297,3 +297,40 @@ its evolution reminder was checked against approved v50, with no direction
 change or new evolution version. P09.3 is complete as public verification and
 exact constraints/authority APIs, not downstream worker acceptance. P09.4/.5
 and persisted whole review 0/10 remain required; no publication or live action.
+
+## P09.4 selection — 2026-10-07
+
+Continue from clean task source 4de9271f371ca34d88163aff7aab0b150e3e12c5.
+Select compatibility readers/fixtures and explicit format dispatch; preserve
+existing v1/v2 handoff/approval/report surfaces and separately pinned browser
+path. No conversion, v2 authority carryover or legacy non-browser execution
+fallback is introduced. Kinet owns cut-over/conversion and fresh owner approval
+in W18/W19/U14; P09.5 still owns whole review/publication qualification.
+
+## P09.4 completion — 2026-10-07
+
+Explicit InspectHistory dispatches selected v2/v3 format/scope/digest without
+conversion or runtime invocation. It returns read-only byte identities and
+SourceProof=false; function/unsupported-execution v3 history needs no private
+runtime adapter. Private snapshot-integrity sharing cannot construct a verified
+proof: only source/shape/assessment Verify creates VerifiedPackage. Unsupported
+formats, mismatched selections, stale scope/digest/bytes, privacy and cancellation
+refuse. Tests prove old HCL/handoff bytes stay unchanged, v2 cannot enter v3
+verification, old valid approval remains readable but cannot authorize a new
+v3 successor, and historical report/evidence/approval golden readers are stable.
+
+Owner make check/vet, focused staticcheck, affected public/history/trust/approval/
+report races, private legacy identity/broker regressions and diff checks pass.
+No old public schema/wire fixture, legacy CLI reader, browser code/lock or Kinet
+path changed. Read-only image inspection and an actual bounded rootless
+network-none/read-only CLI version probe independently retain browser image
+sha256:a88e1c3deb570350661d4522b9b0c8540e17b56f019695d61023c79a673b8e8d,
+source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary
+072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4,
+go1.26.6, vcs.modified=false. This is pin/probe evidence, not new capture
+qualification; frozen M46/W17 capture qualification is preserved.
+
+Kinet W18/W19/U14 still own cut-over/conversion and fresh exact owner/worker/
+schedule authority. No legacy non-browser fallback, second executor, silent
+migration or carried grant is introduced. P09.5 and whole review 0/10 remain
+required; no source publication or external live operation is claimed.

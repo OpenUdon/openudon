@@ -5,10 +5,6 @@ import (
 	"context"
 	"github.com/OpenUdon/uws/binding"
 	"reflect"
-
-	"github.com/OpenUdon/openudon/credentialpolicy"
-	"github.com/OpenUdon/openudon/handoff"
-	"github.com/OpenUdon/openudon/trust"
 )
 
 type VerifyOptions struct {
@@ -54,62 +50,11 @@ func (v VerifiedPackage) Snapshot() map[string][]byte {
 // source-shape/assessment checks against copied exact bytes. The trusted host
 // supplies the expected scope/digest and owns isolation and current approval.
 func Verify(ctx context.Context, options VerifyOptions) (VerifiedPackage, error) {
-	if ctx == nil || !scopeValid(options.Scope) || !digestValid(options.ExpectedSHA256) || len(options.Files) < 6 || len(options.Files) > MaxFiles {
-		return VerifiedPackage{}, ErrPackage
+	snapshot, err := inspectSnapshot(ctx, options)
+	if err != nil {
+		return VerifiedPackage{}, err
 	}
-	files := make(map[string][]byte, len(options.Files))
-	total := 0
-	for path, data := range options.Files {
-		if ctx.Err() != nil {
-			return VerifiedPackage{}, ctx.Err()
-		}
-		if !publicPath(path) || len(data) == 0 || len(data) > MaxFileBytes || len(data) > MaxTotalBytes-total {
-			return VerifiedPackage{}, ErrPackage
-		}
-		if credentialpolicy.ContainsLikelyValue(data) || options.Private != nil && options.Private(data) {
-			return VerifiedPackage{}, ErrPackage
-		}
-		files[path] = append([]byte(nil), data...)
-		total += len(data)
-	}
-	manifest, err := ParseManifest(files[ManifestPath])
-	if err != nil || manifest.Scope != options.Scope {
-		return VerifiedPackage{}, ErrPackage
-	}
-	canonical, err := manifest.Marshal()
-	if err != nil || !bytes.Equal(canonical, files[ManifestPath]) {
-		return VerifiedPackage{}, ErrPackage
-	}
-	inputs, err := manifest.InputArtifacts()
-	if err != nil || len(files) != len(inputs)+3 {
-		return VerifiedPackage{}, ErrPackage
-	}
-	expected := map[string]bool{ManifestPath: true, AssessmentPath: true, HandoffPath: true}
-	for _, input := range inputs {
-		expected[input.Path] = true
-	}
-	for path := range files {
-		if !expected[path] {
-			return VerifiedPackage{}, ErrPackage
-		}
-	}
-	review, err := ParseHandoff(files[HandoffPath])
-	if err != nil || review.Scope != options.Scope || len(review.Artifacts) != len(files)-1 {
-		return VerifiedPackage{}, ErrPackage
-	}
-	canonical, err = review.Marshal()
-	if err != nil || !bytes.Equal(canonical, files[HandoffPath]) {
-		return VerifiedPackage{}, ErrPackage
-	}
-	for _, artifact := range review.Artifacts {
-		data, exists := files[artifact.Path]
-		if !exists || hashBytes(data) != artifact.SHA256 {
-			return VerifiedPackage{}, ErrPackage
-		}
-	}
-	if review.ManifestSHA256 != hashBytes(files[ManifestPath]) || review.AssessmentSHA256 != hashBytes(files[AssessmentPath]) {
-		return VerifiedPackage{}, ErrPackage
-	}
+	files, manifest, review, assessment := snapshot.files, snapshot.manifest, snapshot.handoff, snapshot.assessment
 	document, _, err := DecodeWorkflow(ctx, files[WorkflowPath])
 	if err != nil {
 		return VerifiedPackage{}, ErrPackage
@@ -122,28 +67,16 @@ func Verify(ctx context.Context, options VerifyOptions) (VerifiedPackage, error)
 	if err != nil || !reflect.DeepEqual(review.Credentials, credentials) {
 		return VerifiedPackage{}, ErrPackage
 	}
-	assessment, err := ParseAssessment(files[AssessmentPath])
-	if err != nil {
-		return VerifiedPackage{}, ErrPackage
-	}
 	fresh, err := Assess(ctx, manifest, files, options.RuntimeVerifier)
 	if err != nil {
 		return VerifiedPackage{}, err
 	}
-	canonical, err = fresh.Marshal()
-	if err != nil || !bytes.Equal(canonical, files[AssessmentPath]) || assessment.InputsSHA256 != review.InputsSHA256 {
-		return VerifiedPackage{}, ErrPackage
-	}
-	artifacts := make([]handoff.DigestFile, 0, len(files))
-	for path, data := range files {
-		artifacts = append(artifacts, handoff.DigestFile{Path: path, SHA256: hashBytes(data)})
-	}
-	sum, err := handoff.DigestFiles(options.Scope, trust.PackageDigestVersion, artifacts)
-	if err != nil || sum != options.ExpectedSHA256 {
+	canonical, err := fresh.Marshal()
+	if err != nil || !bytes.Equal(canonical, files[AssessmentPath]) {
 		return VerifiedPackage{}, ErrPackage
 	}
 	if ctx.Err() != nil {
 		return VerifiedPackage{}, ctx.Err()
 	}
-	return VerifiedPackage{files: files, manifest: manifest, assessment: assessment, handoff: review, sha256: sum}, nil
+	return VerifiedPackage{files: files, manifest: manifest, assessment: assessment, handoff: review, sha256: snapshot.sha256}, nil
 }

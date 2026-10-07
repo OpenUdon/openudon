@@ -142,3 +142,27 @@ adapter uses that ordinary exact runtime module with a temporary local SDK
 bootstrap and synthetic worker hashes. It performs no effects and is not final
 publication or worker qualification. P09.5 owns the clean ordinary published
 consumer/closure proof, while Kinet M47 owns actual worker isolation and pins.
+
+`InspectHistory` explicitly selects either `apitools.review-handoff.v2` or
+`openudon.package.v3`, requiring trusted scope/digest and the format's complete
+byte inventory. V2 delegates unchanged neutral trust inspection; v3 checks only
+closed canonical artifact/report identities. It returns read_only=true and
+source_proof=false, never VerifiedPackage, assessment success or approval.
+Unsupported/ambiguous versions, missing/changed artifacts, private content and
+cancelled reads refuse. V3 function history does not need a private runtime
+verifier; executable verification still does. No reader builds/converts a
+successor or silently selects an executor.
+
+Historical handoff/approval/report/run-evidence APIs and their golden bytes
+remain unchanged. A v2 approval can still be inspected against its old package;
+it cannot authorize a new v3 identity even when scope is retained. Kinet W19
+owns explicit confirmed successor publication, preserving old bytes/history,
+and fresh owner/worker/schedule authority. Kinet's independently selected
+browser image remains sha256:a88e1c3deb570350661d4522b9b0c8540e17b56f019695d61023c79a673b8e8d,
+source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary
+072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4.
+P09.4 independently checked immutable image labels and an actual bounded
+network-none/read-only/rootless version probe, returning go1.26.6 and the exact
+clean revision. This is a pin/probe compatibility check, not new browser-capture
+qualification. Browser implementation/dependencies/locks and Kinet paths are
+unchanged; Stage 12 still owns their replacement/removal.

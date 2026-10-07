@@ -1,5 +1,9 @@
 # Architecture
 
+## P09.4 historical compatibility
+
+A private snapshot integrity helper is shared by Verify and InspectHistory; only Verify independently reproduces source/shape/assessment and can construct VerifiedPackage. Explicit history dispatch returns scalar identities with ReadOnly=true/SourceProof=false, using unchanged M98 trust inspection for v2. No legacy artifact is passed into v3 verification or a new executor. Existing approval/report/evidence paths and independently pinned browser CLI remain untouched.
+
 ## P09.3 verified execution constraints
 
 VerifiedPackage retains copied bytes behind private fields and rechecks closed canonical inventory/report identities and API-source shapes. Runtime catalog source/table verification is delegated only to a trusted implementing consumer, receiving independent copies and exact module revision. ExecutionPlan binds raw operation/step/data constraints plus binary/closure/runtime identity; broker authority uses the existing v1 wire and exact native APItools security details. CheckExecutionApproval requires the trusted host’s separately confirmed plan digest and current bounded approval, with HTTP broker v2 and native-admitted pure-function v1 profiles. No private runtime imports or effect dispatch enter the public SDK.

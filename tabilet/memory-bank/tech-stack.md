@@ -1,5 +1,9 @@
 # Tech Stack
 
+## P09.4 historical compatibility
+
+P09.4 preserves old public declarations/wires/schema fixtures; history dispatch explicitly selects apitools.review-handoff.v2 or openudon.package.v3. Whole owner checks/vet, focused staticcheck, public trust/history/approval/report races and private legacy identity regressions pass. The exact Kinet browser image labels and an actual network-none/read-only/rootless CLI version probe match source c2f161d762bc9f2217bbf0c34b00cdef64b0f7d0, binary 072cd762973804db7c72355b838be077b93d55463c9c331e877382b2db8297a4 and Go 1.26.6. This does not requalify browser capture; no affected browser implementation or pin changed.
+
 ## P09.3 verified execution constraints
 
 P09.3 adds Verify/ExecutionPlan/broker/approval checks, one reserved runtime-function source, and trusted RuntimeVerifier/RuntimeAdmission adapters. Bounds retain 32 API sources plus one runtime catalog (33 total), 512 files/8 MiB each/32 MiB combined, 128 findings, and the existing 100-operation authority limit. Exact Udon M48 produces/verifies the seven-entry catalog fixture using the ordinary published module; default SDK checks consume synthetic independent fixtures. The preliminary private adapter uses a local SDK bootstrap and synthetic worker hashes; final clean ordinary publication/closure is P09.5. No owner dependency upgrade beyond P09.2 or schema/old-wire/browser pin change.
