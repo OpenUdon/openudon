@@ -13,6 +13,8 @@ M98.2 verifies explicit required byte inventories with canonical safe paths, man
 
 M98.3 moves report-v2–v5 pure validation/observation to public `udonreport`, retaining private workflow inventory derivation. Public `runevidence` owns unchanged run/async/signature and browser metadata wires. Internal aliases keep the CLI on those types; non-browser intrinsic validation delegates publicly, while browser runtime/validation remain private. Byte verification reads no evidence paths and preserves conservative uncertainty; supplied expected identity/inventory and trusted key bytes establish only their stated provenance.
 
+Review-1 fixes require exact lowercase 64-hex authority fields and validate public broker-v4 byte evidence against the unchanged embedded schemas. Resource loading is closed; no filesystem/network schema resolution is possible. Generic legacy digest helper normalization and browser CLI verification remain separate.
+
 ## Stage 9 broker handoff — accepted 2026-10-05
 
 [M97](../docs/history/status-M97.md) accepted concrete authority v1, approval v2,

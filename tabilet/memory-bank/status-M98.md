@@ -1,7 +1,7 @@
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 in progress; whole review 0/10 not started.
+**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 in progress; pre-publication whole review 1/10 in progress.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -44,8 +44,8 @@ UWS:C08 is accepted and independently observed on origin/main at `0411eea6fc84fb
 
 ## Persisted review
 
-- Review iteration: **0/10**; not started.
-- Closing-review findings: none; the whole-milestone review has not started. Approved intake requirements above remain pending.
+- Review iteration: **1/10**; started 2026-10-07, pre-publication pass in progress.
+- Closing-review findings: review 1 found P2-M98-R1-1 and P2-M98-R1-2; both fixed and verified, full re-review required. No unresolved P1/P2 is retained; acceptance remains pending iteration 2 and publication.
 - Accepted revision: not available.
 - Published revision / artifact evidence: not available.
 - Verification: pending implementation; no test result is claimed by this planning record.
@@ -195,3 +195,65 @@ publication is tag-only and the public browser workflow is manual. Source-only
 publication will use a final [skip ci] commit, as already established for UWS
 source publication, to avoid the unrelated docs deployment. Local verification
 will be recorded independently; no hosted CI result or docs deployment is claimed.
+
+## Persisted review iteration 1 — started 2026-10-07
+
+Start the pre-publication whole-M98 review over the full implementation range
+538f7bc9b97c094176c90c0d336207c629ac4301..6b355b64ed8b04733ab7ec49707d9ec6debfa84d.
+All three implementation rows and source surface gates are implemented.
+Standalone full tests/make check, vet, module verification, API guards and
+independent pre-publication SDK consumer passed; Kinet make check also passed.
+Exact-source build/archive provenance is being finalized. Inspect all neutral
+wire/metadata boundaries, bounds, uncertainty, signature custody, internal
+adapters and retained compatibility. Findings and disposition pending.
+Publication remains unperformed; continue this pass at iteration 1 after any
+interruption, never reset the persisted counter.
+
+Review 1 finding **P2-M98-R1-1**: broker authority, operation constraint and
+binding revision validation reuse the legacy trim-permissive hash helper.
+Surrounding whitespace can therefore pass typed validation despite the
+published exact lowercase 64-hex wire. Preserve the legacy generic digest
+helper, tighten authority field spelling and add public regression vectors.
+Disposition: fix within M98 before acceptance/publication; pass 1 remains open.
+
+Review 1 finding **P2-M98-R1-2**: the new broker byte verifier used only
+retained typed semantic checks, allowing an approval hash with surrounding
+whitespace outside the published v4 schema. A regression reproduces acceptance.
+Disposition: require the existing embedded broker/run-evidence-v4 schema before
+public byte verification, with a closed resource loader and no external reads.
+No schema bytes or dependency versions change; legacy CLI profiles stay
+separate. Pass 1 remains open while fixes/affected qualification complete.
+
+Review-1 fixes are implemented and focused regressions now pass. The first
+schema-integration test run exposed refusal ordering: the schema check masked
+the explicit retained-browser-profile refusal. The guard now preserves
+ErrUnsupportedBrowser before broker schema validation; affected tests pass.
+Full owner checks/races are running again; no passing final gate is claimed yet.
+
+Qualification diagnostics: the initial binary output directory was a scratch
+symlink to the repository, so Go wrote its ignored developer binary there.
+Outputs were moved to a dedicated artifact directory and hashes reproduced.
+Git-worktree builds also omitted VCS stamps despite buildvcs=true; a clean
+ordinary clone reproduces explicit vcs.revision and vcs.modified=false. These
+pre-review source-6b355b6 results are diagnostic; review fixes require a fresh
+exact-source qualification before publication. No source or installed service
+was changed by the output-path issue; no deployment occurred.
+
+## Review iteration 1 — findings fixed, re-review required
+
+Both P2 findings are fixed and regression-proven: canonical authority hashes
+reject surrounding whitespace, and public broker byte verification applies
+the unchanged embedded schemas through a closed loader. Missing/null/case-alias
+wire fields refuse. The retained-browser refusal remains explicit and prior
+to the broker schema gate. Public/general legacy digest normalization and all
+published valid bytes stay unchanged. API shape/import guards, full make check,
+vet, public/CLI/runner races, doc-memory and diff checks passed after the fixes.
+
+The full implementation review covers neutral constructors/digests, bounds,
+read-only snapshots, source/shape non-claims, stale attempt/inventory protection,
+uncertainty, embedded-key integrity versus trusted signer, private browser
+adapters and unchanged external CLI execution. No additional P1/P2 remains in
+this pass; no lower finding is carried. Evolution remains the approved Stage 11
+direction: this is implementation and contract validation, not a new product
+or boundary direction. The checker’s evolution warning is therefore advisory.
+Persist/start iteration 2 before reviewing the revised clean source.

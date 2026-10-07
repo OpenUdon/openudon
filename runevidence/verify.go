@@ -75,6 +75,9 @@ func Verify(ctx context.Context, request Request) (Result, error) {
 		}
 		return Result{}, ErrInvalidEvidence
 	}
+	if e.Version == BrokerVersion && validateBrokerWire(request.Evidence) != nil {
+		return Result{}, ErrInvalidEvidence
+	}
 	if request.Expected != nil && *request.Expected != (Identity{e.RunID, e.PackageSHA256, e.HandoffSHA256, e.ApprovalSHA256, e.RunConfigSHA256}) {
 		return Result{}, ErrInvalidEvidence
 	}

@@ -38,3 +38,29 @@ func TestPublishedAuthorityWire(t *testing.T) {
 		t.Fatal("accepted operation drift under old authority")
 	}
 }
+
+func TestAuthorityRejectsWhitespaceInCanonicalHashes(t *testing.T) {
+	data, err := os.ReadFile("../docs/fixtures/broker-handoff-v1/authority-valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*authority.Authority){
+		func(a *authority.Authority) { a.GrantRevisionSHA256 = " " + a.GrantRevisionSHA256 },
+		func(a *authority.Authority) { a.PackageSHA256 += "\n" },
+		func(a *authority.Authority) { a.HandoffSHA256 = " " + a.HandoffSHA256 },
+		func(a *authority.Authority) { a.InputsSHA256 += " " },
+		func(a *authority.Authority) { a.ExecutorSHA256 += " " },
+		func(a *authority.Authority) { a.Operations[0].ConstraintsSHA256 += " " },
+		func(a *authority.Authority) { a.Operations[0].Bindings[0].Revision += " " },
+	} {
+		var a authority.Authority
+		if err := json.Unmarshal(data, &a); err != nil {
+			t.Fatal(err)
+		}
+		mutate(&a)
+		a.PolicySHA256 = a.Digest()
+		if a.Validate() == nil {
+			t.Fatal("accepted noncanonical hash under a matching policy digest")
+		}
+	}
+}

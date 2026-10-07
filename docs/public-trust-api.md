@@ -60,6 +60,11 @@ key. Report v5 keeps its tighter 256 KiB bound and 256-step maximum.
 The public verifier supports non-browser profiles; a browser record returns
 `ErrUnsupportedBrowser` and uses the retained exact CLI verification path.
 Browser wire types are shared metadata; no public browser execution API exists.
+Broker v4 byte verification additionally applies the exact existing embedded
+broker/run-evidence schemas through a closed resource loader. Unresolved
+references fail without external reads; no schema or dependency version changes.
+Authority digests and symbolic revisions require exact lowercase 64-hex fields;
+the general legacy `digest` spelling helpers retain their trim-permissive API.
 
 Hosts can supply independent `Expected` identity and `ExpectedInventory` to
 reject a stale or unrelated attempt. Without them, verification checks the

@@ -140,6 +140,42 @@ func TestUnknownEvidenceDoesNotInventResults(t *testing.T) {
 	}
 }
 
+func TestBrokerByteVerificationRejectsNonCanonicalWire(t *testing.T) {
+	e := fixture(t)
+	e.AsyncEvidenceFiles = nil
+	e.ApprovalSHA256 = " " + e.ApprovalSHA256
+	data, _ := json.Marshal(e)
+	if _, err := runevidence.Verify(context.Background(), runevidence.Request{Evidence: data}); err == nil {
+		t.Fatal("accepted broker hash outside published schema")
+	}
+	e = fixture(t)
+	e.AsyncEvidenceFiles = nil
+	data, _ = json.Marshal(e)
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"case", "missing", "null"} {
+		changed := map[string]json.RawMessage{}
+		for k, v := range raw {
+			changed[k] = v
+		}
+		switch kind {
+		case "case":
+			changed["Version"] = changed["version"]
+			delete(changed, "version")
+		case "missing":
+			delete(changed, "dry_run")
+		case "null":
+			changed["created_at"] = json.RawMessage("null")
+		}
+		data, _ := json.Marshal(changed)
+		if _, err := runevidence.Verify(context.Background(), runevidence.Request{Evidence: data}); err == nil {
+			t.Fatal("accepted noncanonical broker wire " + kind)
+		}
+	}
+}
+
 func TestSignatureIntegrityAndTrustedKeyAreSeparate(t *testing.T) {
 	e := fixture(t)
 	e.AsyncEvidenceFiles = nil

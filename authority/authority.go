@@ -88,7 +88,7 @@ func (a Authority) Validate() error {
 		}
 	}
 	for _, digest := range []string{a.GrantRevisionSHA256, a.PackageSHA256, a.HandoffSHA256, a.InputsSHA256, a.ExecutorSHA256, a.PolicySHA256} {
-		if !trustdigest.ValidSHA256(digest) || strings.ToLower(digest) != digest {
+		if len(digest) != 64 || !trustdigest.ValidSHA256(digest) || strings.ToLower(digest) != digest {
 			return errors.New("invalid broker authority digest")
 		}
 	}
@@ -105,7 +105,7 @@ func (a Authority) Validate() error {
 	}
 	steps, operations, invocations := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, op := range a.Operations {
-		if !Identifier(op.StepID) || !Identifier(op.OperationID) || !Identifier(op.InvocationID) || steps[op.StepID] || operations[op.OperationID] || invocations[op.InvocationID] || !trustdigest.ValidSHA256(op.ConstraintsSHA256) || strings.ToLower(op.ConstraintsSHA256) != op.ConstraintsSHA256 {
+		if !Identifier(op.StepID) || !Identifier(op.OperationID) || !Identifier(op.InvocationID) || steps[op.StepID] || operations[op.OperationID] || invocations[op.InvocationID] || len(op.ConstraintsSHA256) != 64 || !trustdigest.ValidSHA256(op.ConstraintsSHA256) || strings.ToLower(op.ConstraintsSHA256) != op.ConstraintsSHA256 {
 			return errors.New("invalid broker operation inventory")
 		}
 		steps[op.StepID], operations[op.OperationID], invocations[op.InvocationID] = true, true, true
@@ -146,7 +146,7 @@ func (a Authority) ValidateAt(now time.Time) error {
 }
 
 func (b Binding) Validate() error {
-	if !Identifier(b.Name) || !trustdigest.ValidSHA256(b.Revision) || strings.ToLower(b.Revision) != b.Revision {
+	if !Identifier(b.Name) || len(b.Revision) != 64 || !trustdigest.ValidSHA256(b.Revision) || strings.ToLower(b.Revision) != b.Revision {
 		return errors.New("invalid symbolic broker binding")
 	}
 	if b.Kind == "bearer" && b.In == "header" && b.Parameter == "Authorization" {
