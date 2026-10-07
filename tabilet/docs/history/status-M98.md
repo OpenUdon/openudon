@@ -1,7 +1,40 @@
+# Retired milestone M98 - Public trust libraries
+
+**Milestone.** M98
+**Outcome.** completed
+**Retired.** 2026-10-07
+**Source status.** tabilet/memory-bank/status-M98.md
+**Source specification.** tabilet/memory-bank/milestone.md#m98-public-trust-libraries
+**Evidence.** 642fddbcf960ff5d23edace6cbdc4d1202e1e291
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 3
+**Verification.** Owner/standalone make check and vet, public API/import/wire guards, focused races, exact owner archive/build reproduction and published no-replacement SDK consumer passed; docs/m98-qualification.md and docs/m98-publication.md bind evidence.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, AGENTS.md and downstream Kinet M46/M47/OpenUdon P09; superseded knowledge preserved in knowledge.md.
+
+## Milestone specification
+
+`````markdown
+## M98 — Public trust libraries
+
+**Stage/owner.** STG-11 Phase A; OpenUdon. **Priority.** Serial position 8/18, not a review severity.
+**Dependencies.** [UWS:C08](../../../uws/tabilet/docs/history/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Extract handoff digest and authority APIs; Define format-neutral verification boundaries; Expose evidence verification; Qualify and publish public interfaces.
+**Acceptance.** Consumers use supported format-neutral trust APIs without internal/private runtime imports or a stable synthesis-coupled v2 construction surface. Existing CLI/trust bytes remain compatible; P09 owns public v3 construction.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [status-M98.md](status-M98.md), all four tasks complete; closing review 3/10 passed. Accepted source 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a and independent publication/ordinary consumer proof recorded. Consumer reconciliation and normal retirement follow.
+
+`````
+
+## Status record
+
+`````markdown
 # M98 — Public trust libraries
 
 **Stage:** Kinet STG-11, Phase A. **Owner:** OpenUdon.
-**State:** Confirmed serial Stage 11 execution; M98.1–M98.3 complete; M98.4 in progress; pre-publication whole review 2/10 passed; publication pending.
+**State:** Confirmed serial Stage 11 execution; All four task rows complete; accepted; closing whole review 3/10 passed, retirement pending.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -19,7 +52,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | M98.1 — Extract handoff digest and authority APIs | `[+]` | Expose deliberate public packages for existing handoff, digest, approval and Authority types. Preserve published discriminators, canonicalization and wire bytes; protect the public/private import boundary. |
 | M98.2 — Define format-neutral verification boundaries | `[+]` | Expose bounded format-neutral trust inspection/verification types without making synthesis-coupled v2 construction, assessment or simulation orchestration a supported public API. Retain those legacy implementations privately behind unchanged CLI adapters. Public v3 construction/assessment belongs to OpenUdon:P09; include affected mockruntime simulation regression vectors without broadening the M98 API promise. |
 | M98.3 — Expose evidence verification | `[+]` | Expose run-evidence and Udon-report wire verification without importing Udon. Add golden/API-surface fixtures for current approvals, broker identities, reports and uncertainty. |
-| M98.4 — Qualify and publish public interfaces | `[~]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
+| M98.4 — Qualify and publish public interfaces | `[+]` | Run public standalone tests, boundary guards, wire vectors and affected consumers. Publish accepted source with named authority; the existing CLI and execution path stay available in Phase A. API-surface/import tests must reject an accidental public dependency on internal/synthesize or its legacy construction types. Source/shape reproduction is owned by P09, not M98. |
 
 ## Acceptance and verification
 
@@ -44,11 +77,11 @@ UWS:C08 is accepted and independently observed on origin/main at `0411eea6fc84fb
 
 ## Persisted review
 
-- Review iteration: **2/10**; pre-publication whole re-review passed 2026-10-07. Closing review remains pending publication.
-- Closing-review findings: review 1 found P2-M98-R1-1 and P2-M98-R1-2; both fixed and verified, full re-review required. No unresolved P1/P2 is retained; acceptance remains pending iteration 2 and publication.
-- Accepted revision: not available.
-- Published revision / artifact evidence: not available.
-- Verification: pending implementation; no test result is claimed by this planning record.
+- Review iteration: **3/10**; closing whole review passed 2026-10-07.
+- Closing-review findings: both review-1 P2 findings fixed; pre-publication review 2 and closing review 3 passed. No unresolved P1/P2 or lower finding.
+- Accepted revision: 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a.
+- Published revision / artifact evidence: 642fddbcf960ff5d23edace6cbdc4d1202e1e291; docs/m98-qualification.md and docs/m98-publication.md.
+- Verification: required standalone/owner/consumer/wire/import/API/race/doc checks passed; exact evidence in docs/m98-qualification.md and docs/m98-publication.md.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
 
@@ -292,3 +325,50 @@ redaction responsibilities remain explicit. No new evolution version.
 M98.4 is still in progress for named normal-main source publication and
 independent no-directory module proof. Full milestone acceptance requires
 closing review, consumer reconciliation and normal owner retirement.
+
+## M98.4 completion / closing review iteration 3 — started 2026-10-07
+
+Qualified source 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a was normally
+published under the existing STG11_SOURCE_PUBLICATION grant in owner main
+head 642fddbcf960ff5d23edace6cbdc4d1202e1e291; an independent origin/main
+query confirmed the exact head and accepted-source ancestry. Final [skip ci]
+metadata avoids the unrelated force docs deployment; no hosted CI/deployment
+result is claimed. Source/module resolution independently reports full hash
+08a3839f357ec40c7e50c8668e4bd7c8d86bb55a at
+v0.1.1-0.20261007040813-08a3839f357e. Module sum
+h1:Gn8HnUc5gPa7DnSTEnF2LbaRS5y/5NWfiiqVxutNy/g= and go.mod sum
+h1:gYKkottLX/IoTptmggqMl1dMHIi/cg+Tg01OCXhzcGs= are recorded from download.
+
+The ordinary published SDK consumer passes offline with pinned Go 1.26.6 /
+GOTOOLCHAIN=local, 57 selected modules and zero replacements. It exercises
+public handoff/digest/approval/authority/snapshot/report/wire contracts without
+internal/private imports. This narrower consumer does not replace the complete
+90-module owner closure proof. The outside-module download helper auto-selected
+Go 1.26.8; that helper is diagnostic only. Qualification and the independently
+repeated published consumer use explicit cached 1.26.6, no source/pin/tool
+configuration was upgraded.
+
+All four task units are now complete. Start closing review iteration 3 before
+final acceptance, consumer reconciliation and owner retirement. Review exact
+publication/consumer provenance and the complete code/contract range again;
+resume at iteration 3 if interrupted. No live operation or deployment.
+
+## Closing review 3 — passed, acceptance 2026-10-07
+
+The complete implementation, review fixes, immutable wires/schemas/pins,
+public/private surface, bounded snapshots, provenance/uncertainty, signatures,
+legacy adapters, source publication and ordinary no-replacement consumer
+pass final review. No P1/P2 or lower finding remains. All four tasks qualify at
+08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; whole M98 acceptance is recorded.
+Consumer reconciliation and literal normal owner retirement follow before
+advancing. Pre-publication iterations 1/2 and closing iteration 3 stay persisted.
+No new evolution version; v50 remains dated approved direction.
+
+Downstream Kinet M46/M47 and OpenUdon P09 are reconciled to the exact accepted/
+published source/module/artifact closure, supported API limits, worker-owned
+isolation/provenance and separately retained browser path. Their rows/reviews
+remain pending; no implementation or pin adoption is claimed. Current product,
+architecture, stack, lessons and AGENTS are consolidated, and superseded
+pending/internal-only knowledge is preserved literally in the journal. Normal
+owner retirement can now proceed after envelope/source validation.
+`````

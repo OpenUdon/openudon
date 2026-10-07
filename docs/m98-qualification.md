@@ -16,7 +16,7 @@ and API surface guards, trust/approval/broker/report wire fixtures and focused
 public/CLI/runner race tests passed. Kinet's unchanged `make check` passed.
 The independent standalone SDK consumer passed against the exact source with
 a temporary local owner bootstrap; this is preliminary consumer evidence.
-No-directory published module proof remains required after publication.
+[Publication](m98-publication.md) records the subsequent successful ordinary no-directory module proof.
 
 | Artifact | SHA-256 |
 |---|---|
@@ -37,8 +37,7 @@ Pre-publication review iteration 1 found two P2 defects: trim-permissive
 authority hashes and incomplete broker raw-wire verification. Canonical
 field checks and the unchanged embedded schemas with a closed loader fix
 both. Full tests, races and clean-source qualification pass after those fixes.
-Iteration 2 rechecks the entire milestone; publication and closing acceptance
-remain separately recorded in the owner status.
+Pre-publication iteration 2 and closing iteration 3 passed; exact publication and acceptance are recorded in the [retired owner status](../tabilet/docs/history/status-M98.md).
 
 The public contract is [public-trust-api.md](public-trust-api.md). Public
 packages expose neutral metadata and explicit-byte verification, without

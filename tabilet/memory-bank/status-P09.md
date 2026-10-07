@@ -7,7 +7,7 @@
 
 ## Dependencies and handoff
 
-[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md).
+[UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md).
 The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
 
 **Downstream:** [Kinet:A15](../../../kinet/tabilet/memory-bank/status-A15.md), [Kinet:W18](../../../kinet/tabilet/memory-bank/status-W18.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md), [Kinet:W19](../../../kinet/tabilet/memory-bank/status-W19.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.
@@ -78,3 +78,34 @@ observed on authorized APItools origin/main, satisfying the publication gate.
 - Verification: pending implementation; no test result is claimed by this planning record.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
+
+## Accepted/published OpenUdon M98 prerequisite — 2026-10-07
+
+OpenUdon M98 accepted all four tasks after pre-publication review 2 and closing
+review 3 at exact qualified source
+08a3839f357ec40c7e50c8668e4bd7c8d86bb55a. Normal origin/main publication
+642fddbcf960ff5d23edace6cbdc4d1202e1e291 was independently observed and
+contains that source. Ordinary module
+v0.1.1-0.20261007040813-08a3839f357e resolves to the full origin hash, with
+module sum h1:Gn8HnUc5gPa7DnSTEnF2LbaRS5y/5NWfiiqVxutNy/g= and go.mod sum
+h1:gYKkottLX/IoTptmggqMl1dMHIi/cg+Tg01OCXhzcGs=.
+
+[API contract](../../docs/public-trust-api.md),
+[qualification](../../docs/m98-qualification.md) and
+[publication](../../docs/m98-publication.md) bind exact source,
+90-module/89 ordinary archive owner closure, standalone checks and reproduced
+CLI hashes. Independent published consumer uses pinned Go 1.26.6, 57 modules
+and no directory replacements. Public handoff/digest/approval/authority/wire/
+trust/report/run-evidence APIs import no OpenUdon internal/private executor.
+Neutral verification does not assess source semantics, reproduce shapes,
+construct v2 packages or grant authority. Host isolation, stable snapshot
+custody, independent provenance and value-free reduction remain consumer-owned.
+Legacy browser verification/execution stay on the separately pinned CLI path.
+No current Kinet execution/browser/media pin, schema, hosted capability or
+installed service changed; all tasks/review in this consumer remain pending.
+
+P09 owns supported public v3 construction/assessment and exact source-to-shape
+verification. Extend API/import guards for its new surface while preserving
+M98's frozen existing declarations and wires. M98 supplies no stable legacy
+synthesis types; the consumer worker owns isolation and lifecycle. W17 remains
+the serial predecessor, so no P09 task is selected by this reconciliation.

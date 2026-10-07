@@ -1,17 +1,26 @@
 # Product
 
-## Approved Stage 11 product direction — not implemented
+## Stage 11 public trust libraries — M98 accepted
 
-[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. OpenUdon:M98 will expose format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. OpenUdon:P09 owns supported public v3 construction and source/shape verification; isolation belongs to the consuming worker. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
-Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+M98 passed closing review 3/10 at qualified source
+`08a3839f357ec40c7e50c8668e4bd7c8d86bb55a`; normal owner main publication
+`642fddbcf960ff5d23edace6cbdc4d1202e1e291` and ordinary published module
+`v0.1.1-0.20261007040813-08a3839f357e` are independently verified.
+[Qualification](../../docs/m98-qualification.md),
+[publication](../../docs/m98-publication.md) and
+[API contract](../../docs/public-trust-api.md) bind the exact source/closure.
 
-## Stage 11 implementation progress
+Supported public `handoff`, `digest`, `authority`, `approval`, `wire`, `trust`,
+`udonreport` and `runevidence` provide neutral metadata and bounded explicit-byte
+verification without OpenUdon internals or private executor imports. Internal
+aliases preserve CLI valid wires. Legacy synthesis-coupled v2 construction,
+assessment/simulation and browser verification/execution remain private; no
+new v2 library promise exists. P09 owns supported v3 construction/source/shape
+verification, and consumers own isolation, custody and fresh execution authority.
+Phase B and browser-dependent Stage 12 removal remain pending. No deployment,
+installed M44 change, source/pin/schema upgrade or live operation follows.
 
-M98.1 implements public `handoff`, `digest`, `authority` and `approval` value APIs for existing review/trust metadata. They preserve current JSON/canonical digests and perform no I/O or execution. Synthesis-coupled v2 package construction remains private. Whole M98 acceptance/publication and bounded verification remain pending.
-
-M98.2 adds bounded, read-only `trust.Inspect` over explicit byte snapshots and `wire` decoding. Inventory/digest verification does not claim a passing workflow assessment or grant authority; host isolation, source/shape validation and safe file custody remain consumer-owned.
-
-M98.3 implements public neutral Udon report wires and non-browser run-evidence byte verification, with explicit artifact/signature/key bytes and optional independent attempt/inventory provenance. Evidence is observation, not authority; legacy v1 remains read-only, and browser records use the retained exact CLI verifier.
+Verification proves supplied metadata/bytes only; it does not prove source semantics, grant custody, revocation or executable eligibility. Legacy v1 history is read-only; changed packages/workers need fresh approval.
 
 ## Stage 9 broker handoff — accepted 2026-10-05
 

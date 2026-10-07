@@ -1,17 +1,26 @@
 # Tech Stack
 
-## Approved Stage 11 tooling target — not implemented
+## Stage 11 public trust libraries — M98 accepted
 
-[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. Exact published module revisions, frozen build closures and standalone verification are acceptance gates. go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
-Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+M98 passed closing review 3/10 at qualified source
+`08a3839f357ec40c7e50c8668e4bd7c8d86bb55a`; normal owner main publication
+`642fddbcf960ff5d23edace6cbdc4d1202e1e291` and ordinary published module
+`v0.1.1-0.20261007040813-08a3839f357e` are independently verified.
+[Qualification](../../docs/m98-qualification.md),
+[publication](../../docs/m98-publication.md) and
+[API contract](../../docs/public-trust-api.md) bind the exact source/closure.
 
-## Stage 11 implementation progress
+Supported public `handoff`, `digest`, `authority`, `approval`, `wire`, `trust`,
+`udonreport` and `runevidence` provide neutral metadata and bounded explicit-byte
+verification without OpenUdon internals or private executor imports. Internal
+aliases preserve CLI valid wires. Legacy synthesis-coupled v2 construction,
+assessment/simulation and browser verification/execution remain private; no
+new v2 library promise exists. P09 owns supported v3 construction/source/shape
+verification, and consumers own isolation, custody and fresh execution authority.
+Phase B and browser-dependent Stage 12 removal remain pending. No deployment,
+installed M44 change, source/pin/schema upgrade or live operation follows.
 
-M98.1 adds public fixture tests against retained review-handoff, broker-authority and approval wire bytes plus `go test ./internal/publicapi` for the transitive import boundary. No dependency version or frozen browser/media pin changes. Full M98 standalone qualification and source publication remain pending.
-
-M98.2 adds public `trust`/`wire` and bounded artifact-identity `handoff.DigestFiles`. Public/private package-digest parity, golden digest-v1, duplicate/unknown/multiple-document and size/depth/node/cancellation refusals are tested. Retained private mock simulation regression tests still pass without a public simulation API.
-
-M98.3 adds public report conformance/uncertainty fixtures, broker evidence JSON golden, private/public dry-run evidence parity, exact report/attempt/inventory mismatch and deterministic offline signature/key tests. Public evidence limits are 8 MiB per artifact/evidence, 1,024 artifacts, 64 MiB total; report-v5 retains 256 KiB/256 steps; signatures 1 MiB and trusted key 64 KiB. No private Udon module or frozen browser/media pin changes.
+Owner standalone qualification uses cached Go 1.26.6, GOWORK=off, GOTOOLCHAIN=local, 90 selected modules/89 hashed ordinary archives, no replacements, exact source/fixture/API manifest and reproduced CLI bytes. The published consumer passes with 57 modules and no replacements. Limits: 1,024 snapshot/artifact files, 8 MiB each, 64 MiB total; strict JSON 100,000 nodes/64 levels; v5 reports 256 KiB/256 steps; signatures 1 MiB, trusted keys 64 KiB. Default owner checks remain offline and credential/model-free.
 
 ## Stage 9 broker handoff — accepted 2026-10-05
 

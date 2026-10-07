@@ -2,7 +2,7 @@
 
 ## Stage 11 active horizon
 
-Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. This package owns M98, P09, A31; all rows are pending and each review is 0/10. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
+Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. This package owns pending P09/A31, each review 0/10. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
 
 ## Stage 9 approved work — 2026-10-05
 
@@ -232,7 +232,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- The earlier horizon is complete; Stage 11 M98/P09/A31 are now planned and unimplemented. M95 is accepted/published
+- The earlier horizon is complete; Stage 11 M98 is accepted; P09/A31 remain planned and unimplemented. M95 is accepted/published
   and retired; final Kinet M20/W8M W29 adoption remains in their own ledgers.
   APItools M81/M80, Udon M45 and Authoring M29 stay accepted prerequisites.
 
@@ -269,7 +269,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M98 | Public trust libraries | [status-M98.md](status-M98.md) | M98.1–M98.3 complete; M98.4 in progress; pre-publication review 2/10 passed |
 | P09 | Package v3 | [status-P09.md](status-P09.md) | pending; review 0/10 |
 | A31 | Transition cleanup | [status-A31.md](status-A31.md) | pending; review 0/10 |
 
@@ -527,21 +526,10 @@ Approved review-intake amendment, 2026-10-06: 18 required milestones / 87 pendin
 
 One execution owner, serial execution and task commits under the later confirmed goal. Planning authorizes no code execution, commit, publication or external operation. Source publication requires separately named authority; a status marker or local build is not publication. Consumers must record exact accepted and published prerequisites before adoption. Default checks are offline, credential-free and model-free. No deployment, live ledger migration, real API/model/mail action or registration change.
 
-## M98 — Public trust libraries
-
-**Stage/owner.** STG-11 Phase A; OpenUdon. **Priority.** Serial position 8/18, not a review severity.
-**Dependencies.** [UWS:C08](../../../uws/tabilet/docs/history/status-C08.md); [Udon:M48](../../../udon/tabilet/memory-bank/status-M48.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
-**Scope.** Extract handoff digest and authority APIs; Define format-neutral verification boundaries; Expose evidence verification; Qualify and publish public interfaces.
-**Acceptance.** Consumers use supported format-neutral trust APIs without internal/private runtime imports or a stable synthesis-coupled v2 construction surface. Existing CLI/trust bytes remain compatible; P09 owns public v3 construction.
-**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
-Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
-**Downstream.** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-M98.md](status-M98.md), M98.1–M98.3 complete and M98.4 in progress; pre-publication pre-publication review 2/10 passed. Public value APIs and bounded snapshot/evidence verification are implemented; standalone qualification, whole acceptance and publication remain pending. Approved intake provenance and consumer requirements are in that status.
-
 ## P09 — Package v3
 
 **Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 11/18, not a review severity.
-**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Dependencies.** [UWS:C09](../../../uws/tabilet/docs/history/status-C09.md); [APItools:M82](../../../apitools/tabilet/docs/history/status-M82.md); [OpenUdon:M98](../docs/history/status-M98.md); [Kinet:W17](../../../kinet/tabilet/memory-bank/status-W17.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
 **Scope.** Define v3 package and review records; Build directly from UWS; Verify sources and derive authority; Preserve v2 and evidence readers; Qualify and publish v3.
 **Acceptance.** V3 has an independently checked source-to-shape-to-authority chain and exact digest-bound inputs. V2 history stays readable and no authority is inferred from conversion.
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.

@@ -12,6 +12,7 @@ subsequently closed under the normal reviewed procedure.
 
 | Milestone | Outcome | Retired | Record | Summary |
 |---|---|---|---|---|
+| M98 | completed | 2026-10-07 | [status-M98.md](status-M98.md) | Public neutral trust/evidence SDK; exact ordinary publication/consumer proof; review 3. |
 | A01 | legacy-preserved | 2026-09-24 | [status-A01.md](status-A01.md) | API-first browser-profile fallback authoring. |
 | A02 | legacy-preserved | 2026-09-24 | [status-A02.md](status-A02.md) | Additive browser authentication and named-session authoring. |
 | A03 | legacy-preserved | 2026-09-24 | [status-A03.md](status-A03.md) | Browsertools authoring handoff and guided-result consumption. |

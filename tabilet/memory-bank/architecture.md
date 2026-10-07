@@ -1,19 +1,26 @@
 # Architecture
 
-## Approved Stage 11 architecture target — not implemented
+## Stage 11 public trust libraries — M98 accepted
 
-[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. OpenUdon:M98 will expose format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. OpenUdon:P09 owns supported public v3 construction and source/shape verification; isolation belongs to the consuming worker. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
-Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+M98 passed closing review 3/10 at qualified source
+`08a3839f357ec40c7e50c8668e4bd7c8d86bb55a`; normal owner main publication
+`642fddbcf960ff5d23edace6cbdc4d1202e1e291` and ordinary published module
+`v0.1.1-0.20261007040813-08a3839f357e` are independently verified.
+[Qualification](../../docs/m98-qualification.md),
+[publication](../../docs/m98-publication.md) and
+[API contract](../../docs/public-trust-api.md) bind the exact source/closure.
 
-## Stage 11 implementation progress
+Supported public `handoff`, `digest`, `authority`, `approval`, `wire`, `trust`,
+`udonreport` and `runevidence` provide neutral metadata and bounded explicit-byte
+verification without OpenUdon internals or private executor imports. Internal
+aliases preserve CLI valid wires. Legacy synthesis-coupled v2 construction,
+assessment/simulation and browser verification/execution remain private; no
+new v2 library promise exists. P09 owns supported v3 construction/source/shape
+verification, and consumers own isolation, custody and fresh execution authority.
+Phase B and browser-dependent Stage 12 removal remain pending. No deployment,
+installed M44 change, source/pin/schema upgrade or live operation follows.
 
-M98.1 moves existing neutral review manifest, broker authority, approval and digest implementations into public packages. Internal authoring/trusted-runner/evidence aliases delegate to the same implementation, preserving CLI behavior. The transitive public closure contains no OpenUdon internal or private Udon imports. [API contract](../../docs/public-trust-api.md) defines the value-only boundary; package construction/assessment/simulation stay private.
-
-M98.2 verifies explicit required byte inventories with canonical safe paths, manifest self digest and artifact hashes, using the unchanged package-digest-v1 envelope. The host supplies format-specific required paths; no discovery, filesystem, synthesis or simulation is imported. Limits are 1,024 files / 8 MiB each / 64 MiB total, and strict JSON 8 MiB / 100,000 nodes / 64 levels. Private v2 adapters are unchanged.
-
-M98.3 moves report-v2–v5 pure validation/observation to public `udonreport`, retaining private workflow inventory derivation. Public `runevidence` owns unchanged run/async/signature and browser metadata wires. Internal aliases keep the CLI on those types; non-browser intrinsic validation delegates publicly, while browser runtime/validation remain private. Byte verification reads no evidence paths and preserves conservative uncertainty; supplied expected identity/inventory and trusted key bytes establish only their stated provenance.
-
-Review-1 fixes require exact lowercase 64-hex authority fields and validate public broker-v4 byte evidence against the unchanged embedded schemas. Resource loading is closed; no filesystem/network schema resolution is possible. Generic legacy digest helper normalization and browser CLI verification remain separate.
+The host supplies immutable snapshots, format-specific required paths, independent attempt/inventory identities and optional trusted signer bytes. Broker v4 uses the unchanged embedded schemas with a closed loader. Public browser wire types are metadata; retained browser verification/execution stay on the explicit pinned CLI path.
 
 ## Stage 9 broker handoff — accepted 2026-10-05
 
@@ -104,11 +111,10 @@ synthesis/build/promote/assess commands, an eval harness, local readiness report
 runner wrapper. It emits reviewed package artifacts under each example directory and validates those
 artifacts before any approved udon execution path.
 
-The v0.2 public boundary is CLI- and artifact-first. Deterministic package,
-approval, handoff, and run-evidence commands are supported through v0.2.x;
-implementation packages remain internal and are not a supported Go API.
-Release archives co-version `openudon` and `udon-runner`, while
-`openudon version --json` is the archive's build-metadata authority.
+The retained v0.2 CLI/artifact boundary remains available. M98 additionally
+supports deliberate neutral public Go trust packages; private synthesis-coupled
+v2 construction is not a supported Go API. Release archives co-version
+`openudon` and `udon-runner`; `openudon version --json` carries build metadata.
 
 Generated packages now include project briefs, structured intent, workflow HCL, UWS YAML, expected
 plans, OpenAPI discovery reports, refinement reports, review notes, quality reports, and

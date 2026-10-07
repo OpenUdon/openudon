@@ -1,9 +1,12 @@
 # Public trust APIs
 
-Stage 11 M98 extracts format-neutral trust metadata from the existing CLI.
-Its acceptance and source publication remain tracked in
-[M98](../tabilet/memory-bank/status-M98.md). A source checkout is not yet an
-accepted or published consumer pin.
+Accepted Stage 11 M98 exposes format-neutral trust metadata and explicit-byte
+verification from the existing CLI. [Retired M98](../tabilet/docs/history/status-M98.md)
+records closing review 3. Qualified published source
+`08a3839f357ec40c7e50c8668e4bd7c8d86bb55a` resolves as
+`v0.1.1-0.20261007040813-08a3839f357e`.
+[Qualification](m98-qualification.md) and [publication](m98-publication.md)
+bind exact source, artifacts and ordinary no-replacement consumer proof.
 
 The public packages are:
 
@@ -31,7 +34,7 @@ assess or simulate an OpenUdon v2 workflow package. Synthesis-coupled v2
 construction and orchestration remain private CLI adapters; supported v3
 construction belongs to P09. Workers must bound and strictly decode untrusted
 inputs, and redact private values in legacy diagnostics before display or
-storage. Whole M98 qualification, acceptance and publication remain pending.
+storage. M98 is accepted and published; Phase B public v3 construction remains P09.
 
 `trust.Inspect` requires a context, canonical package scope and manifest path,
 and one immutable byte map containing precisely the required manifest inputs.

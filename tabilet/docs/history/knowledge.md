@@ -5912,3 +5912,70 @@ Literal prior wording:
 ```
 
 Reason and replacement: The former scope would expose synthesis-coupled legacy construction publicly before the v3 boundary. Replacement: OpenUdon:M98 format-neutral trust verification, OpenUdon:P09 public v3 construction/assessment, and consumer-owned isolation. See the amended active milestone/status and coordinator contracts.
+
+## 2026-10-07 — M98 accepted public trust implementation
+
+Source/evidence: qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a, published 642fddbcf960ff5d23edace6cbdc4d1202e1e291; review 3. Reason: replace implementation-pending/internal-only wording with accepted neutral public APIs. Direction remains approved Stage 11 v50; Phase B remains pending. Replacement: current memory bank, M98 qualification/publication and its retirement record.
+
+### tabilet/memory-bank/product.md — Stage 11 target/progress
+
+````markdown
+## Approved Stage 11 product direction — not implemented
+
+[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. OpenUdon:M98 will expose format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. OpenUdon:P09 owns supported public v3 construction and source/shape verification; isolation belongs to the consuming worker. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
+Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+
+## Stage 11 implementation progress
+
+M98.1 implements public `handoff`, `digest`, `authority` and `approval` value APIs for existing review/trust metadata. They preserve current JSON/canonical digests and perform no I/O or execution. Synthesis-coupled v2 package construction remains private. Whole M98 acceptance/publication and bounded verification remain pending.
+
+M98.2 adds bounded, read-only `trust.Inspect` over explicit byte snapshots and `wire` decoding. Inventory/digest verification does not claim a passing workflow assessment or grant authority; host isolation, source/shape validation and safe file custody remain consumer-owned.
+
+M98.3 implements public neutral Udon report wires and non-browser run-evidence byte verification, with explicit artifact/signature/key bytes and optional independent attempt/inventory provenance. Evidence is observation, not authority; legacy v1 remains read-only, and browser records use the retained exact CLI verifier.
+````
+
+### tabilet/memory-bank/architecture.md — Stage 11 target/progress
+
+````markdown
+## Approved Stage 11 architecture target — not implemented
+
+[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. OpenUdon:M98 will expose format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. OpenUdon:P09 owns supported public v3 construction and source/shape verification; isolation belongs to the consuming worker. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
+Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+
+## Stage 11 implementation progress
+
+M98.1 moves existing neutral review manifest, broker authority, approval and digest implementations into public packages. Internal authoring/trusted-runner/evidence aliases delegate to the same implementation, preserving CLI behavior. The transitive public closure contains no OpenUdon internal or private Udon imports. [API contract](../../docs/public-trust-api.md) defines the value-only boundary; package construction/assessment/simulation stay private.
+
+M98.2 verifies explicit required byte inventories with canonical safe paths, manifest self digest and artifact hashes, using the unchanged package-digest-v1 envelope. The host supplies format-specific required paths; no discovery, filesystem, synthesis or simulation is imported. Limits are 1,024 files / 8 MiB each / 64 MiB total, and strict JSON 8 MiB / 100,000 nodes / 64 levels. Private v2 adapters are unchanged.
+
+M98.3 moves report-v2–v5 pure validation/observation to public `udonreport`, retaining private workflow inventory derivation. Public `runevidence` owns unchanged run/async/signature and browser metadata wires. Internal aliases keep the CLI on those types; non-browser intrinsic validation delegates publicly, while browser runtime/validation remain private. Byte verification reads no evidence paths and preserves conservative uncertainty; supplied expected identity/inventory and trusted key bytes establish only their stated provenance.
+
+Review-1 fixes require exact lowercase 64-hex authority fields and validate public broker-v4 byte evidence against the unchanged embedded schemas. Resource loading is closed; no filesystem/network schema resolution is possible. Generic legacy digest helper normalization and browser CLI verification remain separate.
+````
+
+### tabilet/memory-bank/tech-stack.md — Stage 11 target/progress
+
+````markdown
+## Approved Stage 11 tooling target — not implemented
+
+[Stage 11](../../../kinet/docs/stage11.md) and [local milestones](milestone.md#stage-11-cross-package-refactoring) define the approved target. Exact published module revisions, frozen build closures and standalone verification are acceptance gates. go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Both phases belong to one stage. Current facts below remain the observed implementation; no new acceptance, publication or installed behavior is claimed. The installed Kinet M44 service remains unchanged, and Stage 12 owns the browser-dependent removal gates.
+
+## Stage 11 implementation progress
+
+M98.1 adds public fixture tests against retained review-handoff, broker-authority and approval wire bytes plus `go test ./internal/publicapi` for the transitive import boundary. No dependency version or frozen browser/media pin changes. Full M98 standalone qualification and source publication remain pending.
+
+M98.2 adds public `trust`/`wire` and bounded artifact-identity `handoff.DigestFiles`. Public/private package-digest parity, golden digest-v1, duplicate/unknown/multiple-document and size/depth/node/cancellation refusals are tested. Retained private mock simulation regression tests still pass without a public simulation API.
+
+M98.3 adds public report conformance/uncertainty fixtures, broker evidence JSON golden, private/public dry-run evidence parity, exact report/attempt/inventory mismatch and deterministic offline signature/key tests. Public evidence limits are 8 MiB per artifact/evidence, 1,024 artifacts, 64 MiB total; report-v5 retains 256 KiB/256 steps; signatures 1 MiB and trusted key 64 KiB. No private Udon module or frozen browser/media pin changes.
+````
+
+### tabilet/memory-bank/architecture.md — v0.2 public boundary
+
+````markdown
+The v0.2 public boundary is CLI- and artifact-first. Deterministic package,
+approval, handoff, and run-evidence commands are supported through v0.2.x;
+implementation packages remain internal and are not a supported Go API.
+Release archives co-version `openudon` and `udon-runner`, while
+`openudon version --json` is the archive's build-metadata authority.
+````
