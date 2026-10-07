@@ -269,7 +269,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M98 | Public trust libraries | [status-M98.md](status-M98.md) | M98.1–M98.3 complete; M98.4 in progress; review 1/10 started |
+| M98 | Public trust libraries | [status-M98.md](status-M98.md) | M98.1–M98.3 complete; M98.4 in progress; pre-publication review 2/10 passed |
 | P09 | Package v3 | [status-P09.md](status-P09.md) | pending; review 0/10 |
 | A31 | Transition cleanup | [status-A31.md](status-A31.md) | pending; review 0/10 |
 
@@ -536,7 +536,7 @@ One execution owner, serial execution and task commits under the later confirmed
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
 Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
 **Downstream.** [Kinet:M46](../../../kinet/tabilet/memory-bank/status-M46.md), [OpenUdon:P09](status-P09.md), [Kinet:M47](../../../kinet/tabilet/memory-bank/status-M47.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-M98.md](status-M98.md), M98.1–M98.3 complete and M98.4 in progress; pre-publication review 1/10 started. Public value APIs and bounded snapshot/evidence verification are implemented; standalone qualification, whole acceptance and publication remain pending. Approved intake provenance and consumer requirements are in that status.
+**Tasks/review.** [status-M98.md](status-M98.md), M98.1–M98.3 complete and M98.4 in progress; pre-publication pre-publication review 2/10 passed. Public value APIs and bounded snapshot/evidence verification are implemented; standalone qualification, whole acceptance and publication remain pending. Approved intake provenance and consumer requirements are in that status.
 
 ## P09 — Package v3
 

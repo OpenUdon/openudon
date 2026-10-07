@@ -247,3 +247,14 @@ failed before the fix, then passed in focused/race/default checks; qualified
 source f4127c159e18fa66619659bc3c4b8757b7022267 and native39 bind the corrected
 implementation. Keep failed qualification contexts at their original source;
 never relabel them when publishing a corrected clean artifact.
+
+## Keep raw-wire verification separate from typed metadata checks
+
+A typed JSON decode can accept aliases/defaults, and a generic digest helper
+may intentionally normalize whitespace. Those behaviors do not establish
+conformance to an exact published wire. M98 review 1 found canonical broker
+hashes passing the legacy trim helper and broker byte evidence missing full
+schema checks. Keep generic normalization compatible, enforce canonical field
+spelling at authority boundaries, and apply owned embedded wire schemas through
+a closed loader before claiming byte verification. The corrected regressions
+and clean source are recorded in [M98 qualification](../../docs/m98-qualification.md).

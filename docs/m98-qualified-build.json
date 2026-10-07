@@ -1,0 +1,21 @@
+{
+  "version": "openudon.m98-qualified-build.v1",
+  "source": "08a3839f357ec40c7e50c8668e4bd7c8d86bb55a",
+  "source_archive_sha256": "2e301ed7de7f69aa669ac6a970b832ad6260fb337173c6455a0be286cbe4fed7",
+  "go_version": "go1.26.6",
+  "go_binary_sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45",
+  "go_mod_sha256": "20713f59a66294107794a7db1cfe4f7260a8f4e7848f00832595006478de9aae",
+  "go_sum_sha256": "8ca961198fef4b09cff2104dfd7ccedb8844cb7612b58a132ab82dfabfbbe76b",
+  "module_count": 90,
+  "ordinary_archive_count": 89,
+  "module_archive_manifest_sha256": "552e207a5c5686c12a06b70a9fba766fa71aac49d86e055d9058bbd36673120b",
+  "public_surface_sha256": "8ac50a0eb84ba7a28ab2fda375bfc536b0df568272017e3f0674b9ca315b1e7e",
+  "artifacts": {
+    "openudon-final": "6e185ecfe7d38efc6ca8cb0c01938aa50a422e9b1e491ea4d2c3e7ceb10fdb95",
+    "openudon-final-reproduced": "6e185ecfe7d38efc6ca8cb0c01938aa50a422e9b1e491ea4d2c3e7ceb10fdb95",
+    "udon-runner-final": "556258a798cf54e90d0042c9fa06a461960ed86696dccf56675c35f9c1ccb256"
+  },
+  "final_check_log_sha256": "559aae09382d5feaf446f6d10c41e993d1e3b3a88a89c4c5e844565142cd31ad",
+  "vcs_modified": false,
+  "prepublication_consumer": "ordinary standalone consumer, local owner bootstrap only; published no-directory proof pending"
+}
