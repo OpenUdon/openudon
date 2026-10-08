@@ -2,7 +2,7 @@
 
 **Stage:** STG-11 post-acceptance remediation. **Owner:** OpenUdon.
 **State:** Authorized serial implementation, 2026-10-08; M99.1/M99.2 complete, M99.3 in progress.
-**Authority:** The complete review reconciliation was approved, followed by the confirmed serial GOAL request on 2026-10-08: Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49, COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none. This authorizes scoped implementation after accepted/published prerequisites; source publication still requires this owner's separate fresh named grant. The Udon/UWS publication exceptions do not extend to this owner or live operations.
+**Authority:** The complete review reconciliation was approved, followed by the confirmed serial GOAL request on 2026-10-08: Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49, COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none. This authorizes scoped implementation after accepted/published prerequisites; source publication still requires this owner's separate fresh named grant. The consumed Udon/UWS/APItools publication exceptions do not extend to this owner or live operations.
 **Review source:** stage11-siblings-review.md — Stage 11 code review — sibling packages; OpenUdon section.
 **Review baseline/range:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` → `f7aa5d874bc474888bac1b43d4112c1faf29d499`.
 **Revalidation HEAD:** `f7aa5d874bc474888bac1b43d4112c1faf29d499`; clean worktree, no relevant uncommitted code in the evidence. Approved planning changes are not implementation evidence.
@@ -13,7 +13,7 @@
 
 Accepted M98/P09/A31 contracts, accepted and independently published UWS:M09 root/codec and APItools:M83 before exact SDK adoption/qualification. Serial scheduling follows APItools:M83. No private Udon import is added; runtime proof remains supplied through public host adapters.
 
-**Exact successor acceptance/publication/build identities:** unset; record full independently observed revisions and hashes during the later execution. Never substitute local HEAD, directory replacements or prior consumed publication authority.
+**Exact local runtime/build identity:** 801b45bb1aec297631b2e5d87beb1977788a1ab1 and the complete [local qualification](../../docs/m99-local-qualification.json). Proposed SDK v0.1.1-0.20261008110433-801b45bb1aec, module sum h1:KMrGfrS48uCV8aaEJ/aTqgELxgemAZFav/mjUIGyjA0= and GoMod sum h1:jTC3EvYjtYrodtVbEm46WfkajkUY62YCgyNa1uFay4c=. Final accepted/independently published SDK identity is still pending the fresh owner-specific gate; local bootstrap, directory replacements and consumed upstream publication grants cannot substitute for it.
 
 **Downstream:** Kinet:M49 public author and separate private exec consumers, exact package/source verification, corrected worker closures and successor bundle. Browser/legacy/frozen consumers keep their existing independently fetchable pins.
 
@@ -51,11 +51,11 @@ Public schemas/wires, published grammar/version bytes, accepted historical quali
 
 ## Closing review
 
-**Review iterations:** 1/10.
-**Review state:** iteration 1 found blocking P2 R99-1; narrow fix and fresh exact-source qualification required before whole review 2.
-**Findings/fixes:** R99-1 P2 is independently confirmed and persisted before fixes; no other wire/security blockers. Expression/source/proof reviewer found no other P1/P2; current Build documentation is reconciled from M82 to M83.
+**Review iterations:** 2/10.
+**Review state:** whole pre-publication review 2 passed on 2026-10-08 at qualified source 801b45bb1aec297631b2e5d87beb1977788a1ab1; ordinary publication/consumer and closing acceptance review remain pending.
+**Findings/fixes:** R99-1 P2 is fixed and freshly qualified at 801b45bb1aec297631b2e5d87beb1977788a1ab1; no other iteration1 P1/P2. Iteration2 found no remaining P1/P2.
 **Execution owner:** sole serial OpenUdon M99 implementation owner under the confirmed GOAL; M99.3 is in progress, and the parent makes no ledger writes during this handoff.
-**Commit policy:** The user separately authorized a planning commit on 2026-10-08 with “git commit and then report the index refresh issue in ~/skill-index.md”. This authorizes one commit of the approved planning changes in this owner repository; implementation, publication and deployment remain outside this request. Future task commits follow the separately invoked GOAL/request policy.
+**Commit policy:** The confirmed GOAL governs scoped local implementation with COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none, including local task/fix/source-freeze/substantive review commits. The earlier one-time planning commit authorized by “git commit and then report the index refresh issue in ~/skill-index.md” is separate historical authority, consumed at the planning baseline. No OpenUdon publication or deployment grant exists.
 **Closure:** persist each started review iteration before reviewing; resume an interrupted pass at the same number. No open P1/P2 may remain at acceptance. Required verification, exact downstream reconciliation and owner-specific consolidation/retirement follow implementation; never reopen completed Stage 11 history.
 
 ## Accepted UWS:M09 prerequisite — 2026-10-08
@@ -266,3 +266,51 @@ R99-1 capacity extension passes full focused wire/packagev3/runevidence races
 and vet under retained offline Go1.26.6, plus diff checks. A final source
 checkpoint will replace the preliminary dd537 fix candidate for qualification;
 all previous candidate source/artifact/failure evidence remains retained.
+
+## Whole review 2 — started 2026-10-08
+
+Read persisted review1 findings/counter and record 2/10 before read-only
+fan-out. Review the entire M99 baseline-to-final-source range, including both
+R99-1 fixes and all local qualification/proposal records. Final exact runtime
+is 801b45bb1aec297631b2e5d87beb1977788a1ab1, candidate SDK
+v0.1.1-0.20261008110433-801b45bb1aec, sum
+h1:KMrGfrS48uCV8aaEJ/aTqgELxgemAZFav/mjUIGyjA0= and GoMod sum
+h1:jTC3EvYjtYrodtVbEm46WfkajkUY62YCgyNa1uFay4c=. Exact source archive and
+all 1,611 files pass guards before/after final readonly gates. Full owner make
+check/fresh tests/vet/build/modverify, focused checker/races, API/import/wire/
+schema/history/forgery/native correctness and refusal checks pass. Fixture
+public/private tests/races/run/vet/build/modverify pass with exact published
+prerequisites, no workspace/directory replacement and zero effects. Complete
+selected/compiled/package/file counts are owner 91/48/667/17478,
+public 73/35/365/18153 and private 171/72/522/34952; every unused selected module
+is included. The final compiled inventories and closure counters match.
+Repeated CLI hashes are a6d45935bf6ef7e6c4a4861c99736ca7ff065414ad323e46904f19f665694943; runner
+0dc9fa0ddd228f7c8e1e9fc0c84757ecabf8a8e5ccbc40bdbfafbf56c3635c16.
+[Qualified records](../../docs/m99-qualification.md) and the
+[concrete publication proposal](../../docs/m99-publication-proposal.md) are
+reviewed local handoff inputs. SDK source is still local bootstrap; fresh
+OpenUdon publication authority and independent ordinary SDK/consumer proof
+remain required before final acceptance/retirement or Kinet adoption.
+
+### Whole review 2 — passed 2026-10-08
+
+Both independent read-only whole-range reviewers and the serial owner found
+no remaining P1/P2. R99-1 root/nested/pointer-chain/embedded/reused-array/slice-
+capacity/fresh-map/boxed/nil/self-interface and ignored-array controls now agree
+with native Go decoding. Output ownership/timing, finite enum exact-number
+propagation, minimum-only indeterminacy, source/dialect/parent/type controls,
+security metadata/refusal, privacy and host authority separation pass. Final
+archive/GoMod/GoSum/supplied ZIP/file/fixture/log/executable hashes and all
+selected/compiled counters independently agree. Frozen public schema/API/wire/
+historical corpus/browser locks remain unchanged. Doc-memory/boundary/diff
+checks pass; the existing advisory evolution warning is resolved by inspection:
+these are scoped fixes within accepted Stage11 direction, so no evolution
+version is added.
+
+M99.1/M99.2 are complete. M99.3 remains `[~]` as the sole general active row
+while the concrete source-publication gate awaits a fresh owner-specific grant.
+Local task/source/fix/qualification/review work is complete; ordinary SDK source
+resolution and public/private consumer proof, closing acceptance review, exact
+downstream reconciliation, consolidation and retirement remain required. The
+serial owner returns these concrete reviewed artifacts to the parent; no
+concurrent ledger writer, external mutation or final acceptance is claimed.

@@ -7,7 +7,7 @@ The user approved the complete reconciliation proposal and its planning-file app
 **Serial order:** Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49.
 **Direct dependency graph:** UWS:M09 → APItools:M83, OpenUdon:M99, Kinet:M49; APItools:M83 → OpenUdon:M99, Kinet:M49; OpenUdon:M99 → Kinet:M49; Udon:M49 → Kinet:M49. Serial order is a scheduling gate, not an additional library dependency.
 
-**Local owner:** M99 is in authorized serial implementation; M99.1/M99.2 complete, M99.3 in local qualification, whole review 1 started. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. This owner's source publication needs a separate fresh named grant; consumed upstream grants and planning/status markers supply no deployment or live authority.
+**Local owner:** M99 is in authorized serial implementation; M99.1/M99.2 complete, M99.3 in local qualification, whole pre-publication review 2 passed after the qualified review1 fix; owner-specific publication/ordinary gate pending. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. This owner's source publication needs a separate fresh named grant; consumed upstream grants and planning/status markers supply no deployment or live authority.
 
 **Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact accepted/published successor revisions remain unset until independently observed; downstream adoption requires them. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
 
@@ -280,7 +280,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | Local qualification; M99.1/M99.2 complete; review 1 started |
+| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | Local qualification/review 2 passed; M99.3 publication pending |
 
 ## Requested Changes After Initialization
 
@@ -551,8 +551,8 @@ Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M
 **Verification.** go test ./...; go vet ./...; owner quality/API-surface/public trust-import/wire/schema identity checks; affected wire/packagev3/runevidence races; Unicode struct alias/exact duplicate/map-key/number/depth fixtures; review-only unsupported security with execution refusal; forged/stale source/shape/assessment/authority regressions; exact accepted UWS/APItools standalone module/public/private consumer reproduction with GOWORK=off GOPROXY=off; git diff --check.
 **Compatibility/recovery.** Preserve public wires/schemas, declared grammar versions and frozen evidence/pins. Corrected derived tables/packages/workers require fresh consumer assessment, confirmation and grants; never upgrade historical authority or replay unknown writes. Installed M44 is unchanged. Rollout ends at a new exact-source qualified handoff; real installation, migration, sends and registration need separate named authority.
 **Downstream.** Kinet:M49 public author and separate private exec consumers, exact package/source verification, corrected worker closures and successor bundle. Browser/legacy/frozen consumers keep their existing independently fetchable pins.
-**Tasks.** 3 pending task/commit units in status-M99.md: M99.1 Apply typed Unicode alias checks without rejecting free-form maps; M99.2 Preserve indeterminate symbolic security in review-only packages; M99.3 Qualify the corrected public SDK and source handoff.
-**Review/authority.** Review 0/10, not started; persist the normal counter only during later execution. Publication is an external prerequisite requiring fresh named authority and independent resolution. Planning grants no code execution, commit, publication, deployment or goal launch.
+**Tasks.** 3 task/commit units in status-M99.md; M99.1/M99.2 complete and M99.3 locally qualified with publication pending: M99.1 Apply typed Unicode alias checks without rejecting free-form maps; M99.2 Preserve indeterminate symbolic security in review-only packages; M99.3 Qualify the corrected public SDK and source handoff.
+**Review/authority.** Whole pre-publication review 2 passed after review1 R99-1 repair and fresh exact-source qualification at 801b45bb1aec297631b2e5d87beb1977788a1ab1. Persist and resume the normal ten-pass counter; final ordinary publication/consumer and closing review gates remain pending. Publication is an external prerequisite requiring fresh named authority and independent resolution. Planning grants no code execution, commit, publication, deployment or goal launch.
 
 M99.3 exact-prerequisite qualification also reconciles the SDK expression-contract
 adapter to accepted M09 output owner/context semantics. Missing step outputs must
