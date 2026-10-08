@@ -1,3 +1,36 @@
+# Retired milestone A31 - Transition cleanup
+
+**Milestone.** A31
+**Outcome.** completed
+**Retired.** 2026-10-08
+**Source status.** tabilet/memory-bank/status-A31.md
+**Source specification.** tabilet/memory-bank/milestone.md#a31--transition-cleanup
+**Evidence.** c75d4cd76bc118b94104843e343abd45544ae1cb
+**Worktree.** clean
+**Review.** passed
+**Review iterations.** 2
+**Verification.** All three task units; owner Go1.26.6/GOWORK/GOPROXYoff vet/make check/both commands/APItools/check-doc-memory, public API/trust-wire/packagev3 and full browser/CLI compatibility fixtures, affected runner/approval/public-API races and exact unchanged Kinet public/private consumers pass. Clean standalone source39f4bfdfd830a6497f163336fe34e6b82f475c5e reproduces CLI bytes; normal source publication05f4aa010080213dda8a002c86f11d720f7fffb7 independently observed with ancestry. Optional four unchanged checker diagnostics recorded honestly, no zero-static claim/new waiver. Whole reviews1/2 pass; docs/a31-qualification.md/publication.md/clean-build.json bind scope.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, docs/a31-transition-cleanup.md and complete consumer inventory; Kinet M48 exact source/publication/public SDK/worker/browser/deletion gates reconciled. Only unused unexported tier adapter removed; six live compatibility packages retained with Stage12 gates. No evolution bump, schema/wire/pin/consumer/deployment/live change.
+
+## Milestone specification
+
+````````````markdown
+## A31 — Transition cleanup
+
+**Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 17/18, not a review severity.
+**Dependencies.** [Kinet:U14](../../../kinet/tabilet/docs/history/status-U14.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Scope.** Inventory complete remaining consumers; Retire only safe superseded surfaces; Qualify publish and hand off deferred cleanup.
+**Acceptance.** The new primary path has clear ownership and dead code is removed only when safe. Every browser-dependent remainder has an explicit Stage 12 owner and deletion gate.
+**Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
+Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
+**Downstream.** [Kinet:M48](../../../kinet/tabilet/memory-bank/status-M48.md). Reconcile exact accepted/publication revisions before advancing.
+**Tasks/review.** [status-A31.md](status-A31.md), A31 accepted review2, retirement pending; review2 passed. Full owner/public/transitive inventory and exact source publication are recorded there; accepted, retirement pending.
+
+````````````
+
+## Status record
+
+````````````markdown
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
@@ -251,3 +284,4 @@ is on independently observed05f4aa010080213dda8a002c86f11d720f7fffb7.
 Current contracts/lessons consolidate and M48 exact sources/publication/retained
 removal gates reconcile before retirement. No new evolution direction, worker
 pin, browser runtime, host deployment or live authority.
+````````````

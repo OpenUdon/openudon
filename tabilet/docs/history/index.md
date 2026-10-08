@@ -167,3 +167,5 @@ subsequently closed under the normal reviewed procedure.
 | M96 | completed | 2026-10-01 | [status-M96.md](status-M96.md) | Reviewed original capture adoption through bounded native browser-author plan/apply; both modes/TOTP, source-bound native/package qualification, review1, verified publication and exact consumer reconciliation. |
 | M95 | completed | 2026-10-02 | [status-M95.md](status-M95.md) | iCoT terminal/UI/control/assets retired;23 retained capabilities, neutral commands/current native v6 and integration v7; source-bound native39/delta/legacy evidence, review3, published and exact downstream reconciled. |
 | M97 | completed | 2026-10-05 | [status-M97.md](status-M97.md) | Qualified published additive broker handoff; closing review 2, native39 and exact M46 cases passed. |
+
+| A31 | completed | 2026-10-08 | [A31](status-A31.md) | Complete73-owner/353-public consumer inventory; one dead private tier adapter removed, six live CLI/browser/HCL packages retained with Stage12 gates; exact reproduced source39f4bfd/published05f4aa0, reviews1/2 pass. |
