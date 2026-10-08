@@ -1,7 +1,7 @@
 # M99 — Stage 11 public decoder and review contract remediation
 
 **Stage:** STG-11 post-acceptance remediation. **Owner:** OpenUdon.
-**State:** Authorized serial implementation, 2026-10-08; M99.1/M99.2 complete, M99.3 in progress.
+**State:** All three task rows complete after ordinary publication/qualification and whole review3; coordinator consolidation/downstream/acceptance/retirement pending.
 **Authority:** The complete review reconciliation was approved, followed by the confirmed serial GOAL request on 2026-10-08: Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49, COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none. This authorizes scoped implementation after accepted/published prerequisites; source publication still requires this owner's separate fresh named grant. The consumed Udon/UWS/APItools publication exceptions do not extend to this owner or live operations.
 **Review source:** stage11-siblings-review.md — Stage 11 code review — sibling packages; OpenUdon section.
 **Review baseline/range:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` → `f7aa5d874bc474888bac1b43d4112c1faf29d499`.
@@ -29,7 +29,7 @@ Struct-typed records reject duplicate aliases under Go Unicode simple field fold
 |---|---|---|
 | M99.1 — Apply typed Unicode alias checks without rejecting free-form maps | `[+]` | Make duplicate checking aware of destination struct/map types at nested paths, matching encoding/json Unicode simple field folding for records. Permit id/ID in free-form JSON while rejecting exact duplicates everywhere; preserve bounded decoding, numeric lexemes and trailing/unknown field policy. Test run-evidence v2/v3, package data and protected broker/package boundaries. Sources P3.1/P3.2. |
 | M99.2 — Preserve indeterminate symbolic security in review-only packages | `[+]` | Build/Assess/Verify retain original unsupported scheme symbols without silently renaming or treating unknown security as anonymous. Keep credential/addressability/broker approval requirements closed, refusing execution when unsupported names cannot be independently bound. Preserve valid source/shape security semantics and wire/schema contracts. Source P3.3. |
-| M99.3 — Qualify the corrected public SDK and source handoff | `[~]` | Explicitly select both exact accepted/published UWS:M09 root and codec with APItools:M83 (standalone codec retains C09), reconcile expression-contract inference to declared step/operation outputs and the active $outputs owner (no operation fallback for absent step outputs), then run public import/API manifests, unchanged valid wire/digest/schema, forged-source verification and ordinary public/private consumer checks. Keep v2 synthesis/build APIs private and A31 browser closure unchanged. Persist pre-publication/closing review counts, publish only under fresh named authority, and hand off exact SDK sources/sums to Kinet:M49. |
+| M99.3 — Qualify the corrected public SDK and source handoff | `[+]` | Explicitly select both exact accepted/published UWS:M09 root and codec with APItools:M83 (standalone codec retains C09), reconcile expression-contract inference to declared step/operation outputs and the active $outputs owner (no operation fallback for absent step outputs), then run public import/API manifests, unchanged valid wire/digest/schema, forged-source verification and ordinary public/private consumer checks. Keep v2 synthesis/build APIs private and A31 browser closure unchanged. Persist pre-publication/closing review counts, publish only under fresh named authority, and hand off exact SDK sources/sums to Kinet:M49. |
 
 ## Active finding provenance
 
@@ -51,10 +51,10 @@ Public schemas/wires, published grammar/version bytes, accepted historical quali
 
 ## Closing review
 
-**Review iterations:** 2/10.
-**Review state:** whole pre-publication review 2 passed on 2026-10-08 at qualified source 801b45bb1aec297631b2e5d87beb1977788a1ab1; ordinary publication/consumer and closing acceptance review remain pending.
-**Findings/fixes:** R99-1 P2 is fixed and freshly qualified at 801b45bb1aec297631b2e5d87beb1977788a1ab1; no other iteration1 P1/P2. Iteration2 found no remaining P1/P2.
-**Execution owner:** sole serial OpenUdon M99 implementation owner under the confirmed GOAL; M99.3 is in progress, and the parent makes no ledger writes during this handoff.
+**Review iterations:** 3/10.
+**Review state:** whole review3 passed after separately authorized initial publication and complete ordinary owner/public/private qualification at source801b45bb1aec297631b2e5d87beb1977788a1ab1; coordinator closure remains pending.
+**Findings/fixes:** R99-1 P2 is fixed and freshly qualified at 801b45bb1aec297631b2e5d87beb1977788a1ab1; no other iteration1 P1/P2. Iteration2 found no remaining P1/P2; whole3 found no remaining P1/P2 after ordinary qualification/evidence corrections.
+**Execution owner:** sole serial OpenUdon M99 owner resumed for the separately authorized publication/ordinary qualification; all task rows are complete, and the parent makes no ledger writes until this owner returns the independently published evidence.
 **Commit policy:** The confirmed GOAL governs scoped local implementation with COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none, including local task/fix/source-freeze/substantive review commits. The earlier one-time planning commit authorized by “git commit and then report the index refresh issue in ~/skill-index.md” is separate historical authority, consumed at the planning baseline. No OpenUdon publication or deployment grant exists.
 **Closure:** persist each started review iteration before reviewing; resume an interrupted pass at the same number. No open P1/P2 may remain at acceptance. Required verification, exact downstream reconciliation and owner-specific consolidation/retirement follow implementation; never reopen completed Stage 11 history.
 
@@ -314,3 +314,118 @@ resolution and public/private consumer proof, closing acceptance review, exact
 downstream reconciliation, consolidation and retirement remain required. The
 serial owner returns these concrete reviewed artifacts to the parent; no
 concurrent ledger writer, external mutation or final acceptance is claimed.
+
+## Coordinator named-publication gate — 2026-10-08
+
+Local implementation and whole review2/10 pass at qualified runtime
+801b45bb1aec297631b2e5d87beb1977788a1ab1, SDK
+v0.1.1-0.20261008110433-801b45bb1aec. Clean reviewed evidence HEAD
+5466ad373f883dd53d12bcb1613c3f2a5c7e5a70 [skip ci] contains metadata-only
+changes after that source. Parent independently confirms hashes of complete
+proof140b0697edc0d98aaad12bbdd653844f0f43a0e64d89093e2f14d188a28aaedc and
+proposal537f47640641c0586c61403c0af9020f6b8be0e47f629ab62ed1261e74be38a2,
+unchanged approved proposed origin git@github.com-tabilet:OpenUdon/openudon.git
+refs/heads/main f7aa5d874bc474888bac1b43d4112c1faf29d499, and ancestry.
+
+Fresh OpenUdon-only normal source/evidence/acceptance-retirement publication
+and ordinary SDK/public-private proof authority is requested on this concrete
+proposal. No answer, authority, push or independent published SDK proof is
+inferred. M99.3 is blocked on that named grant and ordinary verification/final
+acceptance. No general row remains in progress; coordinator owns continuation.
+Earlier Udon/UWS/APItools grants are consumed and do not cover OpenUdon. This
+gate adds no deployment, live effect, installed migration or consumer authority.
+Preserve prior source/failure/proof directories and persisted review2; next
+whole pass follows ordinary verification without resetting the count.
+
+## Fresh OpenUdon source-publication grant — 2026-10-08
+
+The user explicitly responded to the exact prepared5466/801 proposal:
+“I authorize OpenUdon:M99 source publication. note that suggested.txt is missing.”
+The named exception authorizes normal fast-forward publication of EXACT reviewed
+head 5466ad373f883dd53d12bcb1613c3f2a5c7e5a70 and qualified runtime ancestor
+801b45bb1aec297631b2e5d87beb1977788a1ab1 to unchanged
+git@github.com-tabilet:OpenUdon/openudon.git refs/heads/main, independent ordinary
+SDK/public/private source/artifact/consumer proof and same-ref reviewed evidence,
+acceptance and retirement publication. All published heads carry [skip ci].
+No force/rewrite/amend/tag/merge/PR/release asset/image/website/host deployment,
+provider/API/model/mail action, user-ledger migration, registration change,
+consumer installation or other-owner publication is authorized. Earlier grants
+are not replayed. M99.3 is marked `[~]` before the exact operational push.
+The parent restored Kinet suggested.txt under the existing compatible GOAL;
+this owner changes no sibling or launcher reference. Root gate bookkeeping
+present at resume is preserved and will join substantive publication evidence.
+Read persisted review2 pass; next whole review is3 only after ordinary gates.
+
+## Initial normal publication and independent ordinary SDK — 2026-10-08
+
+Authorized exact head 5466ad373f883dd53d12bcb1613c3f2a5c7e5a70 was normally
+fast-forward pushed from independently observed f7aa5d874bc474888bac1b43d4112c1faf29d499
+to unchanged origin/main. Independent ls-remote and fetch observe the exact
+5466 head; ancestry proves qualified801b45bb1aec297631b2e5d87beb1977788a1ab1
+reachable. No uncommitted bookkeeping or unreviewed source was published.
+Fresh ordinary configured-source cache independently resolves full801 hash,
+2026-10-08T11:04:33Z, Go1.26.6 and
+v0.1.1-0.20261008110433-801b45bb1aec. Both canonical sums match the proposal;
+every1,611 included filename/content matches the reviewed local ZIP and
+extracted directory. The ordinary ZIP has4,777,160bytes and SHA-256
+5f49dbf9a3032ca1d1b6459319a0da819123dce3372956f20b89abb2d72e356c;
+compression differs from the retained local ZIP without changing canonical
+module identity. Complete owner/public/private selected ordinary archives are
+acquired in /home/peter/.cache/openudon-m99-ordinary-801b45bb/modcache,
+without bootstrap proxy/workspace/directory replacement. Owner acquisition
+uses separate exact modfile copies; downloaded owner go.mod/sum/files remain
+immutable. Fresh full offline qualification follows.
+
+Ordinary proof preparation corrects a local-evidence claim: the prior private
+consumer tidy removed three intended qualification-only pins. The retained
+actual local graph selected protobuf1.5.0, pq1.11.2, sqlite1.14.34 and
+go-internal1.14.1; it is not relabeled as the exact M49 owner alignment. The
+ordinary private consumer explicitly selects protobuf1.5.4, pq1.12.3,
+sqlite1.14.44 and go-internal1.14.1 after copying source, with no subsequent
+tidy removal. This changes qualification-only consumer closure, not SDK or
+Udon source/runtime/policy. Requalify and report its full actual graph before
+whole review3. Original local records/proofs remain retained as context.
+
+## Whole review3 — started 2026-10-08
+
+Read persisted2/10 and its resolved R99-1 before starting; record3/10 before
+read-only fan-out. Review the whole baseline-to-runtime/evidence range plus
+fresh ordinary source/public/private qualification, grant/FF/remote evidence,
+all selected/compiled/source/ZIP/file/sum provenance, immutable owner locks,
+private qualification-only alignment and retained failed contexts. Every
+ordinary owner/public/private full test/race/vet/build/modverify gate and actual
+consumer fixture passes. Owner focused checker, make check, source guards and
+repeated CLI reproduction pass. Exact ordinary counters are owner91/48/667/17478,
+public73/35/365/18153 and private171/72/522/34974; all unused selected modules
+and all four private qualification pins are explicitly verified.
+[Ordinary publication](../../docs/m99-publication.md) and
+[complete proof](../../docs/m99-ordinary-proof.json) retain exact fresh
+source/fullHash/time/sums, graph/compiled counts, file comparisons and fixture
+checks. Local bootstrap and prior local pin/mode failures remain at their actual
+contexts. Final same-ref evidence publication and coordinator acceptance/retirement
+follow the review. No counter reset or external authority broadening occurs.
+
+### Whole review3 — passed 2026-10-08; M99.3 complete
+
+Both independent read-only reviewers and the serial owner found no P1/P2 in
+the whole M99 implementation, fixes, fresh ordinary source/closures/consumer
+proof, independent target/head/ancestry and grant scope. R99-1 remains resolved.
+All1,611sourcefiles, every selected artifact/GoMod/ZIP/extracted file, current
+compiled counters, exact prerequisite sums, all22successful gate-log hashes
+and repeated binaries agree independently. Full owner tests/races/checker and
+executed public/private fixture tests/races/admission/plan/approval pass; no
+public private-runtime import or frozen wire/schema/API/corpus/browser change.
+Allfour ordinary private qualification pins are retained, and the older local
+graph/prose inaccuracy and initial permission failure remain honestly linked to
+their retained contexts. Doc-memory and diff checks pass; no evolution change.
+
+M99.3 is complete. This substantive task/evidence change preserves the parent
+gate bookkeeping and fresh grant, and will be normally published under the
+same exact owner-specific source/evidence grant with [skip ci]. Independent
+remote observation follows. No general row remains in progress. The coordinator
+then owns final shared-knowledge/downstream reconciliation, acceptance and
+strict retirement/normal closure publication; this task record alone does not
+claim those later gates complete. The qualified source remains801; SDK
+ordinary canonical sums and full current graph are bound by
+[publication proof](../../docs/m99-publication.md) and
+[ordinary record](../../docs/m99-ordinary-proof.json).

@@ -1,5 +1,11 @@
 # M99 local qualification and independent publication gate
 
+This document retains the pre-publication local context. The later
+[ordinary publication proof](m99-publication.md) supersedes its pending-publication
+claims and corrects the local private-pin prose: the retained local graph used
+three older qualification versions after tidy; the fresh ordinary private
+consumer explicitly retains all four accepted pins and is fully requalified.
+
 Qualified runtime source is 801b45bb1aec297631b2e5d87beb1977788a1ab1.
 [Exact local proof](m99-local-qualification.json) binds the 1,611-file source
 archive, every selected dependency archive/file, compiled package inventories,
