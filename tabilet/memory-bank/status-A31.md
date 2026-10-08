@@ -1,7 +1,7 @@
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; A31.1 complete, two pending rows; whole review0/10.
+**State:** Approved planning on 2026-10-06; A31.1/A31.2 complete, one pending row; whole review0/10.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -17,7 +17,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 | Item | State | Notes |
 |---|---|---|
 | A31.1 — Inventory complete remaining consumers | `[+]` | Scan the full transitive import/command closure, not just named browser entrypoints. Record consumers of synthesize, workflowintent, elicitor, projectwizard, udonrunner/trustedrunner and legacy HCL support. Distinguish M98 format-neutral public compatibility promises, P09 v3 construction and private legacy synthesis adapters; no deletion may break the retained browser profile. |
-| A31.2 — Retire only safe superseded surfaces | `[ ]` | Remove obsolete non-browser adapters/surfaces where the remaining tree and accepted consumers allow it. Retain and document browser-required compatibility code; preserve frozen W8M/Ramen pins and public/private boundaries. |
+| A31.2 — Retire only safe superseded surfaces | `[+]` | Remove obsolete non-browser adapters/surfaces where the remaining tree and accepted consumers allow it. Retain and document browser-required compatibility code; preserve frozen W8M/Ramen pins and public/private boundaries. |
 | A31.3 — Qualify publish and hand off deferred cleanup | `[ ]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
 
 ## Acceptance and verification
@@ -122,3 +122,34 @@ Required owner vet/make check16357 passes complete tree, both commands, sibling/
 APItools boundary; fresh public API/surface/wire/packagev3 fixtures12967 pass.
 git diff --check passes; no runtime/model/browser/live mutation was invoked.
 Whole review0/10, A31.2/.3 remain required.
+
+
+## A31.2 selection — 2026-10-08
+
+A31.1 full consumer inventory complete at8f7a9a0; A31.2 sole in-progress row.
+Remove only declaration-only unexported trustedrunner.validateTierState forwarding
+helper superseded by accepted public approval.Validate/ValidateTierState. Retain
+all six live packages and CLI/browser/HCL/public-wire consumers with explicit
+Stage12 gates. No public API/wire/dependency/pin/consumer behavior change.
+
+
+## A31.2 implementation checkpoint — 2026-10-08
+
+Removed three-line unused unexported trustedrunner tier forwarding helper only.
+Public validator and live validateApproval remain intact, no public API/schema
+or module lock/pin changed. Retained all six private package/CLI/browser/eval
+consumers and precise Stage12 checklist; deferred removals are not delivered.
+Current owner vet/full make check33216 and affected validator/runner/public-API
+race15809 running; no partial task commit or acceptance.
+
+
+## A31.2 completion — 2026-10-08
+
+Only unused private tier forwarding helper removed. Existing public validator,
+runner/CLI/browser/HCL/package/eval closure and all schemas/fixtures/module/pins
+remain unchanged. Full owner vet/make check33216 passes, affected runner22.229s/
+approval1.055s/public boundary1.507s race15809 passes. Default browser compatibility
+fixtures in complete owner suite pass. No actual browser runtime path changed,
+so no live/smoke authority or runtime-adoption claim is needed for this dead helper.
+git diff --check passes. A31.3 owns final complete-tree/consumer/source publication
+and Stage12 handoff; whole review0/10 still required before closure.

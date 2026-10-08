@@ -843,3 +843,9 @@ still feed current CLI/browser/package/eval paths. Public M98/P09 closure stays
 independent. Only one unexported unused tier-forwarding helper is safe removal;
 Stage12 owns explicit remaining replacement/deletion gates. Evidence: docs/a31-
 transition-cleanup.md and docs/a31-consumer-inventory.json. No pins/wires move.
+
+
+A31.2 removes only unused private trustedrunner.validateTierState forwarding;
+live approval checks already invoke publicapproval.Validate. Full public API,
+trust bytes, private runner/browser adapters and declared HCL codec closure stay
+unchanged. No runtime/parser/dependency is removed from a live consumer graph.

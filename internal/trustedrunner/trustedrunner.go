@@ -1800,10 +1800,6 @@ func readApprovalDocument(path string) (Approval, []byte, error) {
 func validateApproval(value Approval, scope, digest, tier string, now time.Time) error {
 	return publicapproval.Validate(value, scope, digest, tier, now)
 }
-func validateTierState(tier, state string) error {
-	return publicapproval.ValidateTierState(tier, state)
-}
-
 func resolveNow(now func() time.Time) time.Time {
 	if now == nil {
 		return time.Now()

@@ -55,7 +55,8 @@ private forwarding code; remaining removal is expressly deferred.
 The unexported trustedrunner.validateTierState forwarding helper has no tracked
 production/test reference beyond its declaration. M98 already moved real tier
 validation into public approval.ValidateTierState/Validate; its public behavior
-and schema remain. A31.2 may remove this dead private adapter only.
+and schema remain. A31.2 removes this dead private adapter only; the live validateApproval call still
+uses publicapproval.Validate and the public API/wire surface is unchanged.
 
 Stage12 OpenUdon owns deletion of the retained private synthesis/intent/elicitor/
 projectwizard/runner/browser adapters after Kinet W19/U14 browser replacement is

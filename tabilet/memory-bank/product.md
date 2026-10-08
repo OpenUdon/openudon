@@ -505,3 +505,11 @@ security advice does not change runtime authorization or workflow behavior.
 ## Reviewed capture package authoring
 
 `browser-author plan/apply` provides reviewed native capture adoption without iCoT. Read-only catalog/preview and exact ordinary authoring confirmation are separate from capture import, package promotion and runtime execution. Both authenticated/TOTP and inert registration recipes retain native constraints; values stay symbolic. Partial writes or lost output require inspection and a fresh proposal, never automatic replay. Original capture receipt/start identities are required; unsigned local evidence is not new attestation authority. M96 is accepted/published at qualified application `eed683f27d448ca96af90e7bc5987967a6cd0335` through source/review publication `d77f6d51262d0f311910070bc4a43f662260cd7e`, review1 passed; [retired evidence](../docs/history/status-M96.md) preserves exact qualification. Kinet M19, U07 and W8M W28 delivery are accepted; final M20/W29 adoption remains pending.
+
+
+A31 retains live OpenUdon CLI/browser/eval/package compatibility after Kinet
+non-browser adoption. Six private legacy packages are still consumed; public
+M98/P09 contracts remain supported and independent. Cleanup removes only an
+unused unexported tier-validation forwarding adapter, with actual public
+validation unchanged. Stage12 removal checklist in docs/a31-transition-cleanup.md
+requires owner replacements/retirement and complete consumer/browser proof.
