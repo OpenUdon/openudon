@@ -133,11 +133,20 @@ func scanJSONValue(dec *json.Decoder, destination reflect.Type, value reflect.Va
 			child = destination.Elem()
 		}
 		for index := 0; dec.More(); index++ {
+			element := child
 			var childValue reflect.Value
-			if value.IsValid() && (value.Kind() == reflect.Slice || value.Kind() == reflect.Array) && index < value.Len() {
+			if destination != nil && destination.Kind() == reflect.Array && index >= destination.Len() {
+				// encoding/json discards fixed-array excess without decoding a
+				// typed element. Universal exact-key/bounds checks still apply.
+				element = nil
+			} else if value.IsValid() && value.Kind() == reflect.Slice && index < value.Cap() {
+				// The decoder grows length within existing capacity and reuses
+				// those elements. Reslice our view without changing caller state.
+				childValue = value.Slice(0, value.Cap()).Index(index)
+			} else if value.IsValid() && value.Kind() == reflect.Array && index < value.Len() {
 				childValue = value.Index(index)
 			}
-			if err := scanJSONValue(dec, child, childValue, fields, depth+1, nodes); err != nil {
+			if err := scanJSONValue(dec, element, childValue, fields, depth+1, nodes); err != nil {
 				return err
 			}
 		}

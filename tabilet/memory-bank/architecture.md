@@ -853,7 +853,7 @@ unchanged. No runtime/parser/dependency is removed from a live consumer graph.
 
 M99.1 makes public strict JSON scanning destination-aware. Ordinary struct
 fields follow encoding/json exact-name and Unicode simple-fold matching, with
-embedded-field dominance; nested maps/interfaces retain exact case-distinct
+embedded-field dominance; nested maps/free-form interfaces retain exact case-distinct
 keys. Every object still rejects repeated decoded keys under unchanged
 byte/node/depth/number/trailing bounds. Public valid wire bytes are unchanged.
 
@@ -867,5 +867,5 @@ exact-number/missing/future/current/cycle qualification without private imports.
 
 M99 review R99-1 additionally follows populated interface record pointers
 through actual destination values, nested struct fields and reused slice
-elements. Fresh map elements and boxed/nil-pointer interface contents retain
+elements including existing backing capacity. Fresh map elements and boxed/nil-pointer interface contents retain
 free-form JSON semantics; native self-containing interface handling is preserved.

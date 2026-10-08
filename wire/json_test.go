@@ -126,6 +126,15 @@ func TestPopulatedInterfacesRetainTheirActualJSONDestination(t *testing.T) {
 	if len(values["record"].(map[string]any)) != 2 {
 		t.Fatal("map data folded")
 	}
+	backing := []any{&record{}}
+	rows := backing[:0]
+	if wire.DecodeStrict([]byte(`[{"scope":"first","ſcope":"last"}]`), &rows) == nil {
+		t.Fatal("reused slice capacity bypassed typed alias check")
+	}
+	var fixed [0]record
+	if err := wire.DecodeStrict([]byte(`[{"scope":"first","ſcope":"last"}]`), &fixed); err != nil {
+		t.Fatal("ignored fixed-array element gained a typed destination", err)
+	}
 	var self any
 	self = &self
 	if err := wire.DecodeStrict([]byte(`{"id":1,"ID":2}`), &self); err != nil {

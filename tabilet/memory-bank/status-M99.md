@@ -249,3 +249,20 @@ self-containing-interface escape hatch is preserved. Root/nested/slice Unicode
 alias refusal and positive exact-field/boxed/nil/map/self-reference controls pass.
 Both read-only whole-review reports found no other P1/P2; the lower current
 Build documentation mismatch is corrected to M83. Fresh full-source gates follow.
+
+R99-1 same-pass fix audit also reproduces the populated pointer path in a
+reused slice backing array beyond its current length: encoding/json expands
+length within capacity and follows the existing pointer, while the first fix
+checks only initial length. The newly required regression fails at the first
+fix checkpoint dd537bc1285cfced97e84bb5d96c6238fb875807. Keep the failed
+review1-capacity-before-fix.log under the separate review1 proof directory
+(SHA-256 a4b53174a7ea3cad08390ae3689b993089e487db8c08c097a94ff3d6b615dc6a).
+Extend the same narrow actual-destination repair to reused capacity without
+mutating caller length, and treat ignored fixed-array excess as untyped data
+while retaining universal exact-duplicate/bounds checks. Review 1 remains the
+current finding/fix pass; whole review 2 has not started.
+
+R99-1 capacity extension passes full focused wire/packagev3/runevidence races
+and vet under retained offline Go1.26.6, plus diff checks. A final source
+checkpoint will replace the preliminary dd537 fix candidate for qualification;
+all previous candidate source/artifact/failure evidence remains retained.
