@@ -863,3 +863,9 @@ owners and native lexicographic output timing. Missing step outputs never
 borrow operation definitions. Active $outputs projects only already-resolved
 outputs for the current owner; the native public evaluator supplies independent
 exact-number/missing/future/current/cycle qualification without private imports.
+
+
+M99 review R99-1 additionally follows populated interface record pointers
+through actual destination values, nested struct fields and reused slice
+elements. Fresh map elements and boxed/nil-pointer interface contents retain
+free-form JSON semantics; native self-containing interface handling is preserved.

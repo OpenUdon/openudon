@@ -51,9 +51,9 @@ Public schemas/wires, published grammar/version bytes, accepted historical quali
 
 ## Closing review
 
-**Review iterations:** 0/10.
-**Review state:** not started; this is review intake, not a pass of an existing gate.
-**Findings/fixes:** no implementation or fix verification claimed.
+**Review iterations:** 1/10.
+**Review state:** iteration 1 found blocking P2 R99-1; narrow fix and fresh exact-source qualification required before whole review 2.
+**Findings/fixes:** R99-1 P2 is independently confirmed and persisted before fixes; no other wire/security blockers. Expression/source/proof reviewer found no other P1/P2; current Build documentation is reconciled from M82 to M83.
 **Execution owner:** sole serial OpenUdon M99 implementation owner under the confirmed GOAL; M99.3 is in progress, and the parent makes no ledger writes during this handoff.
 **Commit policy:** The user separately authorized a planning commit on 2026-10-08 with “git commit and then report the index refresh issue in ~/skill-index.md”. This authorizes one commit of the approved planning changes in this owner repository; implementation, publication and deployment remain outside this request. Future task commits follow the separately invoked GOAL/request policy.
 **Closure:** persist each started review iteration before reviewing; resume an interrupted pass at the same number. No open P1/P2 may remain at acceptance. Required verification, exact downstream reconciliation and owner-specific consolidation/retirement follow implementation; never reopen completed Stage 11 history.
@@ -197,11 +197,11 @@ projects only lexically preceding outputs of the active owner. Native public
 execution, Build/Verify/Broker matrices cover missing step outputs, operation
 borrowing, current/self/forward/cyclic references, valid preceding output chains
 and future steps. Owned large-minimum-only sources remain indeterminate; a
-finite enum retains exact json.Number9007199254740993 through both native steps.
+finite enum retains exact json.Number 9007199254740993 through both native steps.
 Original-dialect 3.0 const stays unproved; 3.1 const, rounded/boolean/contradictory
 parent and unknown-parent controls pass. Original failed candidate evidence is
 retained at /home/peter/.cache/openudon-m99-proof/baseline-original-preserved-regression.log
-(SHA-25616f93bc25c6ba680336c18c18d9fb995fa6e554d773d323deecc5604b89eca70),
+(SHA-256 16f93bc25c6ba680336c18c18d9fb995fa6e554d773d323deecc5604b89eca70),
 with its original verification/source/owner probes. This does not relabel that
 failed P09 regression as a pass. Original M82 fixtures stay frozen; separate
 exact M83 eight-family/13-operation source/table reproduction passes.
@@ -209,3 +209,43 @@ The current-owner UWS/codec dependency assertion is reconciled; historical E12
 and browser locks remain unchanged. Local implementation is ready for exact
 source freeze/full closure/consumer proof and persisted whole review. M99.3
 stays in progress until its separately granted ordinary publication gate passes.
+
+## Whole review 1 — started 2026-10-08
+
+Read persisted 0/10 and record 1/10 before read-only fan-out. Review the full
+M99 implementation range from 2b4382011fe0f98b52a8f0c892bd64da78bfa82f through
+qualified runtime 6cf6d9ebc5f38bb7476bccfb1e0c780279ef5937, including the pending
+local qualification/proposal records. Owner/public/private selected artifact
+closures include every unused module, exact source/ZIP/file reproduction,
+native correctness/refusal matrices, source/schema/API/wire/history identity,
+public import boundary, privacy, errors and host authority separation.
+Exact readonly owner full tests/vet/build and focused races/checker pass;
+public/private fixture tests/races/run/vet/build/modverify pass. Reproduced CLI
+bytes match. Source-file guards bind exact source before/after final checks.
+Local SDK bootstrap is explicitly separated from ordinary upstream publication;
+the OpenUdon grant and fresh ordinary SDK/consumer acquisition remain required.
+No closing acceptance or retirement is claimed before that independent gate.
+
+### Review 1 finding R99-1 — persisted before fix
+
+P2: wire/json.go:31 supplies only the static destination type. encoding/json
+follows a populated interface containing a non-nil record pointer, while the
+scanner sees free-form any. Read-only offline Go1.26.6 overlay probes show
+DecodeStrict of scope/long-s aliases succeeds with last-value overwrite through
+both root any and nested struct.Value any containing *Record. This violates
+the typed-record alias contract. Fix scope remains M99.1: carry actual
+destination values through pointers/interfaces, existing slice elements and
+struct fields, while retaining fresh map values/free-form boxed or nil-pointer
+interfaces and exact duplicate bounds. Retain this failed candidate/source
+6cf6d9ebc5f38bb7476bccfb1e0c780279ef5937 and its local proof; a fresh source
+checkpoint/qualification and whole review 2 must bind the repair. No upstream
+semantic, wire/API/schema, authority or new feature change is authorized.
+
+R99-1 repair carries destination reflect.Value alongside declared types,
+following non-nil pointer interface contents only where encoding/json does.
+Nested struct fields and reused slice elements retain the actual destination;
+map elements, boxed values and nil-pointer interfaces stay free-form. The native
+self-containing-interface escape hatch is preserved. Root/nested/slice Unicode
+alias refusal and positive exact-field/boxed/nil/map/self-reference controls pass.
+Both read-only whole-review reports found no other P1/P2; the lower current
+Build documentation mismatch is corrected to M83. Fresh full-source gates follow.

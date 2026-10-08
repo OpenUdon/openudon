@@ -7,7 +7,7 @@ The user approved the complete reconciliation proposal and its planning-file app
 **Serial order:** Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49.
 **Direct dependency graph:** UWS:M09 → APItools:M83, OpenUdon:M99, Kinet:M49; APItools:M83 → OpenUdon:M99, Kinet:M49; OpenUdon:M99 → Kinet:M49; Udon:M49 → Kinet:M49. Serial order is a scheduling gate, not an additional library dependency.
 
-**Local owner:** M99 is in authorized serial implementation; M99.1/M99.2 complete, M99.3 pending, review 0/10. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. This owner's source publication needs a separate fresh named grant; consumed upstream grants and planning/status markers supply no deployment or live authority.
+**Local owner:** M99 is in authorized serial implementation; M99.1/M99.2 complete, M99.3 in local qualification, whole review 1 started. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. This owner's source publication needs a separate fresh named grant; consumed upstream grants and planning/status markers supply no deployment or live authority.
 
 **Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact accepted/published successor revisions remain unset until independently observed; downstream adoption requires them. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
 
@@ -280,7 +280,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | In implementation; M99.1/M99.2 complete; review 0/10 |
+| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | Local qualification; M99.1/M99.2 complete; review 1 started |
 
 ## Requested Changes After Initialization
 

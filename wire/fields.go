@@ -17,18 +17,55 @@ type jsonField struct {
 
 // Custom decoders own their representation; only ordinary struct destinations
 // use encoding/json's field matching. Maps and interface values retain key case.
-func jsonDestination(t reflect.Type) reflect.Type {
+func jsonDestination(t reflect.Type, value reflect.Value) (reflect.Type, reflect.Value) {
 	unmarshaler := reflect.TypeFor[json.Unmarshaler]()
 	for t != nil {
 		if t.Implements(unmarshaler) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(unmarshaler)) {
-			return nil
+			return nil, reflect.Value{}
+		}
+		if t.Kind() == reflect.Interface {
+			// encoding/json follows an existing non-nil concrete pointer in an
+			// interface. Boxed values and nil pointers are replaced by JSON data.
+			if value.IsValid() && !value.IsNil() {
+				concrete := value.Elem()
+				if concrete.Kind() == reflect.Pointer && !concrete.IsNil() {
+					t, value = concrete.Type(), concrete
+					continue
+				}
+			}
+			return t, reflect.Value{}
 		}
 		if t.Kind() != reflect.Pointer {
-			return t
+			return t, value
+		}
+		if value.IsValid() && !value.IsNil() && value.Elem().Kind() == reflect.Interface && !value.Elem().IsNil() && value.Elem().Elem().Equal(value) {
+			// Match encoding/json's self-containing interface escape hatch.
+			return t.Elem(), reflect.Value{}
 		}
 		t = t.Elem()
+		if value.IsValid() && !value.IsNil() {
+			value = value.Elem()
+		} else {
+			value = reflect.Value{}
+		}
 	}
-	return nil
+	return nil, reflect.Value{}
+}
+
+func jsonFieldValue(value reflect.Value, index []int) reflect.Value {
+	for _, part := range index {
+		for value.IsValid() && value.Kind() == reflect.Pointer {
+			if value.IsNil() {
+				return reflect.Value{}
+			}
+			value = value.Elem()
+		}
+		if !value.IsValid() {
+			return reflect.Value{}
+		}
+		value = value.Field(part)
+	}
+	return value
 }
 
 // Exact names take precedence; the first field in index order supplies the

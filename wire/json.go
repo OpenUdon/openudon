@@ -28,7 +28,7 @@ func decodeStrict(data []byte, out any, numbers bool) error {
 	if len(data) > MaxBytes {
 		return fmt.Errorf("JSON exceeds byte limit")
 	}
-	if err := rejectDuplicateJSONKeys(data, reflect.TypeOf(out)); err != nil {
+	if err := rejectDuplicateJSONKeys(data, reflect.TypeOf(out), reflect.ValueOf(out)); err != nil {
 		return err
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -49,10 +49,10 @@ func decodeStrict(data []byte, out any, numbers bool) error {
 	return nil
 }
 
-func rejectDuplicateJSONKeys(data []byte, destination reflect.Type) error {
+func rejectDuplicateJSONKeys(data []byte, destination reflect.Type, value reflect.Value) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
-	if err := scanJSONValue(dec, destination, map[reflect.Type][]jsonField{}, 0, new(int)); err != nil {
+	if err := scanJSONValue(dec, destination, value, map[reflect.Type][]jsonField{}, 0, new(int)); err != nil {
 		return err
 	}
 	if _, err := dec.Token(); err != io.EOF {
@@ -64,7 +64,7 @@ func rejectDuplicateJSONKeys(data []byte, destination reflect.Type) error {
 	return nil
 }
 
-func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[reflect.Type][]jsonField, depth int, nodes *int) error {
+func scanJSONValue(dec *json.Decoder, destination reflect.Type, value reflect.Value, fields map[reflect.Type][]jsonField, depth int, nodes *int) error {
 	*nodes++
 	if *nodes > MaxNodes {
 		return fmt.Errorf("JSON exceeds node limit")
@@ -80,7 +80,7 @@ func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[refle
 	if depth >= 64 {
 		return fmt.Errorf("JSON nesting exceeds 64 levels")
 	}
-	destination = jsonDestination(destination)
+	destination, value = jsonDestination(destination, value)
 	switch delim {
 	case '{':
 		seen := map[string]bool{}
@@ -108,6 +108,7 @@ func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[refle
 			}
 			seen[key] = true
 			var child reflect.Type
+			var childValue reflect.Value
 			if destination != nil && destination.Kind() == reflect.Map {
 				child = destination.Elem()
 			} else if index := jsonFieldIndex(record, key); index >= 0 {
@@ -116,8 +117,9 @@ func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[refle
 				}
 				seenFields[index] = true
 				child = record[index].typ
+				childValue = jsonFieldValue(value, record[index].index)
 			}
-			if err := scanJSONValue(dec, child, fields, depth+1, nodes); err != nil {
+			if err := scanJSONValue(dec, child, childValue, fields, depth+1, nodes); err != nil {
 				return err
 			}
 		}
@@ -130,8 +132,12 @@ func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[refle
 		if destination != nil && (destination.Kind() == reflect.Slice || destination.Kind() == reflect.Array) {
 			child = destination.Elem()
 		}
-		for dec.More() {
-			if err := scanJSONValue(dec, child, fields, depth+1, nodes); err != nil {
+		for index := 0; dec.More(); index++ {
+			var childValue reflect.Value
+			if value.IsValid() && (value.Kind() == reflect.Slice || value.Kind() == reflect.Array) && index < value.Len() {
+				childValue = value.Index(index)
+			}
+			if err := scanJSONValue(dec, child, childValue, fields, depth+1, nodes); err != nil {
 				return err
 			}
 		}

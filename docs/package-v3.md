@@ -51,7 +51,7 @@ lossless numeric text; exact duplicate keys remain refused.
 
 `Build(ctx, BuildOptions)` accepts scope, YAML, JSON data and explicit source
 ID/kind/path/bytes. It copies bounded inputs before parsing, reproduces shapes
-through the exact accepted APItools M82 source, independently verifies them,
+through the exact accepted APItools M83 source, independently verifies them,
 and emits deterministic manifest/assessment/handoff bytes. No intent/HCL is
 generated. `Assess` rechecks exact input hashes and independently reproduces
 supplied shape claims, refusing stale/forged tables instead of trusting flags.

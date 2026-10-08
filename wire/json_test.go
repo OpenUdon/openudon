@@ -82,3 +82,56 @@ func TestExactFieldNamesAndEmbeddedDominanceMatchJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestPopulatedInterfacesRetainTheirActualJSONDestination(t *testing.T) {
+	type record struct {
+		Scope string `json:"scope"`
+	}
+	type envelope struct {
+		Value any `json:"value"`
+	}
+	for _, data := range []string{`{"scope":"first","ſcope":"last"}`, `{"scope":"first","Scope":"last"}`} {
+		var root any = &record{}
+		if wire.DecodeStrict([]byte(data), &root) == nil {
+			t.Fatal("root interface bypassed typed alias check")
+		}
+		nested := envelope{Value: &record{}}
+		if wire.DecodeStrict([]byte(`{"value":`+data+`}`), &nested) == nil {
+			t.Fatal("nested interface bypassed typed alias check")
+		}
+		rows := []any{&record{}}
+		if wire.DecodeStrict([]byte(`[`+data+`]`), &rows) == nil {
+			t.Fatal("reused slice interface bypassed typed alias check")
+		}
+	}
+	var root any = &record{}
+	if err := wire.DecodeStrict([]byte(`{"ſcope":"review"}`), &root); err != nil || root.(*record).Scope != "review" {
+		t.Fatal("Go interface destination changed", err)
+	}
+	// Non-pointer/typed-nil interface contents and fresh map elements are
+	// replaced with free-form JSON values by encoding/json, retaining key case.
+	for _, seed := range []any{record{}, (*record)(nil)} {
+		root := seed
+		if err := wire.DecodeStrictNumbers([]byte(`{"id":9007199254740993,"ID":9007199254740995}`), &root); err != nil {
+			t.Fatal(err)
+		}
+		if len(root.(map[string]any)) != 2 {
+			t.Fatal("free-form interface keys lost")
+		}
+	}
+	values := map[string]any{"record": &record{}}
+	if err := wire.DecodeStrict([]byte(`{"record":{"scope":1,"ſcope":2}}`), &values); err != nil {
+		t.Fatal("existing map values are not reused", err)
+	}
+	if len(values["record"].(map[string]any)) != 2 {
+		t.Fatal("map data folded")
+	}
+	var self any
+	self = &self
+	if err := wire.DecodeStrict([]byte(`{"id":1,"ID":2}`), &self); err != nil {
+		t.Fatal("self-containing interface escape", err)
+	}
+	if len(self.(map[string]any)) != 2 {
+		t.Fatal("self-containing interface changed")
+	}
+}
