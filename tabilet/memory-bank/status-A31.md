@@ -7,7 +7,7 @@
 
 ## Dependencies and handoff
 
-[Kinet:U14](../../../kinet/tabilet/memory-bank/status-U14.md).
+[Kinet:U14](../../../kinet/tabilet/docs/history/status-U14.md).
 The serial predecessor is a scheduling gate; direct contract and regression impacts are also listed. Every prerequisite must pass its whole review, and required publication must be independently verified before adoption. Record exact accepted/published sources and fixture/build hashes; no Stage 11 acceptance or future pin is claimed yet.
 
 **Downstream:** [Kinet:M48](../../../kinet/tabilet/memory-bank/status-M48.md). Reconcile every affected consumer against the accepted prerequisite revision before advancing.

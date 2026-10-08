@@ -528,7 +528,7 @@ One execution owner, serial execution and task commits under the later confirmed
 ## A31 — Transition cleanup
 
 **Stage/owner.** STG-11 Phase B; OpenUdon. **Priority.** Serial position 17/18, not a review severity.
-**Dependencies.** [Kinet:U14](../../../kinet/tabilet/memory-bank/status-U14.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
+**Dependencies.** [Kinet:U14](../../../kinet/tabilet/docs/history/status-U14.md); exact accepted/published contract closure recorded before adoption. Serial gates and direct contract/regression dependencies are reconciled in the coordinator.
 **Scope.** Inventory complete remaining consumers; Retire only safe superseded surfaces; Qualify publish and hand off deferred cleanup.
 **Acceptance.** The new primary path has clear ownership and dead code is removed only when safe. Every browser-dependent remainder has an explicit Stage 12 owner and deletion gate.
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
