@@ -1,7 +1,7 @@
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; A31.1/A31.2 complete, one pending row; whole review0/10.
+**State:** Approved planning on 2026-10-06; A31.1/A31.2 complete, A31.3 in progress; whole review0/10.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -18,7 +18,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 |---|---|---|
 | A31.1 — Inventory complete remaining consumers | `[+]` | Scan the full transitive import/command closure, not just named browser entrypoints. Record consumers of synthesize, workflowintent, elicitor, projectwizard, udonrunner/trustedrunner and legacy HCL support. Distinguish M98 format-neutral public compatibility promises, P09 v3 construction and private legacy synthesis adapters; no deletion may break the retained browser profile. |
 | A31.2 — Retire only safe superseded surfaces | `[+]` | Remove obsolete non-browser adapters/surfaces where the remaining tree and accepted consumers allow it. Retain and document browser-required compatibility code; preserve frozen W8M/Ramen pins and public/private boundaries. |
-| A31.3 — Qualify publish and hand off deferred cleanup | `[ ]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
+| A31.3 — Qualify publish and hand off deferred cleanup | `[~]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
 
 ## Acceptance and verification
 
@@ -37,8 +37,8 @@ Consume OpenUdon:M98’s narrowed public surface and P09’s v3 APIs; retained b
 
 ## Persisted review
 
-- Review iteration: **0/10**; not started.
-- Closing-review findings: none; the whole-milestone review has not started. Approved intake requirements above remain pending.
+- Review iteration: **1/10**; pre-publication whole review passed, closing review pending.
+- Closing-review findings: pre-publication review1 finds no open P1/P2; final publication/closing gate pending.
 - Accepted revision: not available.
 - Published revision / artifact evidence: not available.
 - Verification: pending implementation; no test result is claimed by this planning record.
@@ -153,3 +153,52 @@ fixtures in complete owner suite pass. No actual browser runtime path changed,
 so no live/smoke authority or runtime-adoption claim is needed for this dead helper.
 git diff --check passes. A31.3 owns final complete-tree/consumer/source publication
 and Stage12 handoff; whole review0/10 still required before closure.
+
+
+## A31.3 selection — 2026-10-08
+
+A31.2 complete clean source5a3bba865452da78f0ca64322116386b21c7a50a. Final
+qualification/publication/Stage12 checklist row now sole in progress. Complete
+owner/public/API/import/trust-wire/exact consumer checks and pre-publication whole
+review are required before named normal origin/main source publication. Preserve
+all pinned browser/W8M/Ramen/Kinet worker modules; no automatic latest adoption.
+No browser runtime logic changed; existing affected offline fixtures qualify the
+retained closure. Publication commits use [skip ci], no docs deploy/live action.
+
+
+## Whole review1 pre-publication started — 2026-10-08
+
+Persisted before review. Complete scope:73-owner/353-public transitive inventory,
+all production/test/CLI/browser/HCL consumer dispositions, only dead unexported
+tier forwarding deletion, unchanged public API/wire/pins and exact retained
+Kinet public/private worker contracts, Stage12 gates and named source-publication
+plan. Full owner2696 vet/make/check-doc-memory passes, fresh public/browser/package
+fixtures79358 pass and both exact current Kinet nested consumers pass. Prior
+validator/runner/API races15809 pass. No evolution bump: approved cleanup direction
+unchanged. Review1 resumes at the same counter on interruption; no push yet.
+
+
+## Whole review1 pre-publication pass — 2026-10-08
+
+Complete inventory/removal/public compatibility/CLI/browser/HCL/consumer and
+Stage12 disposition review finds no P1/P2. Dead helper has zero tracked Go
+references after removal; public/legacy live validator remains unchanged.
+All six live packages retain complete direct/transitive/test consumers; no deferred
+removal is described delivered. Whole owner verification and exact frozen public/
+private consumer tests pass. Focused staticcheck including unchanged trustedrunner
+tests reports existing SA4006(step_evidence_test.go:189) and S1011(trustedrunner_test.go:2737);
+Git comparison proves both test files byte-unchanged from pre-A31 baseline. A31
+required acceptance does not assert zero whole-owner static diagnostics and no
+waiver/new checker fix is inferred. Additional public static scan reports byte-unchanged baseline S1016(handoff/handoff.go:302) and SA1012(trust/package_test.go:82); no zero-static claim.
+No behavior/schema/pin change or live operation. Qualified source candidate
+5a3bba865452da78f0ca64322116386b21c7a50a permits named normal source publication
+after complete candidate record; A31.3 completion and final whole review still
+required. Publication target independently observeda5ee4052b5d202c4a02b94083568430e0bd75537
+at exact authorized origin/main.
+
+
+All four optional checker diagnostics are verified unchanged from pre-A31 source:
+no schema/API/implementation alteration introduces them. Required owner go vet,
+make check, public surface/trust-wire and consumer checks all pass. This is
+reported evidence, not a new waiver or acceptance exception; A31's explicit
+verification does not require zero staticcheck. Scope remains safe cleanup only.
