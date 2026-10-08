@@ -513,3 +513,9 @@ M98/P09 contracts remain supported and independent. Cleanup removes only an
 unused unexported tier-validation forwarding adapter, with actual public
 validation unchanged. Stage12 removal checklist in docs/a31-transition-cleanup.md
 requires owner replacements/retirement and complete consumer/browser proof.
+
+
+Kinet Stage11 complete acceptance uses exact clean fa74b11d769b2c26d81ad0747d0ba82d888f13e3,
+M48 review3; [final record](../../../kinet/tabilet/docs/history/status-M48.md)
+preserves release/default-closed/recovery and separate deployment boundaries.
+A31's accepted public/legacy/browser contracts remain unchanged; no repin.
