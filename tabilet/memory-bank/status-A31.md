@@ -1,7 +1,7 @@
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; A31.1/A31.2 complete, A31.3 in progress; whole review0/10.
+**State:** Approved planning on 2026-10-06; all three task rows complete; final whole review pending.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -18,7 +18,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 |---|---|---|
 | A31.1 — Inventory complete remaining consumers | `[+]` | Scan the full transitive import/command closure, not just named browser entrypoints. Record consumers of synthesize, workflowintent, elicitor, projectwizard, udonrunner/trustedrunner and legacy HCL support. Distinguish M98 format-neutral public compatibility promises, P09 v3 construction and private legacy synthesis adapters; no deletion may break the retained browser profile. |
 | A31.2 — Retire only safe superseded surfaces | `[+]` | Remove obsolete non-browser adapters/surfaces where the remaining tree and accepted consumers allow it. Retain and document browser-required compatibility code; preserve frozen W8M/Ramen pins and public/private boundaries. |
-| A31.3 — Qualify publish and hand off deferred cleanup | `[~]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
+| A31.3 — Qualify publish and hand off deferred cleanup | `[+]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
 
 ## Acceptance and verification
 
@@ -211,3 +211,17 @@ runnerSHAd99adb4d944c5ec20690587c9374f8481ee3c1e11ae7d37c149611f47a837a5a.
 Exact modules/locks unchanged, no directory replacement. Artifact proof is
 docs/a31-clean-build.json. Named normal origin/main publication may now proceed;
 source commit uses[skip ci], no hosted-CI/deploy/acceptance inference.
+
+
+## A31.3 completion — 2026-10-08
+
+Named normal source publication26132 passes: authorized origin/main advances
+a5ee4052b5d202c4a02b94083568430e0bd75537->05f4aa010080213dda8a002c86f11d720f7fffb7.
+Independent ls-remote/fetch observe exacthead, both clean qualified39f4bfdfd830a6497f163336fe34e6b82f475c5e
+and cleanup5a3bba865452da78f0ca64322116386b21c7a50a ancestry pass. docs/a31-publication.md
+records source-only/skip-CI/deploy boundary. Complete owner vet/make/check-doc2696,
+public/browser/package compatibility79358, affected races15809 and clean repeated
+CLI/runner61282 pass; current exact Kinet public/private nested consumers pass.
+Complete Stage12 retained/deletion checklist and narrowed M98/P09 contract handoff
+are concrete; no deferred package removal delivered or consumer pin changed.
+All three task units complete; final whole review2 must pass before closure.
