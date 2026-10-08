@@ -74,11 +74,16 @@ under /home/peter/.cache/openudon-m99-ordinary-801b45bb; prior local/failure
 proofs stay intact. The ordinary proof supersedes local bootstrap for publication
 claims without relabeling its source/time/graph identities.
 
-Whole review 3 passed with no remaining P1/P2 after these ordinary gates.
-M99.3 is complete; reviewed evidence publication follows under the same
-owner-specific grant. Final shared
-knowledge/downstream reconciliation, acceptance/retirement and independently
-observed closure publication remain the coordinator's subsequent work.
-No deployment, website/host activation, provider/API/model/mail action,
-registration change, user-ledger migration, consumer installation or other-owner
-publication occurred. Published heads use [skip ci]; hosted CI is not qualification.
+Whole review3 passed with no P1/P2 after these ordinary gates. Reviewed task/evidence
+a454fa0ced358d99c1fa115af3fe2475929c2878 [skip ci] is independently observed by
+ls-remote and fetch on the unchanged approved origin/main; runtime801 and initial5466
+are ancestors. All three rows, current knowledge consolidation and exact pending
+Kinet:M49 reconciliation are complete. The strictly validated complete final
+status/specification are retired under [M99](../tabilet/docs/history/status-M99.md),
+with observed evidence baselinea454 and honest later uncommitted-coordinator provenance.
+Substantive closure publication to the same approved ref follows under the existing
+grant, independently observed before Kinet implementation. Earlier local/failure
+contexts and frozen history/contracts/pins remain unchanged.
+No deployment, website/host activation, provider/API/model/mail action, registration
+change, user-ledger migration, consumer installation or other-owner publication
+occurred. Published heads use [skip ci]; hosted CI is not qualification.

@@ -81,7 +81,7 @@ user ledger, mail, host, registration, deployment or live execution was used.
 
 Whole pre-publication review 2 passed with no remaining P1/P2; findings and
 disposition live in
-[status-M99.md](../tabilet/memory-bank/status-M99.md). The [publication proposal](m99-publication-proposal.md) is a
+[M99 history](../tabilet/docs/history/status-M99.md). The [publication proposal](m99-publication-proposal.md) is a
 separate owner-specific gate. Final ordinary source/consumer proof, closing
 review, consolidation and retirement follow that gate under fresh authority.
 
@@ -93,3 +93,8 @@ candidate/probe/qualification identities remain retained in separate proof
 directories; only the final source above is proposed. The final public package
 count 365 includes the executed test wrapper; the complete normalized compiled
 inventory and module closure counts are independently compared.
+
+
+## Accepted ordinary source and closure handoff
+
+All three rows and whole review3 pass. Ordinary publication/consumer proof supersedes preliminary local bootstrap for published-source claims. Exact source801b45bb1aec297631b2e5d87beb1977788a1ab1 and independently published reviewed task/evidencea454fa0ced358d99c1fa115af3fe2475929c2878 bind [ordinary proof](m99-ordinary-proof.json), SHA393f6ad1533b912232a013fa97e55fadbb5603bd88deecd8e302ce46e69481a3. Complete owner91/48/667/17478, public73/35/365/18153 and private171/72/522/34974 inventories, all22 passing logs and exact reproduced binaries match. The ordinary private graph explicitly retains all four accepted alignment pins; prior local graph and failed mode context remain retained. Current knowledge and exact Kinet:M49 pending worker/source/authority qualification are reconciled. The complete specification/status are strictly validated and retained in the normal M99 history record; same-ref substantive closure publication and independent observation follow under the existing grant before Kinet starts. No evolution or live authority is added.

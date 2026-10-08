@@ -869,3 +869,12 @@ M99 review R99-1 additionally follows populated interface record pointers
 through actual destination values, nested struct fields and reused slice
 elements including existing backing capacity. Fresh map elements and boxed/nil-pointer interface contents retain
 free-form JSON semantics; native self-containing interface handling is preserved.
+
+Accepted M99 ordinary publication binds those contracts to exact source
+801b45bb1aec297631b2e5d87beb1977788a1ab1 and separately reproduced owner,
+public and private fixture graphs. The public graph excludes the private runtime;
+the private fixture alone supplies published Udon's runtime function catalog and
+Compile/CheckSupported plan/approval proof. Fixture worker identities are synthetic
+and effects are zero. Kinet:M49 owns actual worker isolation, current grants,
+normalized consumer closures and successor deployment artifacts. Updated derived
+source/shape/package/worker identities require fresh assessment and authority.

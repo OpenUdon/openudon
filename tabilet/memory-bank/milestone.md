@@ -7,9 +7,9 @@ The user approved the complete reconciliation proposal and its planning-file app
 **Serial order:** Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49.
 **Direct dependency graph:** UWS:M09 → APItools:M83, OpenUdon:M99, Kinet:M49; APItools:M83 → OpenUdon:M99, Kinet:M49; OpenUdon:M99 → Kinet:M49; Udon:M49 → Kinet:M49. Serial order is a scheduling gate, not an additional library dependency.
 
-**Local owner:** M99 is in authorized serial implementation; M99.1/M99.2 complete, all three M99 rows complete after owner-specific publication/ordinary qualification and whole review3; coordinator consolidation/downstream/acceptance/retirement follows task evidence publication. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. The user separately granted this owner's exact5466/801 normal main source/evidence/acceptance-retirement publication and ordinary proof; consumed upstream grants and planning/status markers supply no deployment or live authority.
+**Local owner:** M99 is accepted and retired after all three rows, full ordinary publication/consumer qualification and whole review3 at source801b45bb1aec297631b2e5d87beb1977788a1ab1. Exact pending Kinet:M49 contracts/closures are reconciled. The separately authorized same-ref normal retirement closure publication follows under the recorded grant. One serial execution owner remains required; source publication supplies no deployment/live authority.
 
-**Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact accepted/published successor revisions remain unset until independently observed; downstream adoption requires them. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
+**Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact M99 ordinary source/module and reviewed published evidence identities are established in current stack/qualification and the history record; Kinet independently qualifies actual worker/bundle artifacts before adoption acceptance. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
 
 ## Stage 11 active horizon
 
@@ -280,7 +280,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | All rows complete; ordinary source/consumer proof and review3 passed; coordinator closure pending |
 
 ## Requested Changes After Initialization
 
@@ -540,24 +539,3 @@ One execution owner, serial execution and task commits under the later confirmed
 ## Stage 11 candidate dispositions
 
 Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M98/P09/A31. Browser-dependent retirement goes to Stage 12. Live-read tiers, browser snapshot semantics, real-provider evidence and the frozen Ramen/Authoring catch-up remain deferred.
-
-## M99 — Stage 11 public decoder and review contract remediation
-
-**Stage/owner.** STG-11 post-acceptance remediation; openudon. Approved planning 2026-10-08. **Placement.** Core/cross-cutting lane; new remediation, never a reopened historical gate.
-**Lineage.** [M98](../docs/history/status-M98.md) and [P09](../docs/history/status-P09.md); [A31](../docs/history/status-A31.md) trust/compatibility boundary remains frozen.
-**Dependencies.** Accepted M98/P09/A31 contracts, accepted and independently published UWS:M09 root/codec and APItools:M83 before exact SDK adoption/qualification. Serial scheduling follows APItools:M83. No private Udon import is added; runtime proof remains supplied through public host adapters.
-**Scope.** Make strict JSON key handling match typed Go record semantics without over-rejecting free-form data, and retain unsupported symbolic security metadata as indeterminate for review-only packaging. Preserve exact valid wire/schema bytes, public/private import boundaries and no-public-v2-build/synthesis contract.
-**Acceptance.** Struct-typed records reject duplicate aliases under Go Unicode simple field folding, including long-s/K cases, at nested typed paths. Free-form maps permit case-distinct keys while still rejecting exact duplicate keys and retaining number, depth, node, Unicode and trailing-value bounds. Build/Assess/Verify preserve unsupported scheme names as original indeterminate review metadata; broker approval/runtime binding stays refused unless its independently supported/addressable policy is proved. Existing valid historical wire encodings, digest order, source verification, public API manifests and read-only v2/v3 history remain compatible. Ordinary public/private consumers and whole milestone review qualify exact published SDK closure.
-**Verification.** go test ./...; go vet ./...; owner quality/API-surface/public trust-import/wire/schema identity checks; affected wire/packagev3/runevidence races; Unicode struct alias/exact duplicate/map-key/number/depth fixtures; review-only unsupported security with execution refusal; forged/stale source/shape/assessment/authority regressions; exact accepted UWS/APItools standalone module/public/private consumer reproduction with GOWORK=off GOPROXY=off; git diff --check.
-**Compatibility/recovery.** Preserve public wires/schemas, declared grammar versions and frozen evidence/pins. Corrected derived tables/packages/workers require fresh consumer assessment, confirmation and grants; never upgrade historical authority or replay unknown writes. Installed M44 is unchanged. Rollout ends at a new exact-source qualified handoff; real installation, migration, sends and registration need separate named authority.
-**Downstream.** Kinet:M49 public author and separate private exec consumers, exact package/source verification, corrected worker closures and successor bundle. Browser/legacy/frozen consumers keep their existing independently fetchable pins.
-**Tasks.** 3 task/commit units in status-M99.md; all complete after ordinary publication/qualification and review3: M99.1 Apply typed Unicode alias checks without rejecting free-form maps; M99.2 Preserve indeterminate symbolic security in review-only packages; M99.3 Qualify the corrected public SDK and source handoff.
-**Review/authority.** Whole review3 passed after review1 R99-1 repair, fresh exact-source and ordinary publication/consumer qualification at 801b45bb1aec297631b2e5d87beb1977788a1ab1. Persist the normal ten-pass counter; coordinator consolidation/downstream/acceptance/retirement remains pending. Publication is an external prerequisite requiring fresh named authority and independent resolution. Planning grants no code execution, commit, publication, deployment or goal launch.
-
-M99.3 exact-prerequisite qualification also reconciles the SDK expression-contract
-adapter to accepted M09 output owner/context semantics. Missing step outputs must
-not borrow operation declarations; active $outputs follows its actual owner.
-Preserve the original large-minimum path as indeterminate and prove exact-number
-propagation with a correctly owned finite-witness chain, native execution and
-missing/future output/parent-constraint refusal. The status retains evidence and
-existing task count; no UWS semantic change or frozen-history rewrite follows.

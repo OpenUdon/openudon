@@ -260,12 +260,14 @@ a closed loader before claiming byte verification. The corrected regressions
 and clean source are recorded in [M98 qualification](../../docs/m98-qualification.md).
 
 Duplicate detection must distinguish typed record field aliases from
-free-form data keys. Intake probes at f7aa5d874bc474888bac1b43d4112c1faf29d499
-accepted scope/long-s alias bytes that encoding/json resolves differently, while
-rejecting valid case-distinct id/ID map data. [M99.1](status-M99.md) is pending:
-its target uses Go-compatible Unicode field folding only where typed records
-need it, with exact duplicate checks retained everywhere. This does not reopen
-the accepted public/private boundary or change valid wire encodings.
+free-form data keys and follow the actual destination values used by Go's
+decoder. Populated interface pointers and reused slice backing capacity can
+retain typed records; fresh map elements, boxed values, nil pointers and ignored
+array excess follow their own native decoding rules. Use Unicode simple field
+folding with embedding/dominance for typed records, while rejecting exact keys
+everywhere. M99 review1 exposed both pointer and capacity gaps; accepted
+[M99](../docs/history/status-M99.md) and [ordinary proof](../../docs/m99-publication.md)
+bind their repair without changing valid wire bytes or the public/private boundary.
 
 ## Preserve unproved parent constraints in expression projections
 
@@ -301,9 +303,25 @@ symbols, and hand off exact remaining owner/replacement/deletion gates without
 claiming deferred removals delivered. Evidence: A31 full73-package/353-public
 inventory, one unexported helper removal and whole reviews1/2.
 
-Review metadata also needs a distinct admissibility boundary: a symbolic
-security name unsupported by an execution identifier grammar is not evidence
-that the source is invalid or anonymous. packagev3/security.go currently
-hard-refuses such names even during review-only Build/Assess/Verify.
-[M99.2](status-M99.md) owns the pending indeterminate review treatment;
-credential/broker execution authority remains independently closed.
+Review metadata needs a distinct admissibility boundary: a symbolic security
+name unsupported by an execution identifier grammar is not evidence that its
+source is invalid or anonymous. Preserve the exact name as indeterminate during
+review-only Build/Assess/Verify; inventory only addressable credential slots.
+Concrete broker/approval binding remains independently closed. Accepted
+[M99](../docs/history/status-M99.md) qualifies space/slash/Unicode names and
+unsupported/renamed/missing-credential execution refusal.
+
+Match inferred outputs to both their declared owner and native resolution time.
+Step outputs cannot borrow operation declarations, and current $outputs can
+reference only the already-resolved lexical prefix for that owner. A finite
+exact-number witness with native execution proves a valid chain; failed bounded
+samples leave a minimum-only path indeterminate. M99's declared/missing/future/
+current/cyclic and exact-number regressions qualify this adapter against accepted
+M09 without weakening source/parent/dialect constraints or changing core semantics.
+
+Record the selected qualification graph after every dependency operation.
+go mod tidy can remove intended qualification-only requirements; prose listing
+pins does not prove their selection. M99 ordinary private proof explicitly keeps
+all four accepted Udon alignment pins and verifies its actual 34,974 files.
+Retain preliminary local graphs and failed test contexts under their original
+identities, then qualify the corrected context without relabeling old results.

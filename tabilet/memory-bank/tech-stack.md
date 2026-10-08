@@ -1269,3 +1269,23 @@ because the codec retains its C09 declared root edge. Existing public schemas,
 wire/corpus/browser locks and frozen consumer pins retain their original bytes.
 The separate packagev3/testdata/m83 corpus copies exact ordinary M83 sources
 and its corrected eight-family/13-operation table; original M82 remains frozen.
+
+M99 accepted SDK source801b45bb1aec297631b2e5d87beb1977788a1ab1 resolves normally
+as v0.1.1-0.20261008110433-801b45bb1aec, timestamp2026-10-08T11:04:33Z,
+module h1:KMrGfrS48uCV8aaEJ/aTqgELxgemAZFav/mjUIGyjA0= and GoMod
+h1:jTC3EvYjtYrodtVbEm46WfkajkUY62YCgyNa1uFay4c=. All1,611 SDK files match;
+ordinary ZIP4,777,160B SHA5f49dbf9a3032ca1d1b6459319a0da819123dce3372956f20b89abb2d72e356c.
+Complete ordinary selected/compiled/package/dependency-file counts are owner
+91/48/667/17478, public73/35/365/18153 and private171/72/522/34974. Unused selected
+archives are included; counts describe these proofs, not required downstream sizes.
+Private qualification alone imports Udon cd99ccdaa84bd7b0df16e8b9c81bd2e52abd1fd5,
+retaining Docker-to-Moby v24.0.7+incompatible version replacement and explicit
+protobuf1.5.4/pq1.12.3/sqlite1.14.44/go-internal1.14.1 pins without subsequent tidy
+removal. No Dir/workspace/bootstrap replacement supplies ordinary proof. Exact
+owner source/go.mod/sum stay immutable. Full tests/races/vet/build/modverify and
+inert consumer fixtures pass with retained Go1.26.6; reproduced CLI SHA
+a6d45935bf6ef7e6c4a4861c99736ca7ff065414ad323e46904f19f665694943 and runner SHA
+0dc9fa0ddd228f7c8e1e9fc0c84757ecabf8a8e5ccbc40bdbfafbf56c3635c16 match.
+See [ordinary proof](../../docs/m99-ordinary-proof.json), [publication](../../docs/m99-publication.md)
+and [M99 history](../docs/history/status-M99.md). Earlier local/pin/permission
+contexts remain retained. Browser/legacy and all frozen consumer pins stay exact.

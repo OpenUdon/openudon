@@ -525,3 +525,11 @@ M99.2 review-only packaging preserves original unsupported source security
 symbols as indeterminate metadata without renaming them or treating them as
 anonymous. Addressable credential inventory and concrete broker/approval
 authority remain separate; unsupported bindings cannot authorize execution.
+
+M99 is accepted after whole review3 and ordinary source/public/private consumer
+qualification at 801b45bb1aec297631b2e5d87beb1977788a1ab1. Typed Unicode alias
+checks preserve valid free-form key distinctions. Declared output ownership and
+already-resolved output timing agree with native evaluation; unproved paths stay
+indeterminate. Kinet separately qualifies actual isolated workers and fresh
+package/host authority. Original acceptance, browser paths and consumer pins
+remain preserved; source publication supplies no deployment or live-run authority.

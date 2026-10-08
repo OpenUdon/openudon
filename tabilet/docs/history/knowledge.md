@@ -6078,3 +6078,24 @@ Current owner adoption is APItools v0.0.0-20261006210844-54583f9b2f45 and UWS ro
 
 P09.1 introduces additive openudon.package.v3, openudon.review-handoff.v3 and openudon.assessment.v3 schemas under docs/schemas and pure packagev3 record APIs. Limits: 512 files/8 MiB each/32 MiB total, 32 sources, 128 value-free findings. Ordinary modules/toolchain and all existing schema/wire files stay unchanged; standalone GOWORK=off offline checks and public import/schema/digest fixtures qualify the row.
 `````
+
+## 2026-10-08 — M99 accepted decoder and symbolic-security contracts
+
+Source: tabilet/memory-bank/lessons.md, “Keep raw-wire verification separate from typed metadata checks” and the final symbolic-security intake paragraph. These pending-intake claims are superseded by accepted M99 source801b45bb1aec297631b2e5d87beb1977788a1ab1, independently published task/review evidence a454fa0ced358d99c1fa115af3fe2475929c2878 and whole review3. The replacement preserves actual destination/Unicode/map semantics and separates original indeterminate security metadata from concrete execution binding. See [current lessons](../../memory-bank/lessons.md), [ordinary proof](../../../docs/m99-ordinary-proof.json) and [M99](status-M99.md). Original excerpts:
+
+````markdown
+Duplicate detection must distinguish typed record field aliases from
+free-form data keys. Intake probes at f7aa5d874bc474888bac1b43d4112c1faf29d499
+accepted scope/long-s alias bytes that encoding/json resolves differently, while
+rejecting valid case-distinct id/ID map data. [M99.1](status-M99.md) is pending:
+its target uses Go-compatible Unicode field folding only where typed records
+need it, with exact duplicate checks retained everywhere. This does not reopen
+the accepted public/private boundary or change valid wire encodings.
+
+Review metadata also needs a distinct admissibility boundary: a symbolic
+security name unsupported by an execution identifier grammar is not evidence
+that the source is invalid or anonymous. packagev3/security.go currently
+hard-refuses such names even during review-only Build/Assess/Verify.
+[M99.2](status-M99.md) owns the pending indeterminate review treatment;
+credential/broker execution authority remains independently closed.
+````

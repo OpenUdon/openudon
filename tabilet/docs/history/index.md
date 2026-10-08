@@ -169,3 +169,4 @@ subsequently closed under the normal reviewed procedure.
 | M97 | completed | 2026-10-05 | [status-M97.md](status-M97.md) | Qualified published additive broker handoff; closing review 2, native39 and exact M46 cases passed. |
 
 | A31 | completed | 2026-10-08 | [A31](status-A31.md) | Complete73-owner/353-public consumer inventory; one dead private tier adapter removed, six live CLI/browser/HCL packages retained with Stage12 gates; exact reproduced source39f4bfd/published05f4aa0, reviews1/2 pass. |
+| M99 | completed | 2026-10-08 | [status-M99.md](status-M99.md) | Typed Go Unicode/map/actual-destination decoding, original indeterminate security metadata and declared/native-timed outputs; ordinary published source801/full owner/public/private proof, review3, exact Kinet handoff. |
