@@ -259,6 +259,14 @@ spelling at authority boundaries, and apply owned embedded wire schemas through
 a closed loader before claiming byte verification. The corrected regressions
 and clean source are recorded in [M98 qualification](../../docs/m98-qualification.md).
 
+Duplicate detection must distinguish typed record field aliases from
+free-form data keys. Intake probes at f7aa5d874bc474888bac1b43d4112c1faf29d499
+accepted scope/long-s alias bytes that encoding/json resolves differently, while
+rejecting valid case-distinct id/ID map data. [M99.1](status-M99.md) is pending:
+its target uses Go-compatible Unicode field folding only where typed records
+need it, with exact duplicate checks retained everywhere. This does not reopen
+the accepted public/private boundary or change valid wire encodings.
+
 ## Preserve unproved parent constraints in expression projections
 
 When a reviewed source schema supplies an expression type, use exact source
@@ -292,3 +300,10 @@ shared private adapter after primary adoption. Remove only proved dead private
 symbols, and hand off exact remaining owner/replacement/deletion gates without
 claiming deferred removals delivered. Evidence: A31 full73-package/353-public
 inventory, one unexported helper removal and whole reviews1/2.
+
+Review metadata also needs a distinct admissibility boundary: a symbolic
+security name unsupported by an execution identifier grammar is not evidence
+that the source is invalid or anonymous. packagev3/security.go currently
+hard-refuses such names even during review-only Build/Assess/Verify.
+[M99.2](status-M99.md) owns the pending indeterminate review treatment;
+credential/broker execution authority remains independently closed.

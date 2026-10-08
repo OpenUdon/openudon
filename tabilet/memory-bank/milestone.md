@@ -1,5 +1,16 @@
 # Milestone
 
+## Stage 11 post-acceptance remediation — 2026-10-08
+
+The user approved the complete reconciliation proposal and its planning-file application. Five new package-local milestones / 28 pending task rows restore accepted supported contracts. Original Stage 11 acceptance and all completed records remain frozen; this intake starts no closing review.
+
+**Serial order:** Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49.
+**Direct dependency graph:** UWS:M09 → APItools:M83, OpenUdon:M99, Kinet:M49; APItools:M83 → OpenUdon:M99, Kinet:M49; OpenUdon:M99 → Kinet:M49; Udon:M49 → Kinet:M49. Serial order is a scheduling gate, not an additional library dependency.
+
+**Local owner:** M99 — Stage 11 public decoder and review contract remediation; all 3 rows pending, normal closing review not started (0/10). One serial execution owner across the five ledgers. No implementation, commit, goal launch, source publication or deployment is authorized by this planning write. A separate execution request and fresh separately named publication authority are required. Consumed Stage 11 publication/deployment envelopes are not reusable.
+
+**Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact accepted/published successor revisions remain unset until independently observed; downstream adoption requires them. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
+
 ## Stage 11 active horizon
 
 Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. P09 is accepted after closing review 4 at qualified/public a6a3ef010fe27f277f8191204c1c81ea1cc0334b; Kinet U14 is accepted/retired review2; A31 accepted/retired review2; Stage11 owner horizon complete. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
@@ -269,6 +280,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | Pending; review 0/10; accepted/published UWS:M09/APItools:M83 prerequisites |
 
 ## Requested Changes After Initialization
 
@@ -493,6 +505,7 @@ fresh scope and dependency review promotes them.
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
 | Trusted-runner capability expansion beyond P07 | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. P07 addresses the existing Browser 1.10 rank-10 dispatch gap without adding executor behavior; the per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap outside the existing rank mapping is demonstrated and scoped without importing private runtime behavior or weakening approval gates. |
+| Execution-plan assertion hardening (stage11-siblings-review.md OpenUdon P3.4; source P3/local Lower; OpenUdon package owner) | packagev3/execution_plan.go assertions are protected by current closed schema validation; no reachable malformed panic was proved. | Schema relaxation or a reproducible reachable malformed case requires defensive projection checks and unchanged-wire regression qualification. |
 
 ## Notes
 
@@ -527,3 +540,16 @@ One execution owner, serial execution and task commits under the later confirmed
 ## Stage 11 candidate dispositions
 
 Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M98/P09/A31. Browser-dependent retirement goes to Stage 12. Live-read tiers, browser snapshot semantics, real-provider evidence and the frozen Ramen/Authoring catch-up remain deferred.
+
+## M99 — Stage 11 public decoder and review contract remediation
+
+**Stage/owner.** STG-11 post-acceptance remediation; openudon. Approved planning 2026-10-08. **Placement.** Core/cross-cutting lane; new remediation, never a reopened historical gate.
+**Lineage.** [M98](../docs/history/status-M98.md) and [P09](../docs/history/status-P09.md); [A31](../docs/history/status-A31.md) trust/compatibility boundary remains frozen.
+**Dependencies.** Accepted M98/P09/A31 contracts, accepted and independently published UWS:M09 root/codec and APItools:M83 before exact SDK adoption/qualification. Serial scheduling follows APItools:M83. No private Udon import is added; runtime proof remains supplied through public host adapters.
+**Scope.** Make strict JSON key handling match typed Go record semantics without over-rejecting free-form data, and retain unsupported symbolic security metadata as indeterminate for review-only packaging. Preserve exact valid wire/schema bytes, public/private import boundaries and no-public-v2-build/synthesis contract.
+**Acceptance.** Struct-typed records reject duplicate aliases under Go Unicode simple field folding, including long-s/K cases, at nested typed paths. Free-form maps permit case-distinct keys while still rejecting exact duplicate keys and retaining number, depth, node, Unicode and trailing-value bounds. Build/Assess/Verify preserve unsupported scheme names as original indeterminate review metadata; broker approval/runtime binding stays refused unless its independently supported/addressable policy is proved. Existing valid historical wire encodings, digest order, source verification, public API manifests and read-only v2/v3 history remain compatible. Ordinary public/private consumers and whole milestone review qualify exact published SDK closure.
+**Verification.** go test ./...; go vet ./...; owner quality/API-surface/public trust-import/wire/schema identity checks; affected wire/packagev3/runevidence races; Unicode struct alias/exact duplicate/map-key/number/depth fixtures; review-only unsupported security with execution refusal; forged/stale source/shape/assessment/authority regressions; exact accepted UWS/APItools standalone module/public/private consumer reproduction with GOWORK=off GOPROXY=off; git diff --check.
+**Compatibility/recovery.** Preserve public wires/schemas, declared grammar versions and frozen evidence/pins. Corrected derived tables/packages/workers require fresh consumer assessment, confirmation and grants; never upgrade historical authority or replay unknown writes. Installed M44 is unchanged. Rollout ends at a new exact-source qualified handoff; real installation, migration, sends and registration need separate named authority.
+**Downstream.** Kinet:M49 public author and separate private exec consumers, exact package/source verification, corrected worker closures and successor bundle. Browser/legacy/frozen consumers keep their existing independently fetchable pins.
+**Tasks.** 3 pending task/commit units in status-M99.md: M99.1 Apply typed Unicode alias checks without rejecting free-form maps; M99.2 Preserve indeterminate symbolic security in review-only packages; M99.3 Qualify the corrected public SDK and source handoff.
+**Review/authority.** Review 0/10, not started; persist the normal counter only during later execution. Publication is an external prerequisite requiring fresh named authority and independent resolution. Planning grants no code execution, commit, publication, deployment or goal launch.
