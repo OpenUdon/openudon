@@ -1,0 +1,1 @@
+{"asyncapi":"2.6.0","info":{"title":"Corrected events","version":"1"},"channels":{"events":{"publish":{"operationId":"received","message":{"payload":{"type":"string"}}},"subscribe":{"operationId":"sent","message":{"payload":{"type":"string"}}}}}}

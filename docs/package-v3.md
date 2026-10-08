@@ -193,3 +193,15 @@ addressability indeterminate; the unchanged handoff wire inventories only
 addressable symbolic slots. Unknown security never becomes anonymous, and
 broker/credential/approval validation still refuses unbound unsupported symbols.
 Secret-shaped values remain refused under the existing privacy policy.
+
+
+M99 source-backed expression inference follows the native output owner.
+$steps references require an explicit preceding step output; operation outputs
+do not populate step outputs. Active $outputs sees only lexically preceding,
+already-resolved outputs of its actual operation, step or workflow. Missing,
+current, forward and cyclic outputs cannot qualify metadata authority.
+A minimum-only large-integer source path remains indeterminate under accepted
+M09 bounded witness proof; a correctly owned original-dialect finite enum
+proves exact numeric propagation. OpenAPI 3.0 const stays unproved; 3.1 const
+is independently supported. Native execution evidence and Build/Verify/Broker
+results are qualified together; metadata compatibility grants no host authority.

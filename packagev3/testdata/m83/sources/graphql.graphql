@@ -1,0 +1,3 @@
+type Query { pet(first: Int! = 10): String }
+type Mutation { updatePet(id: ID!): String }
+query Q($first: Int! = 10) { a: pet(first: $first) b: pet(first: 20) }

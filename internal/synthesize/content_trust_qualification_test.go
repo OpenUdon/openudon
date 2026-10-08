@@ -182,7 +182,7 @@ func TestContentTrustQualificationLegacyPackageIsUnchanged(t *testing.T) {
 // qualification source and browser locks remain frozen in their evidence records.
 func TestContentTrustCurrentOwnerUsesStage11UWSAndRetainedBrowsertools(t *testing.T) {
 	const (
-		wantUWS          = "v0.0.0-20261006224744-c0b19385a3b0"
+		wantUWS          = "v0.0.0-20261008043726-b099f6803277"
 		wantBrowsertools = "v0.0.0-20260925161530-3abe70efc03d"
 	)
 	_, filename, _, ok := runtime.Caller(0)
@@ -203,6 +203,9 @@ func TestContentTrustCurrentOwnerUsesStage11UWSAndRetainedBrowsertools(t *testin
 	}
 	if versions["github.com/OpenUdon/uws"] != wantUWS {
 		t.Fatalf("UWS version = %q, want %q", versions["github.com/OpenUdon/uws"], wantUWS)
+	}
+	if versions["github.com/OpenUdon/uws/hcl"] != wantUWS {
+		t.Fatalf("explicit codec version = %q, want %q", versions["github.com/OpenUdon/uws/hcl"], wantUWS)
 	}
 	if versions["github.com/OpenUdon/browsertools"] != wantBrowsertools {
 		t.Fatalf("Browsertools version = %q, want %q", versions["github.com/OpenUdon/browsertools"], wantBrowsertools)

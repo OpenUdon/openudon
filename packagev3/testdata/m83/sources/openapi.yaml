@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info: {title: Corrected metadata, version: '1'}
+servers: [{url: 'https://example.invalid'}]
+components:
+  securitySchemes:
+    key: {type: apiKey, in: header, name: X-Key}
+    bearer: {type: http, scheme: bearer}
+security: [{key: []}, {bearer: []}]
+paths:
+  x-list: [metadata]
+  /things:
+    trace:
+      parameters:
+        - {name: id, in: query, schema: {type: integer, format: int32}}
+      responses:
+        200: {description: Things, content: {application/json: {schema: {type: string}}}}

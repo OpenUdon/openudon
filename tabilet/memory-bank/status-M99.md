@@ -1,7 +1,7 @@
 # M99 — Stage 11 public decoder and review contract remediation
 
 **Stage:** STG-11 post-acceptance remediation. **Owner:** OpenUdon.
-**State:** Authorized serial implementation, 2026-10-08; M99.1/M99.2 complete, M99.3 pending.
+**State:** Authorized serial implementation, 2026-10-08; M99.1/M99.2 complete, M99.3 in progress.
 **Authority:** The complete review reconciliation was approved, followed by the confirmed serial GOAL request on 2026-10-08: Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49, COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none. This authorizes scoped implementation after accepted/published prerequisites; source publication still requires this owner's separate fresh named grant. The Udon/UWS publication exceptions do not extend to this owner or live operations.
 **Review source:** stage11-siblings-review.md — Stage 11 code review — sibling packages; OpenUdon section.
 **Review baseline/range:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` → `f7aa5d874bc474888bac1b43d4112c1faf29d499`.
@@ -29,7 +29,7 @@ Struct-typed records reject duplicate aliases under Go Unicode simple field fold
 |---|---|---|
 | M99.1 — Apply typed Unicode alias checks without rejecting free-form maps | `[+]` | Make duplicate checking aware of destination struct/map types at nested paths, matching encoding/json Unicode simple field folding for records. Permit id/ID in free-form JSON while rejecting exact duplicates everywhere; preserve bounded decoding, numeric lexemes and trailing/unknown field policy. Test run-evidence v2/v3, package data and protected broker/package boundaries. Sources P3.1/P3.2. |
 | M99.2 — Preserve indeterminate symbolic security in review-only packages | `[+]` | Build/Assess/Verify retain original unsupported scheme symbols without silently renaming or treating unknown security as anonymous. Keep credential/addressability/broker approval requirements closed, refusing execution when unsupported names cannot be independently bound. Preserve valid source/shape security semantics and wire/schema contracts. Source P3.3. |
-| M99.3 — Qualify the corrected public SDK and source handoff | `[ ]` | Explicitly select both exact accepted/published UWS:M09 root and codec with APItools:M83 (standalone codec retains C09), reconcile expression-contract inference to declared step/operation outputs and the active $outputs owner (no operation fallback for absent step outputs), then run public import/API manifests, unchanged valid wire/digest/schema, forged-source verification and ordinary public/private consumer checks. Keep v2 synthesis/build APIs private and A31 browser closure unchanged. Persist pre-publication/closing review counts, publish only under fresh named authority, and hand off exact SDK sources/sums to Kinet:M49. |
+| M99.3 — Qualify the corrected public SDK and source handoff | `[~]` | Explicitly select both exact accepted/published UWS:M09 root and codec with APItools:M83 (standalone codec retains C09), reconcile expression-contract inference to declared step/operation outputs and the active $outputs owner (no operation fallback for absent step outputs), then run public import/API manifests, unchanged valid wire/digest/schema, forged-source verification and ordinary public/private consumer checks. Keep v2 synthesis/build APIs private and A31 browser closure unchanged. Persist pre-publication/closing review counts, publish only under fresh named authority, and hand off exact SDK sources/sums to Kinet:M49. |
 
 ## Active finding provenance
 
@@ -54,7 +54,7 @@ Public schemas/wires, published grammar/version bytes, accepted historical quali
 **Review iterations:** 0/10.
 **Review state:** not started; this is review intake, not a pass of an existing gate.
 **Findings/fixes:** no implementation or fix verification claimed.
-**Execution owner:** sole serial OpenUdon M99 implementation owner under the confirmed GOAL; no general row is in progress, and the parent makes no ledger writes during this handoff.
+**Execution owner:** sole serial OpenUdon M99 implementation owner under the confirmed GOAL; M99.3 is in progress, and the parent makes no ledger writes during this handoff.
 **Commit policy:** The user separately authorized a planning commit on 2026-10-08 with “git commit and then report the index refresh issue in ~/skill-index.md”. This authorizes one commit of the approved planning changes in this owner repository; implementation, publication and deployment remain outside this request. Future task commits follow the separately invoked GOAL/request policy.
 **Closure:** persist each started review iteration before reviewing; resume an interrupted pass at the same number. No open P1/P2 may remain at acceptance. Required verification, exact downstream reconciliation and owner-specific consolidation/retirement follow implementation; never reopen completed Stage 11 history.
 
@@ -188,3 +188,24 @@ preserved, unknown security stays unknown and privacy scanning stays closed.
 Exact unsupported, missing and renamed credential candidates all refuse broker
 authority. Full packagev3 tests, race and vet pass offline under Go1.26.6, with
 existing API/wire/golden/schema/source/authority regressions unchanged.
+
+## M99.3 local implementation and qualification — 2026-10-08
+
+Both exact ordinary UWS modules and APItools M83 are explicitly selected.
+The SDK adapter now uses declared step outputs without operation fallbacks and
+projects only lexically preceding outputs of the active owner. Native public
+execution, Build/Verify/Broker matrices cover missing step outputs, operation
+borrowing, current/self/forward/cyclic references, valid preceding output chains
+and future steps. Owned large-minimum-only sources remain indeterminate; a
+finite enum retains exact json.Number9007199254740993 through both native steps.
+Original-dialect 3.0 const stays unproved; 3.1 const, rounded/boolean/contradictory
+parent and unknown-parent controls pass. Original failed candidate evidence is
+retained at /home/peter/.cache/openudon-m99-proof/baseline-original-preserved-regression.log
+(SHA-25616f93bc25c6ba680336c18c18d9fb995fa6e554d773d323deecc5604b89eca70),
+with its original verification/source/owner probes. This does not relabel that
+failed P09 regression as a pass. Original M82 fixtures stay frozen; separate
+exact M83 eight-family/13-operation source/table reproduction passes.
+The current-owner UWS/codec dependency assertion is reconciled; historical E12
+and browser locks remain unchanged. Local implementation is ready for exact
+source freeze/full closure/consumer proof and persisted whole review. M99.3
+stays in progress until its separately granted ordinary publication gate passes.

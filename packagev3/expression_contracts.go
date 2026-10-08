@@ -15,10 +15,12 @@ import (
 )
 
 type expressionScope struct {
-	workflow  *uws1.Workflow
-	step      *uws1.Step
-	operation *uws1.Operation
-	index     int
+	workflow   *uws1.Workflow
+	step       *uws1.Step
+	operation  *uws1.Operation
+	index      int
+	outputs    map[string]string
+	outputName string
 }
 type expressionContracts struct {
 	ctx        context.Context
@@ -303,7 +305,17 @@ func (e *expressionContracts) contract(text string, scope expressionScope, activ
 		return schema, "compatible"
 	case strings.HasPrefix(source, "$outputs."):
 		parts := strings.Split(strings.TrimPrefix(source, "$outputs."), ".")
-		schema, status := e.operationOutput(parts[0], scope, active, depth+1)
+		// Native output resolution is lexically ordered and supplies only the
+		// outputs already resolved for this owner, never operation fallbacks.
+		if scope.outputName == "" || parts[0] >= scope.outputName {
+			return binding.Schema{}, "incompatible"
+		}
+		text, exists := scope.outputs[parts[0]]
+		if !exists {
+			return binding.Schema{}, "incompatible"
+		}
+		scope.outputName = parts[0]
+		schema, status := e.contract(text, scope, active, depth+1)
 		if status != "compatible" {
 			return schema, status
 		}
@@ -364,6 +376,7 @@ func (e *expressionContracts) operationOutput(name string, scope expressionScope
 	}
 	active[key] = true
 	defer delete(active, key)
+	scope.outputs, scope.outputName = scope.operation.Outputs, name
 	return e.contract(text, scope, active, depth+1)
 }
 func (e *expressionContracts) output(name string, scope expressionScope, active map[string]bool, depth int) (binding.Schema, string) {
@@ -377,9 +390,10 @@ func (e *expressionContracts) output(name string, scope expressionScope, active 
 		}
 		active[key] = true
 		defer delete(active, key)
+		scope.outputs, scope.outputName = scope.step.Outputs, name
 		return e.contract(text, scope, active, depth+1)
 	}
-	return e.operationOutput(name, scope, active, depth)
+	return binding.Schema{}, "incompatible"
 }
 func (e *expressionContracts) types(value any, scope expressionScope) map[string]binding.Schema {
 	out := map[string]binding.Schema{}
@@ -413,6 +427,7 @@ func (e *expressionContracts) checkOutputs(values map[string]string, scope expre
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
+		scope.outputs, scope.outputName = values, key
 		_, status := e.contract(values[key], scope, map[string]bool{}, 0)
 		if status != "compatible" {
 			add("binding.output_reference_"+status, status)

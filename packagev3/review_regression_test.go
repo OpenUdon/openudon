@@ -64,7 +64,7 @@ func TestAllCoreResponseFormsCheckSourceContracts(t *testing.T) {
 	}
 }
 func TestSourceBackedChainedInputTypesRemainExact(t *testing.T) {
-	spec := strings.Replace(apiFixture, "schema: {type: object, properties: {ok: {type: boolean}}}", "schema: {type: object, properties: {n: {type: integer, minimum: 9007199254740993}}, required: [n]}", 1)
+	spec := strings.Replace(apiFixture, "schema: {type: object, properties: {ok: {type: boolean}}}", "schema: {type: object, properties: {n: {type: integer, minimum: 9007199254740993, enum: [9007199254740993, 9007199254740995]}}, required: [n]}", 1)
 	o := buildOptions()
 	o.Sources[0].Bytes = []byte(spec)
 	yaml := strings.Replace(yamlFixture, "    effect: read", "    effect: read\n    outputs: {n: '$response.body.n'}", 1)
@@ -75,7 +75,7 @@ func TestSourceBackedChainedInputTypesRemainExact(t *testing.T) {
     request: {query: {n: '$steps.fetch.outputs.n'}}
 `
 	yaml = strings.Replace(yaml, "workflows:\n", second+"workflows:\n", 1)
-	yaml = strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}]", "steps: [{stepId: fetch, operationRef: fetch}, {stepId: second, operationRef: second}]", 1)
+	yaml = strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}]", "steps: [{stepId: fetch, operationRef: fetch, outputs: {n: '$response.body.n'}}, {stepId: second, operationRef: second}]", 1)
 	o.WorkflowYAML = []byte(yaml)
 	p, err := packagev3.Build(context.Background(), o)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestSourceBackedChainedInputTypesRemainExact(t *testing.T) {
 		t.Fatalf("source-backed chain %s: %+v", p.Assessment.Outcome, p.Assessment.Findings)
 	}
 	// Reversing the dependency cannot acquire a record from a future step.
-	o.WorkflowYAML = []byte(strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}, {stepId: second, operationRef: second}]", "steps: [{stepId: second, operationRef: second}, {stepId: fetch, operationRef: fetch}]", 1))
+	o.WorkflowYAML = []byte(strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch, outputs: {n: '$response.body.n'}}, {stepId: second, operationRef: second}]", "steps: [{stepId: second, operationRef: second}, {stepId: fetch, operationRef: fetch, outputs: {n: '$response.body.n'}}]", 1))
 	p, err = packagev3.Build(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestParentResponseConstraintsCannotDisappearDuringProjection(t *testing.T) 
     request: {query: {n: '$steps.fetch.outputs.n'}}
 `
 	yaml = strings.Replace(yaml, "workflows:\n", second+"workflows:\n", 1)
-	yaml = strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}]", "steps: [{stepId: fetch, operationRef: fetch}, {stepId: second, operationRef: second}]", 1)
+	yaml = strings.Replace(yaml, "steps: [{stepId: fetch, operationRef: fetch}]", "steps: [{stepId: fetch, operationRef: fetch, outputs: {n: '$response.body.n'}}, {stepId: second, operationRef: second}]", 1)
 	o.WorkflowYAML = []byte(yaml)
 	p, err := packagev3.Build(context.Background(), o)
 	if err != nil {

@@ -1260,3 +1260,12 @@ source publication05f4aa010080213dda8a002c86f11d720f7fffb7 independently observe
 Public P09 SDK and all Kinet/browser/frozen consumer pins stay unchanged.
 A31 reviews1/2 pass required owner/public/consumer gates; optional unchanged
 checker debt remains recorded, no whole-owner zero-static assertion.
+
+
+M99 explicitly adopts ordinary published UWS:M09 root and hcl codec at
+v0.0.0-20261008043726-b099f6803277 and APItools:M83 at
+v0.0.0-20261008061439-f2c5693ec39a. Both UWS modules are selected independently
+because the codec retains its C09 declared root edge. Existing public schemas,
+wire/corpus/browser locks and frozen consumer pins retain their original bytes.
+The separate packagev3/testdata/m83 corpus copies exact ordinary M83 sources
+and its corrected eight-family/13-operation table; original M82 remains frozen.

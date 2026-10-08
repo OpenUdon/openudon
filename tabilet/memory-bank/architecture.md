@@ -856,3 +856,10 @@ fields follow encoding/json exact-name and Unicode simple-fold matching, with
 embedded-field dominance; nested maps/interfaces retain exact case-distinct
 keys. Every object still rejects repeated decoded keys under unchanged
 byte/node/depth/number/trailing bounds. Public valid wire bytes are unchanged.
+
+
+M99.3 expression-contract projection retains declared step/operation output
+owners and native lexicographic output timing. Missing step outputs never
+borrow operation definitions. Active $outputs projects only already-resolved
+outputs for the current owner; the native public evaluator supplies independent
+exact-number/missing/future/current/cycle qualification without private imports.
