@@ -202,3 +202,12 @@ no schema/API/implementation alteration introduces them. Required owner go vet,
 make check, public surface/trust-wire and consumer checks all pass. This is
 reported evidence, not a new waiver or acceptance exception; A31's explicit
 verification does not require zero staticcheck. Scope remains safe cleanup only.
+
+
+Clean standalone exact39f4bfdfd830a6497f163336fe34e6b82f475c5e builds pass61282
+with GOWORK/GOPROXY off, Go1.26.6, CGO0 and actualVCSmodified=false. Repeated
+CLI SHA29d0e70a1ed5e17252f035f66e7adbb88c697347051fdece5291840d99ef685a matches;
+runnerSHAd99adb4d944c5ec20690587c9374f8481ee3c1e11ae7d37c149611f47a837a5a.
+Exact modules/locks unchanged, no directory replacement. Artifact proof is
+docs/a31-clean-build.json. Named normal origin/main publication may now proceed;
+source commit uses[skip ci], no hosted-CI/deploy/acceptance inference.
