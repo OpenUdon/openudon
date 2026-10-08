@@ -519,3 +519,9 @@ Kinet Stage11 complete acceptance uses exact clean fa74b11d769b2c26d81ad0747d0ba
 M48 review3; [final record](../../../kinet/tabilet/docs/history/status-M48.md)
 preserves release/default-closed/recovery and separate deployment boundaries.
 A31's accepted public/legacy/browser contracts remain unchanged; no repin.
+
+
+M99.2 review-only packaging preserves original unsupported source security
+symbols as indeterminate metadata without renaming them or treating them as
+anonymous. Addressable credential inventory and concrete broker/approval
+authority remain separate; unsupported bindings cannot authorize execution.

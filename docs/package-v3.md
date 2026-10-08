@@ -185,3 +185,11 @@ Unproved parent restrictions retain unknownness; a const is validated against
 its complete source schema through a closed loader before projection. Direct
 input/schema contradictions and contradictory response parents cannot acquire
 compatible review by reducing their contracts to a weaker child type.
+
+
+Unsupported source security scheme symbols remain unchanged in exact source,
+shape and plan review metadata. Build/Assess/Verify mark their execution
+addressability indeterminate; the unchanged handoff wire inventories only
+addressable symbolic slots. Unknown security never becomes anonymous, and
+broker/credential/approval validation still refuses unbound unsupported symbols.
+Secret-shaped values remain refused under the existing privacy policy.

@@ -313,6 +313,11 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 			if err != nil {
 				return Assessment{}, ErrPackage
 			}
+			for _, symbolic := range request.Security {
+				if !authority.Identifier(symbolic.CredentialSlot) {
+					add("binding.security_symbol_unaddressable", "indeterminate")
+				}
+			}
 		}
 		sort.Slice(request.Inputs, func(i, j int) bool {
 			a, b := request.Inputs[i], request.Inputs[j]

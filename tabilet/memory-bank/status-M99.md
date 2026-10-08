@@ -1,7 +1,7 @@
 # M99 — Stage 11 public decoder and review contract remediation
 
 **Stage:** STG-11 post-acceptance remediation. **Owner:** OpenUdon.
-**State:** Authorized serial implementation, 2026-10-08; M99.1 complete, two remaining pending rows.
+**State:** Authorized serial implementation, 2026-10-08; M99.1/M99.2 complete, M99.3 pending.
 **Authority:** The complete review reconciliation was approved, followed by the confirmed serial GOAL request on 2026-10-08: Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49, COMMIT_POLICY: task and EXTERNAL_MUTATIONS: none. This authorizes scoped implementation after accepted/published prerequisites; source publication still requires this owner's separate fresh named grant. The Udon/UWS publication exceptions do not extend to this owner or live operations.
 **Review source:** stage11-siblings-review.md — Stage 11 code review — sibling packages; OpenUdon section.
 **Review baseline/range:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` → `f7aa5d874bc474888bac1b43d4112c1faf29d499`.
@@ -28,7 +28,7 @@ Struct-typed records reject duplicate aliases under Go Unicode simple field fold
 | Item | State | Notes |
 |---|---|---|
 | M99.1 — Apply typed Unicode alias checks without rejecting free-form maps | `[+]` | Make duplicate checking aware of destination struct/map types at nested paths, matching encoding/json Unicode simple field folding for records. Permit id/ID in free-form JSON while rejecting exact duplicates everywhere; preserve bounded decoding, numeric lexemes and trailing/unknown field policy. Test run-evidence v2/v3, package data and protected broker/package boundaries. Sources P3.1/P3.2. |
-| M99.2 — Preserve indeterminate symbolic security in review-only packages | `[ ]` | Build/Assess/Verify retain original unsupported scheme symbols without silently renaming or treating unknown security as anonymous. Keep credential/addressability/broker approval requirements closed, refusing execution when unsupported names cannot be independently bound. Preserve valid source/shape security semantics and wire/schema contracts. Source P3.3. |
+| M99.2 — Preserve indeterminate symbolic security in review-only packages | `[+]` | Build/Assess/Verify retain original unsupported scheme symbols without silently renaming or treating unknown security as anonymous. Keep credential/addressability/broker approval requirements closed, refusing execution when unsupported names cannot be independently bound. Preserve valid source/shape security semantics and wire/schema contracts. Source P3.3. |
 | M99.3 — Qualify the corrected public SDK and source handoff | `[ ]` | Explicitly select both exact accepted/published UWS:M09 root and codec with APItools:M83 (standalone codec retains C09), reconcile expression-contract inference to declared step/operation outputs and the active $outputs owner (no operation fallback for absent step outputs), then run public import/API manifests, unchanged valid wire/digest/schema, forged-source verification and ordinary public/private consumer checks. Keep v2 synthesis/build APIs private and A31 browser closure unchanged. Persist pre-publication/closing review counts, publish only under fresh named authority, and hand off exact SDK sources/sums to Kinet:M49. |
 
 ## Active finding provenance
@@ -177,3 +177,14 @@ v2/v3 and original published fixtures pass. Standalone offline Go1.26.6
 `go test ./wire ./packagev3 ./runevidence` and affected `-race` suite pass;
 `git diff --check` passes. Includes the parent-authorized exact prerequisite
 reconciliation present at handoff; no unrelated worktree change was absorbed.
+
+## M99.2 verification — 2026-10-08
+
+Build/Assess/Verify retain slash, space and Unicode security symbols in exact
+source, native shape and execution-plan review metadata. Unaddressable slots
+produce binding.security_symbol_unaddressable indeterminate findings; unchanged
+handoff credentials include only addressable symbols. OR alternatives are
+preserved, unknown security stays unknown and privacy scanning stays closed.
+Exact unsupported, missing and renamed credential candidates all refuse broker
+authority. Full packagev3 tests, race and vet pass offline under Go1.26.6, with
+existing API/wire/golden/schema/source/authority regressions unchanged.

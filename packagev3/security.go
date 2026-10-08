@@ -41,7 +41,7 @@ func symbolicSecurity(security binding.Security) ([]binding.SecurityBinding, err
 	byName := map[string]binding.SecurityBinding{}
 	for _, alternative := range security.Alternatives {
 		for _, requirement := range alternative.Requirements {
-			if !authority.Identifier(requirement.Scheme) || credentialpolicy.ContainsLikelyValue([]byte(requirement.Scheme)) {
+			if credentialpolicy.ContainsLikelyValue([]byte(requirement.Scheme)) {
 				return nil, ErrPackage
 			}
 			existing := byName[requirement.Scheme]
@@ -96,7 +96,11 @@ func declaredCredentials(ctx context.Context, doc *uws1.Document, sources []Sour
 			return nil, err
 		}
 		for _, slot := range symbolic {
-			names[slot.CredentialSlot] = true
+			// Unsupported names remain in exact source/shape review metadata;
+			// the unchanged handoff wire inventories only addressable slots.
+			if authority.Identifier(slot.CredentialSlot) {
+				names[slot.CredentialSlot] = true
+			}
 		}
 		if len(names) > 64 {
 			return nil, ErrPackage
