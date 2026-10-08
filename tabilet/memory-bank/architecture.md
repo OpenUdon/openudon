@@ -835,3 +835,11 @@ metadata comes through the existing APItools adapter; the host still owns curren
 grants, credentials and concrete network/request policy. Legacy serialization,
 report readers, authoring/capture pins and destination classification are unchanged.
 M97's separate broker profile is accepted as above; host consumer adoption remains owner-local.
+
+
+A31.1 full73-package production/test/transitive inventory retains six private
+compatibility packages: synthesis/intent/elicitor/projectwizard and both runners
+still feed current CLI/browser/package/eval paths. Public M98/P09 closure stays
+independent. Only one unexported unused tier-forwarding helper is safe removal;
+Stage12 owns explicit remaining replacement/deletion gates. Evidence: docs/a31-
+transition-cleanup.md and docs/a31-consumer-inventory.json. No pins/wires move.

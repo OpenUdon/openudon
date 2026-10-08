@@ -1,7 +1,7 @@
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; 3 pending rows, no implementation or acceptance.
+**State:** Approved planning on 2026-10-06; A31.1 complete, two pending rows; whole review0/10.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -16,7 +16,7 @@ The serial predecessor is a scheduling gate; direct contract and regression impa
 
 | Item | State | Notes |
 |---|---|---|
-| A31.1 — Inventory complete remaining consumers | `[ ]` | Scan the full transitive import/command closure, not just named browser entrypoints. Record consumers of synthesize, workflowintent, elicitor, projectwizard, udonrunner/trustedrunner and legacy HCL support. Distinguish M98 format-neutral public compatibility promises, P09 v3 construction and private legacy synthesis adapters; no deletion may break the retained browser profile. |
+| A31.1 — Inventory complete remaining consumers | `[+]` | Scan the full transitive import/command closure, not just named browser entrypoints. Record consumers of synthesize, workflowintent, elicitor, projectwizard, udonrunner/trustedrunner and legacy HCL support. Distinguish M98 format-neutral public compatibility promises, P09 v3 construction and private legacy synthesis adapters; no deletion may break the retained browser profile. |
 | A31.2 — Retire only safe superseded surfaces | `[ ]` | Remove obsolete non-browser adapters/surfaces where the remaining tree and accepted consumers allow it. Retain and document browser-required compatibility code; preserve frozen W8M/Ramen pins and public/private boundaries. |
 | A31.3 — Qualify publish and hand off deferred cleanup | `[ ]` | Build/test the complete remaining tree and affected browser compatibility fixtures. Publish under named authority, and give Stage 12 a precise dependency/removal checklist; do not mark blocked removals delivered. Reconcile the narrowed M98 surface and P09 consumer closure into Kinet:M48 before final pin freeze; publication still needs the separately granted envelope. |
 
@@ -82,3 +82,43 @@ qualifies final release including this UI and current deletion/pre-v3 exact-M44
 checkpoint rollback, then creates the separate concrete deployment proposal.
 A31/M48 rows and whole reviews remain pending; no prerequisite reconciliation
 marks those tasks delivered. Complete all18 endpoint remains authorized.
+
+
+## A31.1 selection — 2026-10-08
+
+Kinet U14 accepted/retired after whole review2 at qualified codebd5b6b8281288aa50f0ceb5e0e6c55e0b1fc2ac9,
+acceptance2c93d66824c9e3b2675c6ba3d26f143c84d58bba and validated retirement
+08065c3587c8209c5cd92983d4d9c07b008e5fdd. A31.1 is sole active row
+across the serial goal. Inventory full current production/test/command/transitive
+consumer closure, public M98/P09 compatibility versus private legacy adapters and
+retained browser paths. No deletion yet; no new API or runtime capability/pin.
+Named source-publication envelope applies only after owning qualification; no
+live/deploy/provider/mail/host operation. A31.2/.3 and review0/10 remain pending.
+
+
+## A31.1 inventory checkpoint — 2026-10-08
+
+All73 owner packages and complete direct/transitive/test edges captured in
+docs/a31-consumer-inventory.json; command/legacy-HCL/public/consumer dispositions
+in docs/a31-transition-cleanup.md. Public closure independently excludes internal/
+private modules. Six target packages retain live CLI/browser/package/eval consumers;
+whole-package removal is unsafe and deferred with specific Stage12 gates. One
+unexported declaration-only tier forwarding helper is safe A31.2 cleanup, public
+approval validator retained. Current Kinet author/exec public imports and exact
+browser/frozen consumer pins inspected; no sibling/runtime/module mutation.
+Default owner/public/boundary qualification remains before row completion.
+
+
+## A31.1 completion — 2026-10-08
+
+Full73-package owner/direct/transitive/test and353-package public dependency
+inventory captured at1e27c0166780626d4c25b8378d0e9154c3346c84; exact hashes and
+consumer edges retained. Public closure contains no private runtime/internal;
+Kinet current public author/private exec imports and independent browser/frozen
+consumer pins match accepted handoffs. Six live private packages stay; declaration-
+only unexported tier adapter is the safe removal. Stage12 deletion gates name
+remaining production/test/command consumers explicitly. No broad removal claimed.
+Required owner vet/make check16357 passes complete tree, both commands, sibling/
+APItools boundary; fresh public API/surface/wire/packagev3 fixtures12967 pass.
+git diff --check passes; no runtime/model/browser/live mutation was invoked.
+Whole review0/10, A31.2/.3 remain required.
