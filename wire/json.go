@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
+	"reflect"
 )
 
 const MaxBytes = 8 << 20
@@ -28,7 +28,7 @@ func decodeStrict(data []byte, out any, numbers bool) error {
 	if len(data) > MaxBytes {
 		return fmt.Errorf("JSON exceeds byte limit")
 	}
-	if err := rejectDuplicateJSONKeys(data); err != nil {
+	if err := rejectDuplicateJSONKeys(data, reflect.TypeOf(out)); err != nil {
 		return err
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -49,10 +49,10 @@ func decodeStrict(data []byte, out any, numbers bool) error {
 	return nil
 }
 
-func rejectDuplicateJSONKeys(data []byte) error {
+func rejectDuplicateJSONKeys(data []byte, destination reflect.Type) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
-	if err := scanJSONValue(dec, 0, new(int)); err != nil {
+	if err := scanJSONValue(dec, destination, map[reflect.Type][]jsonField{}, 0, new(int)); err != nil {
 		return err
 	}
 	if _, err := dec.Token(); err != io.EOF {
@@ -64,7 +64,7 @@ func rejectDuplicateJSONKeys(data []byte) error {
 	return nil
 }
 
-func scanJSONValue(dec *json.Decoder, depth int, nodes *int) error {
+func scanJSONValue(dec *json.Decoder, destination reflect.Type, fields map[reflect.Type][]jsonField, depth int, nodes *int) error {
 	*nodes++
 	if *nodes > MaxNodes {
 		return fmt.Errorf("JSON exceeds node limit")
@@ -80,9 +80,20 @@ func scanJSONValue(dec *json.Decoder, depth int, nodes *int) error {
 	if depth >= 64 {
 		return fmt.Errorf("JSON nesting exceeds 64 levels")
 	}
+	destination = jsonDestination(destination)
 	switch delim {
 	case '{':
 		seen := map[string]bool{}
+		seenFields := map[int]bool{}
+		var record []jsonField
+		if destination != nil && destination.Kind() == reflect.Struct {
+			var exists bool
+			record, exists = fields[destination]
+			if !exists {
+				record = jsonFields(destination)
+				fields[destination] = record
+			}
+		}
 		for dec.More() {
 			keyToken, err := dec.Token()
 			if err != nil {
@@ -92,12 +103,21 @@ func scanJSONValue(dec *json.Decoder, depth int, nodes *int) error {
 			if !ok {
 				return fmt.Errorf("invalid JSON object key")
 			}
-			key = strings.ToLower(key)
 			if seen[key] {
 				return fmt.Errorf("duplicate JSON object key")
 			}
 			seen[key] = true
-			if err := scanJSONValue(dec, depth+1, nodes); err != nil {
+			var child reflect.Type
+			if destination != nil && destination.Kind() == reflect.Map {
+				child = destination.Elem()
+			} else if index := jsonFieldIndex(record, key); index >= 0 {
+				if seenFields[index] {
+					return fmt.Errorf("duplicate JSON record field")
+				}
+				seenFields[index] = true
+				child = record[index].typ
+			}
+			if err := scanJSONValue(dec, child, fields, depth+1, nodes); err != nil {
 				return err
 			}
 		}
@@ -106,8 +126,12 @@ func scanJSONValue(dec *json.Decoder, depth int, nodes *int) error {
 			return fmt.Errorf("invalid JSON object")
 		}
 	case '[':
+		var child reflect.Type
+		if destination != nil && (destination.Kind() == reflect.Slice || destination.Kind() == reflect.Array) {
+			child = destination.Elem()
+		}
 		for dec.More() {
-			if err := scanJSONValue(dec, depth+1, nodes); err != nil {
+			if err := scanJSONValue(dec, child, fields, depth+1, nodes); err != nil {
 				return err
 			}
 		}

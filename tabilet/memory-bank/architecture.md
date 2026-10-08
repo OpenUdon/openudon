@@ -849,3 +849,10 @@ A31.2 removes only unused private trustedrunner.validateTierState forwarding;
 live approval checks already invoke publicapproval.Validate. Full public API,
 trust bytes, private runner/browser adapters and declared HCL codec closure stay
 unchanged. No runtime/parser/dependency is removed from a live consumer graph.
+
+
+M99.1 makes public strict JSON scanning destination-aware. Ordinary struct
+fields follow encoding/json exact-name and Unicode simple-fold matching, with
+embedded-field dominance; nested maps/interfaces retain exact case-distinct
+keys. Every object still rejects repeated decoded keys under unchanged
+byte/node/depth/number/trailing bounds. Public valid wire bytes are unchanged.

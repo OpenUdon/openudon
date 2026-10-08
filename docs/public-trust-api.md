@@ -47,8 +47,11 @@ executable support. V1 manifests remain read-only metadata through `handoff`.
 
 Inspection allows at most 1,024 files, 8 MiB per file and 64 MiB total. Strict
 JSON allows 8 MiB, 100,000 value nodes and 64 nesting levels; it rejects unknown
-fields, multiple documents and duplicate keys (including casing/escaped-key
-aliases). Inspection failures use a fixed value-free error. The generic `wire`
+fields, multiple documents and exact duplicate keys (including escaped-key
+aliases). Ordinary struct destinations additionally reject keys that resolve
+to the same Go field under exact-name-first Unicode simple folding. Free-form
+map/interface data preserves case-distinct keys such as id/ID. Inspection failures
+use a fixed value-free error. The generic `wire`
 decoder can return detailed errors; callers redact those before display/storage.
 The caller owns stable input bytes during inspection, isolation, safe regular
 file reads, format-specific inventory, source/shape validation and assessment.

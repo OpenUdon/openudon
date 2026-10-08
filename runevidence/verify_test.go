@@ -11,11 +11,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/openudon/digest"
 	"github.com/OpenUdon/openudon/runevidence"
 	"github.com/OpenUdon/openudon/udonreport"
+	"github.com/OpenUdon/openudon/wire"
 )
 
 func fixture(t *testing.T) runevidence.RunEvidence {
@@ -29,6 +31,29 @@ func fixture(t *testing.T) runevidence.RunEvidence {
 		t.Fatal("fixture JSON")
 	}
 	return e
+}
+
+func TestRetainedEvidenceVersionsRejectUnicodeRecordAliases(t *testing.T) {
+	for _, version := range []string{runevidence.Version, runevidence.StepVersion} {
+		e := fixture(t)
+		e.Version, e.Broker = version, nil
+		data, err := json.Marshal(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, changed := range []string{
+			strings.Replace(string(data), `"scope":`, `"ſcope":"alias","scope":`, 1),
+			strings.Replace(string(data), `"status":`, `"ſtatus":"fail","status":`, 1),
+		} {
+			var decoded runevidence.RunEvidence
+			if wire.DecodeStrict([]byte(changed), &decoded) == nil {
+				t.Fatal("accepted evidence record alias", version)
+			}
+			if _, err := runevidence.Verify(context.Background(), runevidence.Request{Evidence: []byte(changed)}); err == nil {
+				t.Fatal("verified ambiguous evidence", version)
+			}
+		}
+	}
 }
 
 func TestPublishedBrokerEvidenceWire(t *testing.T) {

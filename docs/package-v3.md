@@ -46,6 +46,9 @@ execution. Public OpenUdon imports no private Udon/runtime module. Historical
 v2 inspection/approval/report reading and the separately pinned browser path
 remain through their own qualified interfaces; conversion never carries grants.
 
+Free-form JSON data retains case-distinct map keys (for example id/ID) and
+lossless numeric text; exact duplicate keys remain refused.
+
 `Build(ctx, BuildOptions)` accepts scope, YAML, JSON data and explicit source
 ID/kind/path/bytes. It copies bounded inputs before parsing, reproduces shapes
 through the exact accepted APItools M82 source, independently verifies them,

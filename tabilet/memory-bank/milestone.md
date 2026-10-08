@@ -2,12 +2,12 @@
 
 ## Stage 11 post-acceptance remediation — 2026-10-08
 
-The user approved the complete reconciliation proposal and its planning-file application. Five new package-local milestones / 28 pending task rows restore accepted supported contracts. Original Stage 11 acceptance and all completed records remain frozen; this intake starts no closing review.
+The user approved the complete reconciliation proposal and its planning-file application. Five new package-local milestones / 28 task rows restore accepted supported contracts. Original Stage 11 acceptance and all completed records remain frozen; this intake starts no closing review.
 
 **Serial order:** Udon:M49 → UWS:M09 → APItools:M83 → OpenUdon:M99 → Kinet:M49.
 **Direct dependency graph:** UWS:M09 → APItools:M83, OpenUdon:M99, Kinet:M49; APItools:M83 → OpenUdon:M99, Kinet:M49; OpenUdon:M99 → Kinet:M49; Udon:M49 → Kinet:M49. Serial order is a scheduling gate, not an additional library dependency.
 
-**Local owner:** M99 — Stage 11 public decoder and review contract remediation; all 3 rows pending, normal closing review not started (0/10). One serial execution owner across the five ledgers. No implementation, commit, goal launch, source publication or deployment is authorized by this planning write. A separate execution request and fresh separately named publication authority are required. Consumed Stage 11 publication/deployment envelopes are not reusable.
+**Local owner:** M99 is in authorized serial implementation; M99.1 complete, two rows pending, review 0/10. The confirmed serial GOAL authorizes implementation/task commits after exact accepted/published prerequisites; UWS:M09 supplies corrected root/codec source b099f6803277ae94c7e9f1da0904a0140b278f20 and ordinary proof. One serial execution owner remains required. This owner's source publication needs a separate fresh named grant; consumed upstream grants and planning/status markers supply no deployment or live authority.
 
 **Coordinator:** [Stage 11](../../../kinet/docs/stage11.md#post-acceptance-remediation--2026-10-08). Exact accepted/published successor revisions remain unset until independently observed; downstream adoption requires them. Installed M44 and independent browser/media/Phase A/legacy/frozen-consumer pins remain unchanged. Stage 12 remains provisional.
 
@@ -280,7 +280,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | Pending; review 0/10; accepted/published UWS:M09/APItools:M83 prerequisites |
+| M99 | Stage 11 public decoder and review contract remediation | [status-M99.md](status-M99.md) | In implementation; M99.1 complete; review 0/10 |
 
 ## Requested Changes After Initialization
 
@@ -553,3 +553,11 @@ Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M
 **Downstream.** Kinet:M49 public author and separate private exec consumers, exact package/source verification, corrected worker closures and successor bundle. Browser/legacy/frozen consumers keep their existing independently fetchable pins.
 **Tasks.** 3 pending task/commit units in status-M99.md: M99.1 Apply typed Unicode alias checks without rejecting free-form maps; M99.2 Preserve indeterminate symbolic security in review-only packages; M99.3 Qualify the corrected public SDK and source handoff.
 **Review/authority.** Review 0/10, not started; persist the normal counter only during later execution. Publication is an external prerequisite requiring fresh named authority and independent resolution. Planning grants no code execution, commit, publication, deployment or goal launch.
+
+M99.3 exact-prerequisite qualification also reconciles the SDK expression-contract
+adapter to accepted M09 output owner/context semantics. Missing step outputs must
+not borrow operation declarations; active $outputs follows its actual owner.
+Preserve the original large-minimum path as indeterminate and prove exact-number
+propagation with a correctly owned finite-witness chain, native execution and
+missing/future output/parent-constraint refusal. The status retains evidence and
+existing task count; no UWS semantic change or frozen-history rewrite follows.

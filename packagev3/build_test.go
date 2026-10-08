@@ -84,6 +84,21 @@ func TestBuildExactReviewedBytesAndIndependentSnapshot(t *testing.T) {
 		t.Fatal("non-deterministic package")
 	}
 }
+
+func TestBuildAndVerifyPreserveCaseDistinctDataKeys(t *testing.T) {
+	o := buildOptions()
+	o.DataJSON = []byte(`{"id":9007199254740993,"ID":9007199254740995,"nested":{"scope":1,"ſcope":2}}`)
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(p.Files[packagev3.DataPath], o.DataJSON) {
+		t.Fatal("data bytes changed")
+	}
+	if _, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files}); err != nil {
+		t.Fatal(err)
+	}
+}
 func TestBuildAssessmentKeepsConcreteMismatchPendingAndUnknown(t *testing.T) {
 	cases := []struct{ name, yaml, outcome, code string }{
 		{"literal mismatch", strings.Replace(yamlFixture, "n: 9007199254740993", "n: 9007199254740992", 1), "incompatible", "binding.literal_schema_mismatch"},
