@@ -1,7 +1,7 @@
 # A31 — Transition cleanup
 
 **Stage:** Kinet STG-11, Phase B. **Owner:** OpenUdon.
-**State:** Approved planning on 2026-10-06; all three task rows complete; final whole review pending.
+**State:** Accepted all three task rows after whole review2; reconciliation complete, retirement pending.
 **Source baseline:** `7cd7fbb837fb87e1ca4abea2a362790b0f434188` (clean at planning).
 **Coordinator:** [Stage 11 contract](../../../kinet/docs/stage11.md); the package-local milestone/status owns acceptance.
 
@@ -37,11 +37,11 @@ Consume OpenUdon:M98’s narrowed public surface and P09’s v3 APIs; retained b
 
 ## Persisted review
 
-- Review iteration: **1/10**; pre-publication whole review passed, closing review pending.
-- Closing-review findings: pre-publication review1 finds no open P1/P2; final publication/closing gate pending.
-- Accepted revision: not available.
-- Published revision / artifact evidence: not available.
-- Verification: pending implementation; no test result is claimed by this planning record.
+- Review iteration: **2/10**; final whole review passed.
+- Closing-review findings: complete pre-publication/closing reviews1/2 find no open P1/P2.
+- Accepted revision: `39f4bfdfd830a6497f163336fe34e6b82f475c5e` clean qualified source; cleanup code `5a3bba865452da78f0ca64322116386b21c7a50a`.
+- Published revision / artifact evidence: independently observed origin/main `05f4aa010080213dda8a002c86f11d720f7fffb7`; docs/a31-publication.md and docs/a31-clean-build.json.
+- Verification: all required owner/public/trust-wire/browser compatibility/consumer checks pass; exact clean binary reproduction and source publication observed. Optional unchanged checker diagnostics are recorded honestly.
 
 After all tasks finish, perform the whole-milestone review with persisted iteration/finding state and fix every P1/P2 before acceptance. Resume an interrupted pass at the same counter. Consolidate current facts, reconcile downstream work and retire under this package’s normal procedure.
 
@@ -225,3 +225,29 @@ CLI/runner61282 pass; current exact Kinet public/private nested consumers pass.
 Complete Stage12 retained/deletion checklist and narrowed M98/P09 contract handoff
 are concrete; no deferred package removal delivered or consumer pin changed.
 All three task units complete; final whole review2 must pass before closure.
+
+
+## Whole review2 closing started — 2026-10-08
+
+Persisted before full review after all three task units, qualification and
+independently observed source publication. Review complete inventory/removal/
+public/private/CLI/browser/HCL/consumer/pin and Stage12 gates plus actual clean
+source artifact, remote ancestry and honest optional static debt scope. No
+external operation authorized beyond source envelope. Interrupted review resumes2.
+
+
+## Whole review2 pass and acceptance — 2026-10-08
+
+Full inventory/removal/command/transitive/private/public/browser/HCL/consumer
+review plus clean reproduced artifact and exact normal remote source ancestry
+passes; no open P1/P2, no acceptance exception. Public/wire/schema/go.mod/go.sum
+Git bytes unchanged; only one unused unexported helper removed. Stage12 remaining
+consumer/replacement/deletion gates explicit; no blocked package removal claimed.
+Required final owner vet/make/check-doc82148 passes, prior fresh public/browser
+fixtures/races and current exact Kinet nested consumer evidence remain valid.
+Optional static diagnostics all pre-existing byte-unchanged and not a claimed
+zero gate; no waiver invented. Qualified source39f4bfdfd830a6497f163336fe34e6b82f475c5e
+is on independently observed05f4aa010080213dda8a002c86f11d720f7fffb7.
+Current contracts/lessons consolidate and M48 exact sources/publication/retained
+removal gates reconcile before retirement. No new evolution direction, worker
+pin, browser runtime, host deployment or live authority.

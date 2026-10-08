@@ -8,7 +8,7 @@ No dependency, fixture/schema/wire, frozen consumer or worker pin changes.
 
 Accepted prerequisite: Kinet U14 qualifiedbd5b6b8281288aa50f0ceb5e0e6c55e0b1fc2ac9,
 retirement08065c3587c8209c5cd92983d4d9c07b008e5fdd, whole review2. Current
-OpenUdon code5a3bba865452da78f0ca64322116386b21c7a50a is the cleanup candidate.
+OpenUdon code5a3bba865452da78f0ca64322116386b21c7a50a is the qualified cleanup code.
 P09 public SDK a6a3ef010fe27f277f8191204c1c81ea1cc0334b and all selected modules
 remain unchanged; source publication cannot implicitly repin Kinet workers.
 
@@ -33,6 +33,6 @@ production/test/command consumer and public/qualified-browser deletion gate.
 
 A31.3 named source publication is normal fast-forward origin/main only to
  git@github.com-tabilet:OpenUdon/openudon.git, with [skip ci] to avoid website
-workflow. Pre-publication review and required checks must pass first; independent
-ls-remote/fetch/ancestry verification follows. Publication does not deploy any
-website/host or grant execution. Closing review/retirement stay required.
+workflow. Pre-publication review1 and closing review2 pass; independent remote
+ls-remote/fetch/ancestry observes05f4aa010080213dda8a002c86f11d720f7fffb7. Publication does not deploy any
+website/host or grant execution. Closing review2 passes; normal validated retirement follows.

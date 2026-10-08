@@ -2,7 +2,7 @@
 
 ## Stage 11 active horizon
 
-Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. P09 is accepted after closing review 4 at qualified/public a6a3ef010fe27f277f8191204c1c81ea1cc0334b; Kinet U14 is accepted/retired review2; all A31 task rows complete, closing review pending, review0/10. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
+Approved 2026-10-06: both phases of [Kinet STG-11](../../../kinet/docs/stage11.md), with one serial execution owner across Kinet, UWS, APItools, Udon and OpenUdon. P09 is accepted after closing review 4 at qualified/public a6a3ef010fe27f277f8191204c1c81ea1cc0334b; Kinet U14 is accepted/retired review2; A31 accepted review2, retirement pending. M98 is accepted/retired after review 3 at qualified 08a3839f357ec40c7e50c8668e4bd7c8d86bb55a; its exact source/module publication and ordinary consumer proof passed. The history index preserves its complete record. [Specifications](#stage-11-cross-package-refactoring) below are the current horizon. Earlier completed horizons and records remain historical; planning grants no implementation or external authority.
 
 ## Stage 9 approved work — 2026-10-05
 
@@ -232,7 +232,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- The earlier horizon is complete; Stage 11 M98 is accepted; P09 is accepted after closing review 4; A31 remains pending. M95 is accepted/published
+- The earlier horizon is complete; Stage 11 M98 is accepted; P09 is accepted after closing review 4; A31 is accepted review2 with retirement pending. M95 is accepted/published
   and retired; final Kinet M20/W8M W29 adoption remains in their own ledgers.
   APItools M81/M80, Udon M45 and Authoring M29 stay accepted prerequisites.
 
@@ -269,7 +269,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| A31 | Transition cleanup | [status-A31.md](status-A31.md) | all A31 task rows complete, closing review pending; review0/10 |
+| A31 | Transition cleanup | [status-A31.md](status-A31.md) | accepted review2, retirement pending |
 
 ## Requested Changes After Initialization
 
@@ -534,7 +534,7 @@ One execution owner, serial execution and task commits under the later confirmed
 **Verification.** go test ./...; go vet ./...; make check; API/import-boundary and trust-wire fixtures; affected exact-pin consumer checks; git diff --check. Use owner-required offline browser smoke/qualification only for affected retained browser paths.
 Use only disposable roots and fixtures. Preserve published schemas/wires, historic evidence, current runtime capability restrictions and the installed M44 service. Changed v3/package/worker identities require fresh approval; they do not preserve old grants.
 **Downstream.** [Kinet:M48](../../../kinet/tabilet/memory-bank/status-M48.md). Reconcile exact accepted/publication revisions before advancing.
-**Tasks/review.** [status-A31.md](status-A31.md), all A31 task rows complete, closing review pending; review0/10 not started. Full owner/public/transitive inventory and current consumer evidence are recorded there; acceptance/publication remain pending.
+**Tasks/review.** [status-A31.md](status-A31.md), A31 accepted review2, retirement pending; review2 passed. Full owner/public/transitive inventory and exact source publication are recorded there; accepted, retirement pending.
 
 ## Stage 11 candidate dispositions
 

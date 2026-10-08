@@ -22,4 +22,5 @@ CLI/browser/HCL consumers and frozen Ramen/W8M/browser contracts remain. Precise
 Stage12 deletion gates in [transition inventory](a31-transition-cleanup.md) and
 [complete machine graph](a31-consumer-inventory.json) are handed to Kinet M48.
 Required owner/public/consumer fixtures and pre-publication whole review1 pass;
-final whole review2/normal retirement remain required before accepted handoff.
+final whole review2 passes; normal retirement closure publication is recorded
+separately before Kinet M48 adoption.

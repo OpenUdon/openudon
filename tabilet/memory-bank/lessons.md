@@ -283,3 +283,12 @@ qualifies neutral v2/v3 history, exact source/plan/authority/approval checks and
 ordinary published public/private consumers; Kinet still owns actual worker
 isolation and current host grant custody. See [contract](../../docs/package-v3.md),
 [publication](../../docs/p09-publication.md) and [P09](../docs/history/status-P09.md).
+
+
+Before retiring legacy adapters, inventory every production/test/command and
+transitive consumer, not only the newly replaced product entrypoint. Browser
+qualification and independently callable CLI/eval/package paths can retain a
+shared private adapter after primary adoption. Remove only proved dead private
+symbols, and hand off exact remaining owner/replacement/deletion gates without
+claiming deferred removals delivered. Evidence: A31 full73-package/353-public
+inventory, one unexported helper removal and whole reviews1/2.

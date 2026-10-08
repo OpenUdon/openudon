@@ -1251,3 +1251,12 @@ No module pin or private executor import changes. Private transport/config and
 executor snapshots stay in the private run staging; no credentials enter portable
 artifacts. Exact qualification/source publication and closing review are recorded
 in [M97 history](../docs/history/status-M97.md).
+
+
+A31 qualified source39f4bfdfd830a6497f163336fe34e6b82f475c5e builds with exact
+Go1.26.6/GOWORK/GOPROXYoff/CGO0, no replacements and unchanged module locks.
+Repeated CLI29d0e70a and runnerd99adb4d full hashes in docs/a31-clean-build.json;
+source publication05f4aa010080213dda8a002c86f11d720f7fffb7 independently observed.
+Public P09 SDK and all Kinet/browser/frozen consumer pins stay unchanged.
+A31 reviews1/2 pass required owner/public/consumer gates; optional unchanged
+checker debt remains recorded, no whole-owner zero-static assertion.
