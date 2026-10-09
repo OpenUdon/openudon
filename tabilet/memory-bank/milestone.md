@@ -1,5 +1,71 @@
 # Milestone
 
+## Stage 12 approved planning — 2026-10-09
+
+**Approved reconciliation.** Stage 12 planning review, 2026-10-09; source priority
+not supplied. Review baseline/current revalidation `477bf1a53591da70c98979a7a351db4fafac0ff9`,
+including uncommitted Stage 12 planning files. F01/F02 are locally P1; F03–F09
+are P2 (F03 partially confirmed, all others confirmed). F02 (P1, runtime owner Udon:M53) strengthens independent P10.4 browser evidence verification.
+Owner status notes retain evidence and lineage. Intake starts no review iteration.
+The coordinator now has 19 milestones / 84 pending rows (13/62 required, 6/22
+conditional). Accepted local Kinet commits satisfy Kinet prerequisites; siblings
+require exact acceptance and independently verified publication. Publication
+grants remain ungranted launch prerequisites; no implementation is authorized.
+
+Kinet R65 approved STG-12, browser profiles and legacy cleanup, as planning on
+2026-10-09. OpenUdon owns two required units:
+
+- **[P10](status-P10.md)** — Package v3 browser supplement.
+- **[A32](status-A32.md)** — Legacy closure removal. It follows Kinet:M53's
+  retirement of the pinned browser path.
+
+No row has started. The M lane is full at M99, so new work uses the P and A
+lanes. The shared contract is the [Stage 12 coordinator](../../../kinet/docs/stage12.md).
+Planning grants no implementation, commit, publication or live authority.
+
+**Historical Stage 11 context.** Stage 11 entries below retain their recorded
+acceptance and order. Their references to provisional Stage 12 or no remaining
+task describe those checkpoints. Current Stage 12 planning is above and in its
+owner specifications; consumed Stage 11 grants do not carry forward.
+
+## Stage 12 parallel dispatch policy
+
+Approved Stage 12 parallel execution review, 2026-10-09; source priorities and
+separate review baseline not supplied. Revalidation uses this package's unchanged
+full baseline recorded above and includes uncommitted planning files. F01/F04
+are local P2 workflow prerequisites; F02/F03/F05 are Lower scheduling findings
+required by the owner-selected optimization. F03 is partially confirmed and
+resolved by the selected early contract freeze; other findings are confirmed
+(F05 conditional on existing operational authority). Intake starts no review.
+
+One coordinator controls the integrated ledgers and serialized integration/closure.
+The approved future launch uses `STATUS_PRIORITY`, `PARALLELISM: 3`,
+`INTEGRATION: local-rebase-ff` and `COMMIT_POLICY: task`; these planning records
+launch nothing. At most one live milestone per package and one in-progress row
+per isolated lease. The nine eligible milestones are Kinet:A16, UWS:C10,
+Browserdriver:M16, Browsertools:M33, OpenUdon:P10, Udon:M53, OpenUdon:A32,
+Kinet:M54 and Udon:M54. All others remain sequential. Every dispatch checks
+actual closure, publication where required, triggers and bidirectional contract/
+write conflicts; priority positions and different repositories alone prove no
+safety. Child scopes exclude shared memory, other statuses and launch input.
+
+M51 freezes native-owner-reviewed report/host interfaces and conformance fixtures
+before producers begin. P10 and Udon:M53 then implement independently; Udon
+has no OpenUdon import. Their former sequencing/impact edge is replaced by
+sibling compatibility verification at M56/M52, with both true producer inputs
+retained. A32 and authorized Kinet:M54/Udon:M54 may overlap; C11 still joins
+accepted/published A32 and Udon:M54 after clean authorized inventory.
+
+Consumer checks read immutable exact snapshots, never another live checkout.
+Shared-memory updates and combined integration checks are coordinator-only and
+serialized. Leases rebase and re-verify the captured integration ref; affected
+contracts require re-review without counter reset. A blocked lease retains its
+branch/status and blocks dependents only; contract drift pauses affected leases.
+Source publication remains separately named and ungranted. Audit stays disabled.
+Kinet's adopted goal governs this cross-package run; sibling standalone protocols
+and the serial Python API controller remain unchanged.
+
+
 ## Stage 11 post-acceptance remediation — 2026-10-08
 
 The user approved the complete reconciliation proposal and its planning-file application. Five new package-local milestones / 28 task rows restore accepted supported contracts. Original Stage 11 acceptance and all completed records remain frozen; this intake starts no closing review.
@@ -280,6 +346,8 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| P10 | Package v3 browser supplement | [status-P10.md](status-P10.md) | Pending (STG-12) |
+| A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12) |
 
 ## Requested Changes After Initialization
 
@@ -539,3 +607,129 @@ One execution owner, serial execution and task commits under the later confirmed
 ## Stage 11 candidate dispositions
 
 Consumer-owned non-browser drafting is promoted through Kinet W18 and OpenUdon M98/P09/A31. Browser-dependent retirement goes to Stage 12. Live-read tiers, browser snapshot semantics, real-provider evidence and the frozen Ramen/Authoring catch-up remain deferred.
+
+## Stage 12 browser profiles and legacy cleanup
+
+**Approved source.** User-approved complete STG-12 proposal, 2026-10-09 (Kinet
+R65). Source baseline `477bf1a53591da70c98979a7a351db4fafac0ff9`, clean.
+[Coordinated contract](../../../kinet/docs/stage12.md) defines the order,
+triggers, compatibility and acceptance. The request authorizes planning files
+only.
+
+**Execution rules.** One coordinator, scoped eligible leases and serialized integration, with commit policy
+from the later confirmed goal. Source publication requires separately named
+authority. Consumers record exact accepted local Kinet prerequisites and accepted,
+independently published sibling prerequisites before adoption.
+
+### P10 — Package v3 browser supplement
+
+**Stage/owner.** STG-12 Phase A; OpenUdon. Dispatch priority position 6/19.
+
+**Dependencies.** The Kinet:M51 contract; published UWS:C10 and Browsertools:M33;
+accepted P09.
+
+**Scope.**
+
+- A versioned browser supplement admitting browser sources and leaves, with
+  shapes reproduced through Browsertools.
+- A public browser verification and transaction subset with no retained-set
+  imports.
+- Browser approval and Authority covering actions, origins, side effects,
+  confirmation policy, credential slots and session permission.
+- Browser run evidence independently preserves possible effects after typed
+  errors/extraction failure/lost response/cancellation/crash. Uncertainty forbids
+  retry/continuation; positive non-dispatch proof cannot transfer authority.
+
+**Acceptance.** Browser packages yield exact Authority; tampering refuses;
+non-browser identities are unchanged; there is no Udon import.
+
+**Downstream.** Udon:M53, Kinet:M56, Kinet:W20, Kinet:M52 and A32.
+
+**Tasks/review.** [status-P10.md](status-P10.md), 5 rows, review 0/10.
+
+**Depends on.** Kinet:M51, UWS:C10, Browsertools:M33. All required prerequisites must have
+accepted closure at exact revisions; sibling producer adoption also needs
+independently verified publication. A priority position never supplies authority.
+
+**Downstream impacts.** Kinet:M56, Kinet:W20, Kinet:M52, OpenUdon:A32.
+
+**Write set.** The owning `openudon/` package's implementation, tests, ordinary
+documentation, manifests and qualification outputs only as required by this
+milestone's existing scope, plus `tabilet/memory-bank/status-P10.md` in its
+assigned worktree. Excludes `AGENTS.md`, `tabilet/GOAL.md`, shared memory-bank
+files, other statuses, evolution, stages, history/knowledge, the package audit
+database/sidecars, coordination docs and launch input. The coordinator alone applies shared-memory and closure
+changes serially; no child writes a sibling repository or user ledger.
+
+**Contracts read.** Immutable exact prerequisite artifacts listed above, the
+M51 native-owner-reviewed contract/fixtures when applicable, the assigned
+package baseline and frozen shared-memory/consumer snapshots captured at
+dispatch. Cross-package checks use read-only exact snapshots or approved
+published module inputs, never changing sibling checkouts. Record full source,
+artifact and fixture hashes in the later execution brief; contract drift pauses
+affected leases for coordinator reconciliation. Existing no-workspace/no-directory
+substitution requirements for ordinary published adoption remain in force.
+
+**Parallel-safe.** yes. Eligible only under the explicit Stage 12 lease opt-in, with no dependency path or bidirectional read/write conflict against any running lease.
+At most one live milestone per package. All tests use private lease ports,
+disposable stores/caches/browser profiles and unique output directories.
+
+### A32 — Legacy closure removal
+
+**Stage/owner.** STG-12 Phase B; OpenUdon. Dispatch priority position 14/19.
+
+**Dependencies.** P10, and the accepted Kinet:M53 no-consumer proof.
+
+**Scope.** Refresh the A31 inventory. Then delete:
+
+- the browser authoring and harness packages, except the P10 public subset;
+- the retained set: synthesize, workflowintent, elicitor, projectwizard,
+  udonrunner, trustedrunner;
+- packagepipeline, the legacy authoring packages and the eval packages;
+- `cmd/udon-runner`, the legacy commands and image/runner publication;
+- the legacy HCL adapters.
+
+**Acceptance.**
+
+- An empty legacy closure.
+- Public APIs, wires and history readers unchanged.
+- Frozen W8M/Ramen pins still fetchable.
+- No UWS HCL-input use remains.
+
+**Downstream.** UWS:C11? and Kinet:M55?.
+
+**Tasks/review.** [status-A32.md](status-A32.md), 5 rows, review 0/10.
+
+**Stage 12 candidate dispositions.**
+
+- **Promoted:** browser-dependent retirement, deferred in Stage 11.
+- **Still deferred:** live-read tiers, browser snapshot semantics, real-provider
+  evidence, execution-plan assertion hardening and the frozen Ramen/Authoring
+  catch-up.
+
+**Depends on.** OpenUdon:P10, Kinet:M53. All required prerequisites must have
+accepted closure at exact revisions; sibling producer adoption also needs
+independently verified publication. A priority position never supplies authority.
+
+**Downstream impacts.** UWS:C11?, Kinet:M55?.
+
+**Write set.** The owning `openudon/` package's implementation, tests, ordinary
+documentation, manifests and qualification outputs only as required by this
+milestone's existing scope, plus `tabilet/memory-bank/status-A32.md` in its
+assigned worktree. Excludes `AGENTS.md`, `tabilet/GOAL.md`, shared memory-bank
+files, other statuses, evolution, stages, history/knowledge, the package audit
+database/sidecars, coordination docs and launch input. The coordinator alone applies shared-memory and closure
+changes serially; no child writes a sibling repository or user ledger.
+
+**Contracts read.** Immutable exact prerequisite artifacts listed above, the
+M51 native-owner-reviewed contract/fixtures when applicable, the assigned
+package baseline and frozen shared-memory/consumer snapshots captured at
+dispatch. Cross-package checks use read-only exact snapshots or approved
+published module inputs, never changing sibling checkouts. Record full source,
+artifact and fixture hashes in the later execution brief; contract drift pauses
+affected leases for coordinator reconciliation. Existing no-workspace/no-directory
+substitution requirements for ordinary published adoption remain in force.
+
+**Parallel-safe.** yes. Eligible only under the explicit Stage 12 lease opt-in, with no dependency path or bidirectional read/write conflict against any running lease.
+At most one live milestone per package. All tests use private lease ports,
+disposable stores/caches/browser profiles and unique output directories.
