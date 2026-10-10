@@ -97,9 +97,11 @@ func Decode(data []byte, out any) error {
 	if len(data) > MaxBytes {
 		return ErrContract
 	}
-	if _, err := CanonicalJSON(data); err != nil {
+	canonical, err := CanonicalJSON(data)
+	if err != nil {
 		return ErrContract
 	}
+	data = canonical
 	if wire.DecodeStrictNumbers(data, out) != nil || closedShape(data, reflect.TypeOf(out)) != nil {
 		return ErrContract
 	}

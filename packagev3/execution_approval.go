@@ -46,6 +46,9 @@ func CheckExecutionApproval(ctx context.Context, verified VerifiedPackage, optio
 	}
 	hasHTTP, hasFunctions := false, false
 	for _, op := range plan.Operations {
+		if op.Kind == "browser" {
+			return ErrPackage
+		}
 		hasHTTP = hasHTTP || op.Kind == "http"
 		hasFunctions = hasFunctions || op.Kind == "fnct"
 	}

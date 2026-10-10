@@ -65,3 +65,30 @@ bytes never proves an actual capture or supplies new host authority. Kinet's
 capture adapter uses the public receipt verifier before adopting an issued
 capture. No raw private envelope, live browser state, credential or model input
 is promoted into the public verification subset.
+
+## Browser approval and Authority
+
+The additive `openudon.browser-approval.v1` receipt is sandbox-only, independent
+of existing approval v1/v2. It binds the complete browser plan/calls, owner,
+agent, attempt, source/package/input/supplement identities, worker/driver,
+original deadline, exact origins, symbolic credential revisions and the single
+optional durable-session permission. `ReviewBrowserConfig` constructs only
+review metadata; Kinet still renders and confirms its exact bytes.
+
+Construction is acyclic: finalize the exact human receipt without an enclosing
+Config/Authority hash, obtain independent host facts, construct Config with the
+receipt byte hash, then compute its complete lossless canonical hash and
+Authority. `DeriveBrowserAuthority` requires a verified package, native runtime
+admission, independently expected current Config, exact finalized receipt,
+separately confirmed plan hash and explicit host time. It reproduces every
+browser call and refuses changed bytes/identities, expired deadlines, stale
+sessions and widened origins/credentials/reuse/save permissions. Existing
+`CheckExecutionApproval` refuses any browser leaf; old approvals never transfer.
+
+Config contains names/revisions and opaque independent host references only.
+It carries no executable paths/arguments, environment names, credentials,
+registration snapshots, private value hashes or storage state. One optional
+session binding and at most one candidate-producing authentication save
+permission are supported. Other fresh named contexts remain allowed. Current
+policy, actual closure provenance, durable claims, credentials/session
+revocation and browser interaction authority remain separate host obligations.

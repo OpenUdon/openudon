@@ -1,0 +1,342 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "owner_id",
+    "agent_id",
+    "run_id",
+    "package_sha256",
+    "handoff_sha256",
+    "inputs_sha256",
+    "approval_sha256",
+    "plan_sha256",
+    "workflow_sha256",
+    "supplement_sha256",
+    "worker",
+    "driver_closure_sha256",
+    "launch_nonce",
+    "containment_lease_id",
+    "admitted_deadline",
+    "origins",
+    "approved_calls",
+    "credential_revisions",
+    "host_fact_refs"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.browser-config.v1"
+    },
+    "owner_id": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "agent_id": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "run_id": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "handoff_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "approval_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "workflow_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "supplement_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "binary_sha256",
+        "closure_sha256",
+        "runtime_revision"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "binary_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "closure_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "runtime_revision": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "driver_closure_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "launch_nonce": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "containment_lease_id": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "admitted_deadline": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "origins": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 2048
+      }
+    },
+    "approved_calls": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "operation_id",
+          "invocation_id",
+          "kind",
+          "source_id",
+          "source_sha256",
+          "profile_version",
+          "selector",
+          "selected_sha256",
+          "outer_protocol",
+          "origins",
+          "effects",
+          "credential_slots",
+          "reuse_allowed",
+          "save_allowed"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "operation_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "invocation_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "profile_version": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "selector": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "value",
+              "key"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "value": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 2048
+              }
+            }
+          },
+          "selected_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "outer_protocol": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "inner_protocol": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "origins": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          },
+          "effects": {},
+          "confirmation_policy_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "credential_slots": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "slot",
+                "name"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 2048
+                }
+              }
+            }
+          },
+          "authentication_source_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "session_name": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "registration_input_binding": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "reuse_allowed": {
+            "type": "boolean"
+          },
+          "save_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "credential_revisions": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "revision"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "binding_sha256",
+        "generation",
+        "created_at",
+        "expires_at",
+        "reuse_allowed",
+        "save_allowed"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "binding_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "expires_at": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "reuse_allowed": {
+          "type": "boolean"
+        },
+        "save_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "host_fact_refs": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 2048
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.browser-config.v1.schema.json",
+  "title": "openudon.browser-config.v1",
+  "description": "Closed metadata only. Independent package/plan/receipt/current host verification is mandatory; no authority is granted."
+}
