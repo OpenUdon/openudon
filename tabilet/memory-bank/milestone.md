@@ -746,3 +746,13 @@ local-only source work grants no publication, browser or live authority.
 ## Accepted UWS:C10 prerequisite — 2026-10-09
 
 Exact public implementation f01a2542410c583d0ea909dadd8f17527cc0d27d resolves as v0.0.0-20261009220914-f01a2542410c, archive h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0= and GoMod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=. Whole review1 and independently fetched closing publication 60e1baa0470cd7dca5d3166d344896bc0689abf7 qualify this input. See [public proof](../../../uws/docs/c10-publication.md). Own adoption, other prerequisites, custody and qualification remain pending; no task/review/pin change. Scoped source-publication authority is separate conversation approval; this record grants none. Audit stays disabled.
+
+## M33 accepted source and next-unit checkpoint — 2026-10-10
+
+Browsertools:M33 is accepted/published at1859f5e34367cb0a3fbc34ddbc2446b59ce3f2bc,
+whole review2, full351-entry independent tree proof. The owning P10 status
+records exact APIs, compatibility and required ordinary module acquisition.
+The human explicitly approved P10/Udon:M53 execution; original dependencies,
+rows and persisted review0 remain unchanged. The final M33 archive/sums remain
+unacquired/unapproved, so adoption/implementation dispatch waits for that input.
+No workspace/directory substitute, browser/live authority or audit activation.

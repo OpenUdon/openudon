@@ -121,3 +121,36 @@ Use the exact source/extraction/identity maps, per-leaf old driver protocols, co
 ## Accepted UWS:C10 prerequisite — 2026-10-09
 
 Exact public implementation f01a2542410c583d0ea909dadd8f17527cc0d27d resolves as v0.0.0-20261009220914-f01a2542410c, archive h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0= and GoMod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=. Whole review1 and independently fetched closing publication 60e1baa0470cd7dca5d3166d344896bc0689abf7 qualify this input. See [public proof](../../../uws/docs/c10-publication.md). Own adoption, other prerequisites, custody and qualification remain pending; no task/review/pin change. Scoped source-publication authority is separate conversation approval; this record grants none. Audit stays disabled.
+
+## Accepted Browsertools:M33 source prerequisite — 2026-10-10
+
+Browsertools:M33 completes four rows and whole review2,0 remainingP1/P2/P3.
+Exact source/evidence/closure1859f5e34367cb0a3fbc34ddbc2446b59ce3f2bc is
+independently published; full351entry tree13dd5ca876591f55154e5723d7e16d43bde260e5
+matches, final receiptSHA25612c8fb83e7f25da5548d14ed66e6bd9a1b870fe37fb7b6c94c59e5eaf1b0227b.
+[Producer closure](../../../browsertools/docs/m33-closure.md) binds whole review2,
+workspace repair, tests/vet/tidy, races, consumers and primary integration.
+Ordinary versionv0.0.0-20261010115646-1859f5e34367 is a source-bound candidate
+only: public ZIP/native sums are not yet acquired or qualified. Root has prepared
+an exact bounded download scope; no directory/workspace replacement supplies
+actual adoption. Owning task rows/review counters remain unchanged.
+
+Public APIs are BuildBrowserShapeTable(context.Context,BrowserShapeOptions) and
+VerifyBrowserShapeTable(context.Context,BrowserShapeOptions,binding.ShapeTable).
+Options contain exact sourceID/URL/content and bounded byte/operation limits;
+complete selected subtrees/numeric lexemes survive independent reproduction.
+Host-neutral authorworker.Launch/registrationauthorworker.Launch and capture-only
+workerhost.RunManaged use Host Launch/Join, exact closure/nonce/origin/original
+admitted deadline and mandatory current-authority/durable-claim sends. Trusted
+host flags/fake witnesses are not actual M56 containment or M52 custody proof.
+Existing Run/CLI/wires and frozen M51 contracts remain unchanged. Native Udon
+host ABI/report-v5 semantics are independently implemented from M51; never copy
+capture semantics as a substitute for native execution evidence.
+
+The human explicitly approved P10 and Udon:M53 as next execution units; they
+remain independent siblings under the original goal. Before ordinary M33 adoption,
+complete the separate exact download/checksum proof. P10 reconciles the stale
+Stage11 pin assertion to current coreC10f01 with retained independent hcl/b099;
+M33's disposable fixture patch349586c3… preserved every behavioral assertion.
+Do not modify retained codec/native Udon formats or claim actual M56/M52
+interoperability from synthetic fixtures. Audit stays disabled.
