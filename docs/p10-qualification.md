@@ -57,3 +57,25 @@ independent exact Git proof, serialized integration, acceptance and closure unde
 the existing scoped human approval. Publication is a required gate; local checks
 and terminal implementation rows do not prove whole acceptance. Child protected
 grants remain empty and audit remains disabled.
+
+The complete first whole review found three P2s and no P1/P3; publication was
+held. All three are repaired, including observed launch nonce/worker/driver
+closure binding, semantic serialization validation and the denied in-flight
+terminal latch. Coordinator-reconciled durable access compares observed exact
+identity/generation/timestamps while permitting narrower approved rights and
+same-binding pre-launch fallback. Positive reuse/narrowing/fallback and adverse
+identity/extra-access controls pass; frozen source bytes and16wire declarations
+remain unchanged. Required full checks, make/race and frozen consumers/closure
+were rerun successfully on the repaired code with exact command/exit receipts.
+
+A later old `/tmp` proof-output quota left an empty full-test log and no exit
+receipt. That run stays unqualified, not passed. New outputs use the assigned
+private disk root, with all earlier proof paths preserved. Shared memory/I/O
+pressure delayed linking; coordinator narrowed subsequent compiles from p2 to p1
+without changing source/tool/module identity. Initial/effective wrapper snapshots
+and corrected effective-flag receipt adjuncts preserve the original metadata.
+The earlier exec module listing's nested Moby metadata error is retained; final
+owner91/author85/exec171listings have zero recursive errors.
+
+Full review2 and actual coordinator publication/proof remain pending; local
+checks and repaired findings do not complete the milestone.

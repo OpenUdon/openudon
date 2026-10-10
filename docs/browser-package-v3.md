@@ -132,3 +132,19 @@ Credential revisions are opaque native symbolic revision IDs, not invented SHA
 fields. An optional session with no reuse/save permission can describe a fresh
 access binding; registration input binding remains optional report metadata,
 while package construction still requires its exact native declaration.
+
+Independent launch witnesses must carry the observed native containment's nonce,
+worker identity/closure and driver closure. Expected Config and opaque fact
+references cannot stand in for these actual facts. Reuse/save additionally need
+an observed exact durable access lease and binding identity/generation/timestamps.
+Observed permissions may narrow approved rights on missing/expired-to-fresh
+fallback; that fallback stays before launch and all dispatch, on the same access
+binding. A narrowed save permission cannot produce a candidate or durable save.
+Fresh-only work may omit acquisition and requires no invented durable lease.
+Actual M56/M52 adapters project native observed facts; the immutable test vectors
+use explicitly labeled fixture-only projections and establish no containment.
+
+The new evidence serializer validates closed Config, observation, timestamps,
+identity and sandbox/dry/native posture before emitting bytes. In-flight denial
+latches terminal uncertainty, so a subsequent success response cannot resurrect
+the denied leaf. Existing completed leaves survive a separate checkpoint failure.

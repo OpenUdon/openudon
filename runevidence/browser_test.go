@@ -100,11 +100,18 @@ func fixtureInputs(c browserReportFixture) (browsercontract.BrowserConfigV1, udo
 	expected := configFromFixture(c.Expected, c.Host.Launch, c.SubmittedRefs)
 	inventory := inventoryFromFixture(c.Expected)
 	host := runevidence.BrowserHostWitnesses{Config: configFromFixture(c.Host.Binding, c.Host.Launch, c.SubmittedRefs), Inventory: inventoryFromFixture(c.Host.Binding), FactRefs: c.SubmittedRefs, Launch: c.Host.Launch, Join: c.Host.Join, Trace: c.Trace, SavePermission: c.Host.Save, DurableBindingCount: 0}
+	// The frozen launch vector lacks real closure/nonce projections. Supply
+	// explicit FIXTURE-ONLY observed identities independently from Config;
+	// production adapters must project the actual native containment instead.
+	host.Launch.LaunchNonce = c.Host.Launch.LeaseID
+	host.Launch.Worker = browsercontract.BrowserWorkerV1{Profile: "fixture.exec.browser.v1", BinarySHA256: browsercontract.SHA256([]byte("FIXTURE-only-worker")), ClosureSHA256: browsercontract.SHA256([]byte("FIXTURE-only-worker-closure")), RuntimeRevision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	host.Launch.DriverClosureSHA256 = browsercontract.SHA256([]byte("FIXTURE-only-driver"))
 	if c.Host.CredentialSlots != nil {
 		host.CredentialLease = &runevidence.BrowserCredentialLeaseWitness{Slots: c.Host.CredentialSlots, Revisions: c.Host.CredentialRevisions}
 	}
 	if c.Host.Binding.Session != nil {
 		host.DurableBindingCount = 1
+		host.SessionAccess = &runevidence.BrowserSessionAccessWitness{LeaseID: c.Host.Join.SessionAccessLeaseID, Outcome: "fresh", Session: *c.Host.Binding.Session}
 	}
 	if c.DurableCount != nil {
 		host.DurableBindingCount = *c.DurableCount
@@ -643,5 +650,240 @@ func TestBrowserSuppliedContinuationAnswerIdentityMustMatchCurrentQuestion(t *te
 				}
 			}
 		})
+	}
+}
+
+func TestBrowserObservedLaunchNonceAndClosureCannotFollowExpectedMetadata(t *testing.T) {
+	c, i, report, host := validBrowserReportInputs(t)
+	for name, mutate := range map[string]func(*runevidence.BrowserHostWitnesses){
+		"nonce":          func(h *runevidence.BrowserHostWitnesses) { h.Launch.LaunchNonce = "foreign" },
+		"worker profile": func(h *runevidence.BrowserHostWitnesses) { h.Launch.Worker.Profile = "foreign" },
+		"worker binary": func(h *runevidence.BrowserHostWitnesses) {
+			h.Launch.Worker.BinarySHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"worker closure": func(h *runevidence.BrowserHostWitnesses) {
+			h.Launch.Worker.ClosureSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"runtime revision": func(h *runevidence.BrowserHostWitnesses) {
+			h.Launch.Worker.RuntimeRevision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		},
+		"driver closure": func(h *runevidence.BrowserHostWitnesses) {
+			h.Launch.DriverClosureSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := host
+			mutate(&copy)
+			if _, err := runevidence.ObserveBrowserReport(c, i, report, copy); err == nil {
+				t.Fatal("foreign actual launch accepted")
+			}
+		})
+	}
+	c.LaunchNonce = "foreign-requested-nonce"
+	host.Config.LaunchNonce = c.LaunchNonce
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, host); err == nil {
+		t.Fatal("expected metadata replaced independent launch facts")
+	}
+}
+
+func TestBrowserDurableAccessIsObservedAndAcquirePrecedesLaunch(t *testing.T) {
+	var fixture browserReportFixture
+	for _, c := range browserReportFixtures(t) {
+		if c.Name == "joined-durable-session-save" {
+			fixture = c
+		}
+	}
+	c, i, host := fixtureInputs(fixture)
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, host); err != nil {
+		t.Fatal("positive observed access", err)
+	}
+	for name, mutate := range map[string]func(*runevidence.BrowserHostWitnesses){
+		"missing": func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess = nil },
+		"lease":   func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.LeaseID = "foreign" },
+		"binding": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Session.BindingSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"generation":         func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Session.Generation++ },
+		"name":               func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Session.Name = "foreign" },
+		"creation":           func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Session.CreatedAt = "2026-10-09T00:01:00Z" },
+		"permission":         func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Session.SaveAllowed = false },
+		"refused":            func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Outcome = "refused" },
+		"no durable binding": func(h *runevidence.BrowserHostWitnesses) { h.DurableBindingCount = 0 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := host
+			access := *host.SessionAccess
+			copy.SessionAccess = &access
+			mutate(&copy)
+			if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, copy); err == nil {
+				t.Fatal("unproved durable access accepted")
+			}
+		})
+	}
+	copy := host
+	copy.Trace = append([]runevidence.BrowserTraceEvent{}, host.Trace...)
+	copy.Trace[0], copy.Trace[1] = copy.Trace[1], copy.Trace[0]
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, copy); err == nil {
+		t.Fatal("Acquire after Launch accepted")
+	}
+	copy = host
+	copy.Trace = append([]runevidence.BrowserTraceEvent{host.Trace[0]}, host.Trace...)
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, copy); err == nil {
+		t.Fatal("extra positive access acquisition accepted")
+	}
+	// A current host may narrow the unchanged approved save permission during
+	// missing/expired -> fresh. No candidate or durable save may then occur.
+	for _, outcome := range []string{"missing", "expired"} {
+		t.Run("narrowed "+outcome+" to fresh", func(t *testing.T) {
+			copy := host
+			access := *host.SessionAccess
+			access.Session.SaveAllowed = false
+			copy.SessionAccess = &access
+			copy.SavePermission = nil
+			before := host.Trace[0]
+			before.Outcome = outcome
+			copy.Trace = []runevidence.BrowserTraceEvent{before}
+			for _, e := range host.Trace {
+				if e.Event != "candidate" && e.Event != "generation_recheck" && e.Event != "session_save" {
+					copy.Trace = append(copy.Trace, e)
+				}
+			}
+			if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, copy); err != nil {
+				t.Fatal("positive permission narrowing/fallback refused", err)
+			}
+		})
+	}
+	fresh, inventory, report, freshHost := validBrowserReportInputs(t)
+	freshHost.SessionAccess = nil
+	if _, err := runevidence.ObserveBrowserReport(fresh, inventory, report, freshHost); err != nil {
+		t.Fatal("fresh-only access made mandatory", err)
+	}
+	freshHost.Trace = append([]runevidence.BrowserTraceEvent{}, freshHost.Trace...)
+	freshHost.Trace[0].Outcome = "expired"
+	if _, err := runevidence.ObserveBrowserReport(fresh, inventory, report, freshHost); err == nil {
+		t.Fatal("unresolved expired acquisition reached Launch")
+	}
+}
+
+func TestBrowserDeniedInflightLeafCannotUpgradeToSuccess(t *testing.T) {
+	var fixture browserReportFixture
+	for _, c := range browserReportFixtures(t) {
+		if c.Name == "claimed-push-continuation" {
+			fixture = c
+		}
+	}
+	c, i, host := fixtureInputs(fixture)
+	trace := []runevidence.BrowserTraceEvent{}
+	var initial runevidence.BrowserTraceEvent
+	for _, e := range host.Trace {
+		if e.Event == "send" && e.Outcome == "authentication" {
+			initial = e
+		}
+		if e.Event == "authority_recheck" || (e.Event == "claim_dispatch" || e.Event == "send") && e.Outcome == "mfa_push" {
+			continue
+		}
+		if e.Event == "interact" {
+			e.Outcome = "deny"
+		}
+		if e.Event == "response" {
+			e = initial
+			e.Event, e.Outcome = "response", "success"
+		}
+		trace = append(trace, e)
+	}
+	host.Trace = trace
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, host); err == nil {
+		t.Fatal("denial upgraded unknown in-flight leaf to success")
+	}
+	withoutResponse := []runevidence.BrowserTraceEvent{}
+	for _, e := range trace {
+		if e.Event != "response" {
+			withoutResponse = append(withoutResponse, e)
+		}
+	}
+	host.Trace = withoutResponse
+	var report udonreport.ReportV5
+	json.Unmarshal(fixture.Report, &report)
+	report.Status, report.FinishedAt = "incomplete", ""
+	report.Steps[0].Outcome, report.Steps[0].FinishedAt = "unknown", ""
+	raw, _ := json.Marshal(report)
+	result, err := runevidence.ObserveBrowserReport(c, i, raw, host)
+	if err != nil || result.Observation.Steps[0].Outcome != "unknown" || result.SuccessorEligible {
+		t.Fatal("denied in-flight uncertainty control", err)
+	}
+}
+
+func TestBrowserEvidenceSerializerRejectsPrivateAndUnclosedMetadata(t *testing.T) {
+	c, i, report, host := validBrowserReportInputs(t)
+	result, err := runevidence.ObserveBrowserReport(c, i, report, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := runevidence.BrowserRunEvidenceV1{Version: browsercontract.RunEvidenceVersion, RunID: c.RunID, CreatedAt: "2026-10-09T00:00:03Z", Scope: "workflows/W01-fixture", Tier: "sandbox", ApprovalState: "approved_for_sandbox", Browser: c, Executor: runevidence.BrowserExecutorV1{Invoked: true, Mode: "native", ReportSHA256: browsercontract.SHA256(report), ReportSize: int64(len(report))}, StepExecution: &result.Observation}
+	original, _ := json.Marshal(e)
+	for name, mutate := range map[string]func(*runevidence.BrowserRunEvidenceV1){
+		"private effects": func(e *runevidence.BrowserRunEvidenceV1) {
+			e.Browser.ApprovedCalls[0].Effects = json.RawMessage(`{"private_registration_input":"raw-private-value"}`)
+		},
+		"version":       func(e *runevidence.BrowserRunEvidenceV1) { e.Version = "foreign" },
+		"run":           func(e *runevidence.BrowserRunEvidenceV1) { e.RunID = "foreign" },
+		"scope":         func(e *runevidence.BrowserRunEvidenceV1) { e.Scope = "/private/path" },
+		"time":          func(e *runevidence.BrowserRunEvidenceV1) { e.CreatedAt = "private-value" },
+		"before report": func(e *runevidence.BrowserRunEvidenceV1) { e.CreatedAt = "2026-10-09T00:00:01Z" },
+		"tier":          func(e *runevidence.BrowserRunEvidenceV1) { e.Tier = "production" },
+		"approval":      func(e *runevidence.BrowserRunEvidenceV1) { e.ApprovalState = "unapproved" },
+		"executor":      func(e *runevidence.BrowserRunEvidenceV1) { e.Executor.Mode = "private-value" },
+		"observation":   func(e *runevidence.BrowserRunEvidenceV1) { e.StepExecution.ErrorCode = "private-value" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var copy runevidence.BrowserRunEvidenceV1
+			json.Unmarshal(original, &copy)
+			mutate(&copy)
+			if raw, err := runevidence.MarshalBrowserRunEvidence(copy); err == nil || len(raw) != 0 {
+				t.Fatal("unclosed/private metadata serialized")
+			}
+		})
+	}
+	if _, err := runevidence.MarshalBrowserRunEvidence(e); err != nil {
+		t.Fatal("native positive serializer", err)
+	}
+	dry := udonreport.UnknownV5(i, "dry_run")
+	e.DryRun, e.StepExecution, e.Executor = true, &dry, runevidence.BrowserExecutorV1{Mode: "dry_run"}
+	if _, err := runevidence.MarshalBrowserRunEvidence(e); err != nil {
+		t.Fatal("dry positive serializer", err)
+	}
+}
+
+func TestBrowserObservedReuseAndNarrowedFreshFallback(t *testing.T) {
+	fixture := browserReportFixtures(t)[0]
+	c, i, host := fixtureInputs(fixture)
+	// Explicit revised fixture-only reviewed permission; no actual saved state
+	// or human authority is created by this metadata control.
+	session := *c.Session
+	session.ReuseAllowed = true
+	c.Session = &session
+	c.ApprovedCalls[0].ReuseAllowed = true
+	host.Config = c
+	access := *host.SessionAccess
+	access.Session, access.Outcome = session, "reuse"
+	host.SessionAccess = &access
+	host.Trace = append([]runevidence.BrowserTraceEvent{}, host.Trace...)
+	host.Trace[0].Outcome = "reuse"
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, host); err != nil {
+		t.Fatal("positive observed reuse", err)
+	}
+	bad := host
+	badAccess := access
+	badAccess.Session.ReuseAllowed = false
+	bad.SessionAccess = &badAccess
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, bad); err == nil {
+		t.Fatal("actual reuse without observed reuse permission")
+	}
+	access.Session.ReuseAllowed, access.Outcome = false, "fresh"
+	missing, fresh := host.Trace[0], host.Trace[0]
+	missing.Outcome, fresh.Outcome = "missing", "fresh"
+	host.Trace = append([]runevidence.BrowserTraceEvent{missing, fresh}, host.Trace[1:]...)
+	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, host); err != nil {
+		t.Fatal("narrowed reuse-to-fresh permission", err)
 	}
 }

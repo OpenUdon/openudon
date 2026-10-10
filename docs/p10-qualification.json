@@ -4,9 +4,10 @@
   "dispatch_base": "f9f48a007d721b984bd26358b300cb5748f63754",
   "source_candidate": "Identified by coordinator handoff manifest after this qualification checkpoint is committed; this file does not hash itself.",
   "formal_review": {
-    "counter": 0,
-    "state": "not_started",
-    "whole_acceptance": false
+    "counter": 1,
+    "state": "FAIL_3P2_repairs_verified_next_full_review_pending",
+    "whole_acceptance": false,
+    "coordinator_review1_report_sha256": "98b85e62bff439a7aa4034d8312949c712df664b372b3d105a6b595127c1c108"
   },
   "publication": {
     "performed": false,
@@ -27,83 +28,332 @@
   },
   "checks": [
     {
-      "command": "go mod tidy",
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "test",
+        "./..."
+      ],
       "result": "PASS",
       "exit_code": 0,
       "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/tidy.log",
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/full-test.log",
+        "sha256": "11f3630818dba6ab649501194c0a3ab8b3875ea1e3b0bf33e2893218fead6e26",
+        "bytes": 4929
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/full-test-receipt.json",
+        "sha256": "3b232a068b0caf3012b5036b415a7c42c6e5233e3c27156577f7cba02989c282",
+        "bytes": 1480
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "vet",
+        "./..."
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/full-vet.log",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/full-vet-receipt.json",
+        "sha256": "94b32077ca48241b7c27979a5d9813364bccfc05369e665d2fad6794c74c036a",
+        "bytes": 1479
       }
     },
     {
-      "command": "GOWORK=off go test ./...",
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "mod",
+        "tidy"
+      ],
       "result": "PASS",
       "exit_code": 0,
       "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-test-fixed.log",
-        "sha256": "4413cb866cf8a401baab46b685bce9a7eecf9eede88fdbfcbbbb38d7f1002d3a",
-        "bytes": 4933
-      }
-    },
-    {
-      "command": "GOWORK=off go vet ./...",
-      "result": "PASS",
-      "exit_code": 0,
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-vet-fixed.log",
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/tidy.log",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/tidy-receipt.json",
+        "sha256": "b5f0a527958a92a6a5a18b033ea68c5147c189456aa1c6731f0fded529423b03",
+        "bytes": 1478
       }
     },
     {
-      "command": "go mod verify",
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "mod",
+        "verify"
+      ],
       "result": "PASS",
       "exit_code": 0,
       "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/mod-verify.log",
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/mod-verify.log",
         "sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
         "bytes": 21
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/mod-verify-receipt.json",
+        "sha256": "4d33c57971f09e7d567e9c07e17dfcd222f3420cd7c68450a1a25b46d8ddd678",
+        "bytes": 1480
       }
     },
     {
-      "command": "make check GO=/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/go-check",
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "build",
+        "-o",
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/openudon-check-cli",
+        "./cmd/openudon"
+      ],
       "result": "PASS",
       "exit_code": 0,
       "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/make-check-disk.log",
-        "sha256": "aa7f085f16103df60141f533d3f321cf27df56b5bff245a9034620dd639342ba",
-        "bytes": 5394
-      }
-    },
-    {
-      "command": "go test -race ./packagev3 ./runevidence ./browsertransaction ./browserverify ./approval ./authority ./udonreport",
-      "result": "PASS",
-      "exit_code": 0,
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/focused-race-disk.log",
-        "sha256": "97be410d798ccd4699ad1efcc7bfc4167cd45d7ed68174e756c61e851be63051",
-        "bytes": 373
-      }
-    },
-    {
-      "command": "frozen Kinet author: go build -mod=mod ./...",
-      "result": "PASS",
-      "exit_code": 0,
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-author-build.log",
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/build-check-cli.log",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/build-check-cli-receipt.json",
+        "sha256": "5e2ba4fb3dd1123a1fa3a2ca5106a81907449bcdbf331cfe4b0e98d500b1fad8",
+        "bytes": 1602
       }
     },
     {
-      "command": "frozen Kinet exec: go build -mod=mod ./...",
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "make",
+        "GO=/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/go-check",
+        "check"
+      ],
       "result": "PASS",
       "exit_code": 0,
       "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-exec-build.log",
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/make-check.log",
+        "sha256": "e0a4e42bae2d72cb66e585157e5f157aaafaebfa3346f128e22e2332f291145f",
+        "bytes": 5485
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/make-check-effective-receipt.json",
+        "sha256": "6a1a763cf465735c15da1dcd7c556bd3c76bc97b099b63d51483ba8448005da4",
+        "bytes": 2569
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "test",
+        "-race",
+        "./packagev3",
+        "./runevidence",
+        "./browsertransaction",
+        "./browserverify",
+        "./approval",
+        "./authority",
+        "./udonreport"
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/focused-race.log",
+        "sha256": "1b3f290bde9f5ff6f7255265c62effa6a17097a4725620b41d3dd1294409c0ad",
+        "bytes": 384
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/focused-race-effective-receipt.json",
+        "sha256": "f882fa10bc180a6761fdbd8953fecbf7061fb4b64ccf51a7c69a40b2f15c0547",
+        "bytes": 2524
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "build",
+        "-mod=mod",
+        "./..."
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-build.log",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-build-receipt.json",
+        "sha256": "0397029a0ac2642c20a52fbd733b0fcc5af2f0b9933c4229154dac8bf007fe30",
+        "bytes": 1648
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "build",
+        "-mod=mod",
+        "./..."
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-build-receipt.json",
+        "sha256": "0169d3e6f729b5875779b7fec913a4002fcaee6c5cf79d69f3aeb6e28a67fb59",
+        "bytes": 1646
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-deps",
+        "-json",
+        "./..."
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-packages.json",
+        "sha256": "6a238065446ec26aa9f9da29d1784f796cf048ef2da9c1cc3026801888bb974d",
+        "bytes": 1215711
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-packages-receipt.json",
+        "sha256": "c0db7a92e21fc7c05d927748b3ca776f0bb25ab7a491b1c93aab634a4cf1041b",
+        "bytes": 1657
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-modules.json",
+        "sha256": "d6ec6ef075662d52854b29a2a98fe51932ee949f3c561044a97c4507d488f758",
+        "bytes": 43768
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/author-modules-receipt.json",
+        "sha256": "9d90f616bd2ecb48232cd51ef8dd8439020499e4dfe17915894ee2d80b76c425",
+        "bytes": 1652
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-deps",
+        "-json",
+        "./..."
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-packages.json",
+        "sha256": "32e6f2676c93463ac2f3d16c4a96d3c941201198fafec5ad9384375e5dea6b5c",
+        "bytes": 2056896
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-packages-receipt.json",
+        "sha256": "92a542f05b2c78f35c7984d187af42f300896299b3bcbdfa61ec7b880c2d6b09",
+        "bytes": 1655
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-modules.json",
+        "sha256": "dc5edf3103e067d8d6564fba495b91754b7887905887ccde81bd15b5bc7c1af3",
+        "bytes": 83428
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/exec-modules-receipt.json",
+        "sha256": "80eea28f39dfeaf9324fe1fda0e8c0581264bca8684b816b22704b09552a5ba4",
+        "bytes": 1650
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-deps",
+        "-json",
+        "./approval",
+        "./authority",
+        "./packagev3",
+        "./runevidence",
+        "./browsercontract",
+        "./browsertransaction",
+        "./browserverify"
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/owner-public-packages.json",
+        "sha256": "f8245cd55bb63977fd66d5f80db649d795a0fe253f3ef74e9af87bec57e7a311",
+        "bytes": 1087295
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/owner-public-packages-receipt.json",
+        "sha256": "77212f637c4b813b2b970d49d833a9d77a2982e0c509fdd10d4fce9da78a05d1",
+        "bytes": 1736
+      }
+    },
+    {
+      "command": [
+        "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/owner-modules.json",
+        "sha256": "36ec0eaa2447a2c50dff11bec17881fe804f91bc4c2980c5d836d6b4d3f77be2",
+        "bytes": 42727
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/owner-modules-receipt.json",
+        "sha256": "f55ecbe49a0b4f1d9ffced73b93d3c44591e3d4b1bc674ef714e58112ea09461",
+        "bytes": 1591
       }
     }
   ],
@@ -116,6 +366,142 @@
     "additive P10 public API guard and meaningful exact retained b099 codec fixture"
   ],
   "proofs": [
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/closure-consumer-wire.json",
+      "sha256": "7ec9a516d80e952c90c0b1ebd9ef391cce6513db29d03163aab68df7b123755d",
+      "bytes": 7316
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/tools.json",
+      "sha256": "533718a7d6079c5198e378ecabf609556f89ad6b1a0acccefbaa7a7c61291dde",
+      "bytes": 387
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/compiler-concurrency-change.json",
+      "sha256": "081987fc544826f6d82789573d226952c78a2548d438fa1ffb65ae5cbc9e9006",
+      "bytes": 793
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/offline-p2.snapshot",
+      "sha256": "612ac8435d06044d9464675b48ab867ccf786a6a59d4de1520f472a61f814336",
+      "bytes": 588
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/offline-p1.snapshot",
+      "sha256": "f8dd6a0722e7135fdf1044e272db79d207bd89a1a2f8c8c8922e5b8ac846c667",
+      "bytes": 588
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/go-check",
+      "sha256": "545ab33baf8d39684ec0528666ce925ce47ec164359f392a76f9a8702aa13834",
+      "bytes": 380
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/openudon-check-cli",
+      "sha256": "c7efd4342c2e038d16c3c25f9e1c5aa211249440c67be7ed34e7d69f43ba61e7",
+      "bytes": 50623763
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/make-check-receipt.json",
+      "sha256": "6df90630f9206fa9e23ec6c4cf1709590a011bfdb0ae2c9ff874cd6fd0398bc7",
+      "bytes": 2024
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/focused-race-receipt.json",
+      "sha256": "8b81308fb88a501dcae1fe910d9e5bf6bc0ab07d102613f5f801dc0597a99dfc",
+      "bytes": 2087
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/output-fsync-probe.bin",
+      "sha256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+      "bytes": 65536
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/consumers/copy-manifest.json",
+      "sha256": "e31a7c6a834a989fc500ec90eb7d4b9a5831dd957b6307612ba092989a79d56f",
+      "bytes": 12299
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/P10/docs/p10-public-surface.json",
+      "sha256": "4bbd915b6b3240d43b75448c9eb552cdc4ebdb8b01849d6449be5c700a689b6c",
+      "bytes": 45493
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/P10/packagev3/testdata/browser/manifest.json",
+      "sha256": "ee562ed610bed94b7da65c41bffd6211469096ddbb904ea067095807dffda5fd",
+      "bytes": 7061
+    }
+  ],
+  "ordinary_producers": {
+    "browsertools": {
+      "version": "v0.0.0-20261010115646-1859f5e34367",
+      "source": "1859f5e34367cb0a3fbc34ddbc2446b59ce3f2bc",
+      "zip_sha256": "c3234a3d63fa624bef8e571ca042324548a7dea1cdea2955473ad1b93621b946",
+      "sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk=",
+      "go_mod_sum": "h1:XWKEmtkaiTWi/xQiI0RA6Y7LpwvGI8dRq5KkT57y8FI="
+    },
+    "uws": {
+      "version": "v0.0.0-20261009220914-f01a2542410c",
+      "source": "f01a2542410c583d0ea909dadd8f17527cc0d27d",
+      "sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0=",
+      "go_mod_sum": "h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw="
+    },
+    "uws_hcl": {
+      "version": "v0.0.0-20261008043726-b099f6803277",
+      "source": "b099f6803277ae94c7e9f1da0904a0140b278f20",
+      "role": "retained independent codec; meaningful immutable P09 fixture test only"
+    }
+  },
+  "frozen_m51_manifest_sha256": "0c445a5c90d2c09be561e713c364747f4ab9a3698ea8ab46e7b7b774ccf16bad",
+  "frozen_consumer_revision": "09834b632c713a514b084491804745416cc02f65",
+  "fixture_wiring": {
+    "make_check": "Only exact run ./cmd/openudon check executes freshly repaired lease-built CLI from immutable frozen sibling cwd. All other commands run in actual lease; initial p2 then narrowed p1 recorded.",
+    "consumer_overlay": "72 immutable09834b6 worker input files verified/copied to new private disk fixtures; only local SDK overlay in disposable go.mod files. No actual ordinary SDK adoption. Original native runtime/Docker-to-Moby replacement/pins preserved, zero recursive metadata errors."
+  },
+  "failed_attempts_preserved": [
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-test.log",
+        "sha256": "6d8fba9a2ca1cdad5fd7cd5961fecbed9263ada662fe9d6937c8f19920bdaaf4",
+        "bytes": 5152
+      }
+    },
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/make-check.log",
+        "sha256": "dbdf166bb9e63f562845c237ed80c048ededa92c9d6a75de2b86b70fea604660",
+        "bytes": 5992
+      }
+    },
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/focused-race.log",
+        "sha256": "02ddc6e0126516844611f2bb82cbfdca10157f27e865a21d762dad61577c74ea",
+        "bytes": 514
+      }
+    }
+  ],
+  "prior_progress": {
+    "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/qualification-progress.json",
+    "sha256": "5ee58679fada77d6afc4b35d0752cb46e1b420ee2f5ec68a6663d6145f5f24e5",
+    "bytes": 2621
+  },
+  "limits": [
+    "Fixture metadata conformance only; no actual browser/process/model/provider action or new source retrieval.",
+    "Actual producer containment/custody interoperability is later Kinet:M56/M52.",
+    "Required coordinator source publication, independently verified Git proof, whole acceptance and serialized integration/closure remain pending."
+  ],
+  "supersedes": {
+    "source": "de2e405e488e3c90e2cc1c29d99b9901cce90f07",
+    "qualification_sha256": "2c3986bc45dfe161880a4bcfe0a9438aa6d0b7b543c8f18e95cb2b4b09ea603a",
+    "meaning": "Pre-whole-review local qualification; immutable Git source and all old proof outputs remain preserved."
+  },
+  "proof_output_root": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1",
+  "compiler_flags": "Initial corrected full checks p2; in-flight make starts p2 and later nested calls p1 at recorded wrapper transition. Race and final consumer/closure calls p1. Compiler/tool/module identity unchanged.",
+  "prior_proofs_preserved": [
     {
       "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/closure-wire-proof.json",
       "sha256": "4b1b73cfeb94db98eb13552dee0c1bc9499ba6c52a37dd90ecc71008d9466ca8",
@@ -182,66 +568,25 @@
       "bytes": 7061
     }
   ],
-  "ordinary_producers": {
-    "browsertools": {
-      "version": "v0.0.0-20261010115646-1859f5e34367",
-      "source": "1859f5e34367cb0a3fbc34ddbc2446b59ce3f2bc",
-      "zip_sha256": "c3234a3d63fa624bef8e571ca042324548a7dea1cdea2955473ad1b93621b946",
-      "sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk=",
-      "go_mod_sum": "h1:XWKEmtkaiTWi/xQiI0RA6Y7LpwvGI8dRq5KkT57y8FI="
-    },
-    "uws": {
-      "version": "v0.0.0-20261009220914-f01a2542410c",
-      "source": "f01a2542410c583d0ea909dadd8f17527cc0d27d",
-      "sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0=",
-      "go_mod_sum": "h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw="
-    },
-    "uws_hcl": {
-      "version": "v0.0.0-20261008043726-b099f6803277",
-      "source": "b099f6803277ae94c7e9f1da0904a0140b278f20",
-      "role": "retained independent codec; meaningful immutable P09 fixture test only"
-    }
-  },
-  "frozen_m51_manifest_sha256": "0c445a5c90d2c09be561e713c364747f4ab9a3698ea8ab46e7b7b774ccf16bad",
-  "frozen_consumer_revision": "09834b632c713a514b084491804745416cc02f65",
-  "fixture_wiring": {
-    "make_check": "Only exact run ./cmd/openudon check executes the actual lease-built CLI from immutable frozen sibling fixture cwd; all other commands execute in the actual lease. No production CLI changes.",
-    "consumer_overlay": "Private copied frozen consumer go.mod files overlay only this unpublished local SDK for compatibility. Original pins remain frozen; this is not ordinary producer adoption. Separate exec retains its existing Docker-to-Moby module version replacement."
-  },
-  "failed_attempts_preserved": [
-    {
-      "result": "FAIL",
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-test.log",
-        "sha256": "6d8fba9a2ca1cdad5fd7cd5961fecbed9263ada662fe9d6937c8f19920bdaaf4",
-        "bytes": 5152
-      }
-    },
-    {
-      "result": "FAIL",
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/make-check.log",
-        "sha256": "dbdf166bb9e63f562845c237ed80c048ededa92c9d6a75de2b86b70fea604660",
-        "bytes": 5992
-      }
-    },
-    {
-      "result": "FAIL",
-      "evidence": {
-        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/focused-race.log",
-        "sha256": "02ddc6e0126516844611f2bb82cbfdca10157f27e865a21d762dad61577c74ea",
-        "bytes": 514
-      }
-    }
+  "preparation_and_review_repairs": [
+    "Future-created session current Authority refusal (earlier preparation).",
+    "Terminal typed error/extraction/unknown response cannot upgrade to success (earlier preparation).",
+    "Exact pre-send confirmation and supplied question identity, original per-leaf deadline, positive complete credentials, irreversible checkpoint stop and optional fresh-only access (earlier preparation).",
+    "Review1 actual independent launch nonce/worker/driver closure comparison.",
+    "Review1 semantic closed Config/evidence/observation serializer and verifier validation before RawMessage output.",
+    "Review1 denied in-flight leaf terminal latch; already completed leaf proof preserved across separate checkpoint failure.",
+    "Coordinator actual durable access identity/generation/creation/expiry; rights may narrow on same-binding missing/expired-to-fresh before launch; narrowing forbids save, duplicate/postlaunch/unresolved access refuses.",
+    "Nested Moby replacement metadata proof corrected with exact already-cached artifacts; all final owner/author/exec recursive module listings have zero errors."
   ],
-  "prior_progress": {
-    "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/qualification-progress.json",
-    "sha256": "5ee58679fada77d6afc4b35d0752cb46e1b420ee2f5ec68a6663d6145f5f24e5",
-    "bytes": 2621
-  },
-  "limits": [
-    "Fixture metadata conformance only; no actual browser/process/model/provider action or new source retrieval.",
-    "Actual producer containment/custody interoperability is later Kinet:M56/M52.",
-    "Required coordinator source publication, independently verified Git proof, whole acceptance and serialized integration/closure remain pending."
+  "unqualified_attempts_preserved": [
+    {
+      "result": "UNQUALIFIED",
+      "reason": "Old /tmp output quota prevented exit receipt persistence after full-test invocation; empty log cannot establish Go exit or pass. Outer recorder failed Errno122; no protected/external effect.",
+      "empty_log": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/review1-requalification/full-test.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    }
   ]
 }

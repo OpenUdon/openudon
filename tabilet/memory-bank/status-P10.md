@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 resumed final qualification/publication handoff. Review 0/10.
+**State:** P10.1–4 verified; P10.5 resumed final qualification/publication handoff. Review 1/10 failed; repairs requalified, review2/publication pending.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -108,7 +108,7 @@ status markers grant none; audit stays disabled.
 
 ## Review
 
-Whole-milestone review: 0/10, not started.
+Whole-milestone review: 1/10 FAIL — 3 P2, 0 P1/P3; repairs and subsequent full review pending. Counter never resets.
 
 ## Frozen M51 producer input checkpoint — 2026-10-09
 
@@ -302,3 +302,119 @@ no rebase or history rewrite is needed. This local qualification/source checkpoi
 leaves P10.5 in progress for root-owned source publication and independent proof.
 Formal review stays0/10 until the candidate is frozen and the coordinator is
 notified before reviewer dispatch; no whole acceptance or closure is claimed.
+
+## Whole-milestone review 1 — STARTED
+
+Started2026-10-10 after all required local checks pass. Full reviewed source
+checkpointde2e405e488e3c90e2cc1c29d99b9901cce90f07, tree97e07fc4fe43f078ad55f43f8fb2dac4db4b9061,
+diff baselinef9f48a007d721b984bd26358b300cb5748f63754; captured primary
+`refs/heads/main` is unchanged and clean. Original goal base remains
+c0b0d7aae77a9e68630f9e1d8bfe2a9525a0ddb6. The complete immutable66postimage
+handoff manifestSHA256475b521a254bc6dfb882ef5995e0cab41317bda0ca803f93727cd063c1eb4924
+and actual source diffSHA2563b5097e157d4ff11227139145867696e3b0ffef4cbdf19ed971a055e9d634121
+bind the candidate and all successful evidence. Coordinator notified before
+reviewer dispatch; read-only preparation reviews remain separate historical
+provenance, not earlier closing iterations. This iteration reviews the full
+milestone and any joined read-only coordinator reviews. Required P10.5 source
+publication/independent Git proof remain unperformed; keep this iteration pending
+until those actual actions/evidence are reviewed. No whole acceptance is claimed.
+
+### Review1 own findings persisted before fixes
+
+Full own review checks all five rows against the66postimage immutable candidate,
+complete approved scope and frozen M51 contracts. Two reproduced P2 findings:
+P10-R1-01: Config.LaunchNonce has no independently projected launch nonce/closure
+comparison in the out-of-band public witness; unchanged launch/join/trace accepts
+a changed expected/host Config nonce. This awaits coordinator contract
+reconciliation before an ABI-adjacent fix. P10-R1-02: new run-evidence serializer
+closed-shape decoding alone emits arbitrary private RawMessage Effects instead
+of requiring valid closed Config/evidence metadata. Fix requires semantic
+metadata validation before serialization. Both reproductions use a private test
+overlay without source mutation; evidence at
+`/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/review1-own.json`.
+No other P1/P2/P3 found in this own pass; coordinator fanout/publication evidence
+remain pending. Root notified to hold candidate publication. Findings/counter
+are persisted before fixes; iteration1 does not pass or reset.
+
+Review1 qualification correction: recursive audit found a nested Moby replacement
+metadata error in the earlier171-module frozen exec listing despite its actual
+consumer build passing. The coordinator supplied the exact already-cached four
+Moby artifacts to the private cache (receiptSHA25601917b09651b94461be13209757a3be0983adf90c42bbca114e606b2d46958a0).
+Refreshed exec listing has171modules/zero recursive metadata errors, command
+receiptSHA256ec98d54b312b17dee712cf690466636058ebe95906a313c2e613689971f36b61.
+Old incomplete listing/proof stay unchanged; new files are
+`consumer-exec-modules-fixed.json`, `consumer-proof-fixed.json` and the exact
+command receipt under the private p10-proof directory. No source/runtime/pin
+change, network retrieval or new authority. Final qualification must use the
+corrected listing/proof while retaining the earlier evidence's limitation.
+
+Joined coordinator review1 confirms additional P2 P10-R1-03: denied in-flight
+authentication can still consume a matching initial response:success after
+Interact:deny because stopped is not a per-leaf terminal latch. Reproduction
+retains claimed-push initial authenticate claim/send/question, denies, omits
+recheck/continuation sends and supplies original initial success response plus
+success report. Repair must latch denied unknown in-flight leaf as terminal
+uncertainty, refuse later response upgrade, and preserve already completed
+leaf proof before a later checkpoint failure. Coordinator full review continues;
+collect remaining findings before applying this same iteration1 repair set.
+Publication remains held; counter never resets.
+
+### Review1 complete — FAIL,3P2/0P1/P3
+
+Joined coordinator full-scope review completes at reportSHA256
+98b85e62bff439a7aa4034d8312949c712df664b372b3d105a6b595127c1c108
+(`/dev/shm/kinet-stage12-leases-f8qot0xc/resources/coordinator/p10-formal-review1-de2e405e488e/review-result.json`).
+All63live postimages/3moved-deleted paths/25proof artifacts and20unchanged
+goldens verified. Exactly P10-R1-01 launch nonce/closure binding, P10-R1-02
+serializer semantic validation and P10-R1-03 denied in-flight success upgrade
+remain open P2s. The separate nested Moby proof limitation is repaired, with
+zero recursive errors and original evidence retained. Findings persisted before
+repairs. Coordinator confirms fixes stay inside approved P10 and preserve all16
+frozen public wire declarations/native ABI. Actual launch witness fields must
+project observed native containment, never copy expected Config as proof.
+Native session Acquire precedes Launch; retain same-binding expired→fresh before
+launch, optional fresh-only profiles may omit Acquire, and reuse/save must bind
+positive exact observed durable access. No new mandatory fresh lease.
+Publication remains held; after repairs and verification start full review2
+without resetting this counter or treating local rows as acceptance.
+
+Review1 authorized repairs implemented. Actual value-free launch witness nonce/
+worker/driver closure now match Config independently. Durable reuse/save require
+positive observed exact access identity/generation/creation/expiry; observed
+permissions may narrow approved rights, including same-binding missing/expired
+to fresh before Launch. Narrowed save forbids candidate/save. Fresh-only work
+requires no durable lease, and extra or post-launch acquisition refuses. The new
+serializer/verifier share semantic closed metadata validation before emitting
+RawMessage fields. Denial latches the in-flight unknown leaf terminal while
+already completed checkpoint outcomes stay known. All34 frozen cases and new
+nonce/worker/driver, access/fallback/narrowing/extra-access, denial and serializer
+positive/adverse focused controls pass. Frozen source bytes and16public wire
+declarations remain unchanged; current additive API guard reflects out-of-band
+witness fields only. Required requalification and full review2 remain pending.
+
+Review1 requalification output interruption: the old `/tmp` proof directory
+hit Errno122 disk quota when persisting the first full-test command receipt.
+Its redirected log is empty and process exit receipt unavailable, so that
+invocation is unqualified/unknown, never a pass. New disk compiler isolation
+is unchanged and healthy. Preserve those earlier paths and put only new proof/
+log/receipt outputs under assigned isolated disk verification root
+`/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review1/`.
+No source/module/proof deletion or external action; repeat the incomplete
+qualification there before review2.
+
+## Review1 repairs fully requalified
+
+All required corrected full tests, vet, tidy, modverify, makecheck and focused
+races pass with complete disk command/exit receipts. Fresh frozen72source-file
+author/exec fixtures compile successfully, retain exact original inputs/pins
+with only explicit local SDK compatibility overlays, and have zero recursive
+metadata errors (author85/exec171). Owner closure remains373public packages/
+91modules with no retained/private import or directory/workspace replacement;
+20legacy wires/goldens and all16frozen public declarations are unchanged.
+Private disk proof root and effective p2-to-p1 concurrency transition are bound
+in [qualification](../../docs/p10-qualification.json); original receipts and
+unqualified/failed old attempts stay preserved. Captured OpenUdon primary
+refs/heads/main is clean and stillf9f48a007d721b984bd26358b300cb5748f63754.
+All three review1 P2 repairs and coordinator access reconciliation are ready
+for next full review. No publication, whole acceptance or closure is claimed;
+P10.5 stays in progress and counter1 never resets.

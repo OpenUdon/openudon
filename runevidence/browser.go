@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/OpenUdon/evidence/artifact"
 	"github.com/OpenUdon/openudon/browsercontract"
 	"github.com/OpenUdon/openudon/udonreport"
 )
@@ -18,11 +19,14 @@ type BrowserExecutorV1 = browsercontract.BrowserExecutorV1
 // from the submitted evidence/report. Booleans here do not attest an actual
 // browser/container: the consumer must establish their origin and current scope.
 type BrowserLaunchWitness struct {
-	LeaseID            string   `json:"lease_id"`
-	ContainmentLeaseID string   `json:"containment_lease_id"`
-	AllTraffic         bool     `json:"all_traffic"`
-	Sandbox            bool     `json:"sandbox"`
-	Origins            []string `json:"origins"`
+	LeaseID             string                          `json:"lease_id"`
+	LaunchNonce         string                          `json:"launch_nonce"`
+	Worker              browsercontract.BrowserWorkerV1 `json:"worker"`
+	DriverClosureSHA256 string                          `json:"driver_closure_sha256"`
+	ContainmentLeaseID  string                          `json:"containment_lease_id"`
+	AllTraffic          bool                            `json:"all_traffic"`
+	Sandbox             bool                            `json:"sandbox"`
+	Origins             []string                        `json:"origins"`
 }
 type BrowserJoinWitness struct {
 	LaunchLeaseID        string `json:"launch_lease_id"`
@@ -77,8 +81,17 @@ type BrowserCredentialLeaseWitness struct {
 	Revisions []browsercontract.CredentialRevision
 }
 
+// SessionAccess is observed native access metadata, not the requested Config.
+// Fresh-only executions need no durable access witness or host acquisition.
+type BrowserSessionAccessWitness struct {
+	LeaseID string
+	Outcome string
+	Session browsercontract.BrowserSessionV1
+}
+
 type BrowserHostWitnesses struct {
 	CredentialLease     *BrowserCredentialLeaseWitness
+	SessionAccess       *BrowserSessionAccessWitness
 	Config              BrowserConfigV1
 	Inventory           udonreport.InventoryV5
 	FactRefs            []string
@@ -145,7 +158,11 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			return fail()
 		}
 	}
-	if !host.Launch.AllTraffic || !host.Launch.Sandbox || !browsercontract.Identifier(host.Launch.LeaseID) || host.Launch.ContainmentLeaseID != expected.ContainmentLeaseID || !reflect.DeepEqual(host.Launch.Origins, expected.Origins) || !joined(host.Join, host.Launch, expected.Session != nil && (expected.Session.ReuseAllowed || expected.Session.SaveAllowed)) {
+	requiresAccess := expected.Session != nil && (expected.Session.ReuseAllowed || expected.Session.SaveAllowed)
+	if !host.Launch.AllTraffic || !host.Launch.Sandbox || !browsercontract.Identifier(host.Launch.LeaseID) || host.Launch.LaunchNonce != expected.LaunchNonce || host.Launch.Worker != expected.Worker || host.Launch.DriverClosureSHA256 != expected.DriverClosureSHA256 || host.Launch.ContainmentLeaseID != expected.ContainmentLeaseID || !reflect.DeepEqual(host.Launch.Origins, expected.Origins) || !joined(host.Join, host.Launch, requiresAccess) {
+		return fail()
+	}
+	if requiresAccess && (host.DurableBindingCount != 1 || !sessionAccessMatches(expected.Session, host.Join.SessionAccessLeaseID, host.SessionAccess)) {
 		return fail()
 	}
 	deadline, _ := time.Parse(time.RFC3339Nano, expected.AdmittedDeadline)
@@ -181,6 +198,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 	questionKind := ""
 	questionLeaf := -1
 	answered, rechecked := false, false
+	acquired := ""
 	for _, e := range host.Trace {
 		if e.RunID != expected.RunID || e.PlanSHA256 != expected.PlanSHA256 {
 			return fail()
@@ -214,7 +232,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 		}
 		switch e.Event {
 		case "session_acquire":
-			if anySent || joinDone {
+			if expected.Session == nil || launchDone || anySent || joinDone || acquired != "" && !((acquired == "missing" || acquired == "expired") && e.Outcome == "fresh") {
 				return fail()
 			}
 			switch e.Outcome {
@@ -226,8 +244,9 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			default:
 				return fail()
 			}
+			acquired = e.Outcome
 		case "launch":
-			if launchDone || joinDone || !credentialsLeased || e.Outcome != "contained" {
+			if launchDone || joinDone || !credentialsLeased || e.Outcome != "contained" || acquired != "" && acquired != "fresh" && acquired != "reuse" || requiresAccess && acquired != host.SessionAccess.Outcome {
 				return fail()
 			}
 			launchDone = true
@@ -288,6 +307,9 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			answered = e.Outcome != "deny"
 			if e.Outcome == "deny" {
 				stopped = true
+				if sent[index] && outcomes[index] == "unknown" {
+					terminal[index] = true
+				}
 			}
 		case "authority_recheck":
 			if question == nil || !answered || questionLeaf != index || e.Outcome != "current" || joinDone || stopped || e.Question != nil && !sameCanonical(question, e.Question) || questionKind == "runtime_confirmation" && !sameCanonical(question, e.Question) {
@@ -403,7 +425,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			}
 			closedRegistration[index] = true
 		case "candidate":
-			if call.Kind != "authentication" || !call.SaveAllowed || outcomes[index] != "succeeded" || candidate || joinDone || e.Outcome != "staged-before-close" {
+			if call.Kind != "authentication" || !call.SaveAllowed || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || outcomes[index] != "succeeded" || candidate || joinDone || e.Outcome != "staged-before-close" {
 				return fail()
 			}
 			candidate = true
@@ -420,7 +442,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 		case "session_save":
 			p := host.SavePermission
 			s := expected.Session
-			if !joinDone || !candidate || !generationCurrent || saveDone || p == nil || s == nil || !p.OneUse || !p.SaveAllowed || !browsercontract.Identifier(p.PermissionID) || p.SessionName != s.Name || p.BindingSHA256 != s.BindingSHA256 || p.Generation != s.Generation || p.AuthenticateOperationID != call.OperationID || !call.SaveAllowed || e.Outcome != "encrypted-accepted" {
+			if !joinDone || !candidate || !generationCurrent || saveDone || p == nil || s == nil || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || !p.OneUse || !p.SaveAllowed || !browsercontract.Identifier(p.PermissionID) || p.SessionName != s.Name || p.BindingSHA256 != s.BindingSHA256 || p.Generation != s.Generation || p.AuthenticateOperationID != call.OperationID || !call.SaveAllowed || e.Outcome != "encrypted-accepted" {
 				return fail()
 			}
 			saveDone = true
@@ -480,7 +502,7 @@ func VerifyBrowserRunEvidence(data []byte, o BrowserVerifyOptions) (BrowserRunEv
 		return BrowserRunEvidenceV1{}, r, e
 	}
 	var e BrowserRunEvidenceV1
-	if o.Inventory.Validate() != nil || o.Inventory.RunID != o.ExpectedConfig.RunID || o.Inventory.WorkflowDigest != "sha256:"+o.ExpectedConfig.WorkflowSHA256 || len(o.Inventory.Steps) != len(o.ExpectedConfig.ApprovedCalls) || browsercontract.Decode(data, &e) != nil || e.Version != browsercontract.RunEvidenceVersion || e.RunID != o.ExpectedConfig.RunID || e.Scope != o.Scope || e.Tier != "sandbox" || e.ApprovalState != "approved_for_sandbox" || e.DryRun != o.DryRun || o.Authority.Validate() != nil || !sameCanonical(o.Authority.Config, o.ExpectedConfig) || !sameCanonical(e.Browser, o.ExpectedConfig) || o.ExpectedConfig.Validate() != nil {
+	if o.Inventory.Validate() != nil || o.Inventory.RunID != o.ExpectedConfig.RunID || o.Inventory.WorkflowDigest != "sha256:"+o.ExpectedConfig.WorkflowSHA256 || len(o.Inventory.Steps) != len(o.ExpectedConfig.ApprovedCalls) || browsercontract.Decode(data, &e) != nil || !browserEvidenceMetadataValid(e) || e.RunID != o.ExpectedConfig.RunID || e.Scope != o.Scope || e.DryRun != o.DryRun || o.Authority.Validate() != nil || !sameCanonical(o.Authority.Config, o.ExpectedConfig) || !sameCanonical(e.Browser, o.ExpectedConfig) || o.ExpectedConfig.Validate() != nil {
 		return fail()
 	}
 	for i, c := range o.ExpectedConfig.ApprovedCalls {
@@ -521,6 +543,9 @@ func VerifyBrowserRunEvidence(data []byte, o BrowserVerifyOptions) (BrowserRunEv
 // MarshalBrowserRunEvidence retains only bounded closed metadata. Verification
 // still requires independently expected Config/Authority and host witnesses.
 func MarshalBrowserRunEvidence(e BrowserRunEvidenceV1) ([]byte, error) {
+	if !browserEvidenceMetadataValid(e) {
+		return nil, browsercontract.ErrContract
+	}
 	raw, err := json.Marshal(e)
 	if err != nil || len(raw) > browsercontract.MaxBytes {
 		return nil, browsercontract.ErrContract
@@ -530,6 +555,32 @@ func MarshalBrowserRunEvidence(e BrowserRunEvidenceV1) ([]byte, error) {
 		return nil, browsercontract.ErrContract
 	}
 	return browsercontract.CanonicalJSON(raw)
+}
+
+func browserEvidenceMetadataValid(e BrowserRunEvidenceV1) bool {
+	scope, err := artifact.CleanRelativePath(e.Scope, artifact.Options{})
+	if err != nil || scope != e.Scope || len(scope) > 2048 || e.Version != browsercontract.RunEvidenceVersion || e.Browser.Validate() != nil || e.RunID != e.Browser.RunID || e.Tier != "sandbox" || e.ApprovalState != "approved_for_sandbox" || e.StepExecution == nil || e.StepExecution.Validate() != nil {
+		return false
+	}
+	created, err := time.Parse(time.RFC3339Nano, e.CreatedAt)
+	if err != nil || e.StepExecution.RunID != e.RunID || e.StepExecution.WorkflowDigest != "sha256:"+e.Browser.WorkflowSHA256 || len(e.StepExecution.Steps) != len(e.Browser.ApprovedCalls) {
+		return false
+	}
+	for i, call := range e.Browser.ApprovedCalls {
+		step := e.StepExecution.Steps[i]
+		if step.StepID != call.StepID || step.OperationID != call.OperationID || step.InvocationID != call.InvocationID {
+			return false
+		}
+	}
+	if e.DryRun {
+		return !e.Executor.Invoked && e.Executor.Mode == "dry_run" && e.Executor.ReportSHA256 == "" && e.Executor.ReportSize == 0 && e.StepExecution.State == "dry_run"
+	}
+	last := e.StepExecution.FinishedAt
+	if last == "" {
+		last = e.StepExecution.StartedAt
+	}
+	finished, err := time.Parse(time.RFC3339Nano, last)
+	return err == nil && !created.Before(finished) && e.StepExecution.State == "validated" && e.Executor.Invoked && e.Executor.Mode == "native" && browsercontract.DigestValid(e.Executor.ReportSHA256) && e.Executor.ReportSize > 0 && e.Executor.ReportSize <= browsercontract.MaxBytes
 }
 
 func credentialLeaseMatches(c BrowserConfigV1, w *BrowserCredentialLeaseWitness) bool {
@@ -554,4 +605,18 @@ func credentialLeaseMatches(c BrowserConfigV1, w *BrowserCredentialLeaseWitness)
 		seen[key] = true
 	}
 	return true
+}
+
+func sessionAccessMatches(expected *browsercontract.BrowserSessionV1, lease string, observed *BrowserSessionAccessWitness) bool {
+	if expected == nil || observed == nil || observed.LeaseID != lease || observed.Outcome != "fresh" && observed.Outcome != "reuse" {
+		return false
+	}
+	s := observed.Session
+	if s.ReuseAllowed && !expected.ReuseAllowed || s.SaveAllowed && !expected.SaveAllowed || observed.Outcome == "reuse" && !s.ReuseAllowed {
+		return false
+	}
+	// Observed permissions may narrow approved rights on missing/expired->fresh;
+	// all immutable binding identities and timestamps still match exactly.
+	s.ReuseAllowed, s.SaveAllowed = expected.ReuseAllowed, expected.SaveAllowed
+	return sameCanonical(s, expected)
 }
