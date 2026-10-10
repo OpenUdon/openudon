@@ -75,7 +75,7 @@ SDK version.
 | P10.2 — Public browser verification subset | `[+]` | Promote only the needed `browserverify` / `browsertransaction` behavior to public packages: profile transaction receipts v1–v4 and capture review evidence. Import nothing from synthesize, workflowintent, elicitor, projectwizard, udonrunner or trustedrunner. |
 | P10.3 — Browser approval and Authority | `[+]` | Approval and Authority bind browser actions, origins, side effects, confirmation policy, credential-slot names and saved-session reuse permission. Changed bytes refuse. No value is carried. |
 | P10.4 — Browser run evidence | `[+]` | Independently verify browser reports/run evidence, including `runevidence.BrowserConfig`, against exact action/dispatch identity. A typed error after authentication, registration or action dispatch cannot establish no effect. Preserve unknown after successful write then failed extraction, lost response, cancellation or crash; reject evidence that relabels uncertainty as safe retry or continuation. Positive non-dispatch proof is explicit and cannot transfer old authority. Evidence stays value-free; no private runtime import. Use M51 frozen native-report/interface fixtures for independent implementation beside Udon:M53. Preserve public/private isolation; M56/M52 subsequently prove actual producer interoperability. Contract drift pauses affected leases for coordinator reconciliation. |
-| P10.5 — Qualify and publish | `[~]` | No Udon import; v2 and v3 history readers and existing wires unchanged; consumer builds (Kinet author/exec workers); SDK publication handoff under named authority. |
+| P10.5 — Qualify and publish | `[+]` | No Udon import; v2 and v3 history readers and existing wires unchanged; consumer builds (Kinet author/exec workers); SDK publication handoff under named authority. | Exactsource261563d/tree74f917e/all1676postimages independently published/verified.
 
 ## Acceptance and verification
 
@@ -108,7 +108,7 @@ status markers grant none; audit stays disabled.
 
 ## Review
 
-Whole-milestone review: 4/10 code review PASS — zero P1/P2/P3 remaining; one factual P3 summary hash corrected. Required root publication/acceptance remain pending. Counter never resets.
+Whole-milestone review: 4/10 PASS — zero P1/P2/P3 remaining; one factual P3 corrected and exact source publication verified. Integration/consolidation/reconciliation/retirement remain pending. Counter never resets.
 
 ## Frozen M51 producer input checkpoint — 2026-10-09
 
@@ -698,3 +698,22 @@ ordinarymodule sets/20goldens/frozen types and rawM51 files match. Allthree prio
 P2s and adjacent cross-leaf stop controls pass. Source publication and exact
 independent proof, integration, shared consolidation/reconciliation/retirement
 still prevent whole acceptance; root alone owns them. Audit stays disabled.
+
+### Exact source publication — verified under existing authority
+
+Coordinator origin git@github.com-tabilet:OpenUdon/openudon.git refs/heads/main
+advanced ordinarily from477bf1a to261563d846c755de2188d4f1e228cf1e374d1725
+under unchanged stg12-openudon-p10-push-main/f7 human approval. Its approved
+planning carrier contains only package goal instructions, milestone specification
+and pending P10/A32 planning records; no A32 implementation or unrelated work.
+Fresh independent Git fetch matches tree74f917e337de689206ec1666f74626b063792611
+and all1676postimage bytes. [Publication proof](../../docs/p10-source-publication.json)
+SHA2564801079f6197154354b0809f319b82d816103370c30ecc4c2dce65deb45dbef2
+records terminal positive push/fetch results; no blind retry occurred.
+
+Only qualification/review/status metadata changed after reviewedb75bfed; runtime,
+tests, ABI, schemas, modules and oracles stay qualifieda7185841. Allfive rows and
+whole review4 now pass their publication/verification gates. Serialized local
+integration, consolidation/downstream reconciliation and retirement still gate
+acceptance. No ordinary new self-module, physical browser/custody, deployment or
+live authority is claimed. Audit stays disabled and closure remains root-owned.

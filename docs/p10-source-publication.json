@@ -1,0 +1,26 @@
+{
+  "version": "kinet.stage12-exact-git-publication.v1",
+  "grantID": "stg12-openudon-p10-push-main",
+  "humanApprovalSHA256": "f7f453d1ca3fe94068475b3f440aea89c5178f054640ac0b4aaa67c18836f75a",
+  "remote": "git@github.com-tabilet:OpenUdon/openudon.git",
+  "ref": "refs/heads/main",
+  "source": "261563d846c755de2188d4f1e228cf1e374d1725",
+  "tree": "74f917e337de689206ec1666f74626b063792611",
+  "fileCount": 1676,
+  "pushReceiptSHA256": "4b8c1f4d5e64e1665daed18499109bd38bac9f6eedb7959ea732328408f6bcd3",
+  "fetchLogSHA256": "5e8bd61c893ffb6a7facbac5872523c07f0f3a039fa3b05cec52b1b2782b47ca",
+  "scope": "Exact Git source publication only; ordinary new Go module adoption/local integration/acceptance not claimed",
+  "auditEnabled": false,
+  "proofPath": "/home/peter/Workspace/kinet.goal/stage12-coordinator/openudon-p10-source-publication-261563d/publication-proof.json",
+  "proofSHA256": "4801079f6197154354b0809f319b82d816103370c30ecc4c2dce65deb45dbef2",
+  "qualifiedImplementation": "a71858413147616d464bfd4ddc028fe10561881d",
+  "wholeReview": {
+    "iteration": 4,
+    "P1": 0,
+    "P2": 0,
+    "P3Remaining": 0
+  },
+  "ordinaryNewModuleAdoption": false,
+  "localIntegration": false,
+  "milestoneAcceptance": false
+}
