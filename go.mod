@@ -6,9 +6,9 @@ require (
 	github.com/OpenUdon/apitools v0.0.0-20261008061439-f2c5693ec39a
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260930234600-18056cb6b0c1
-	github.com/OpenUdon/browsertools v0.0.0-20260925161530-3abe70efc03d
+	github.com/OpenUdon/browsertools v0.0.0-20261010115646-1859f5e34367
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
-	github.com/OpenUdon/uws v0.0.0-20261008043726-b099f6803277
+	github.com/OpenUdon/uws v0.0.0-20261009220914-f01a2542410c
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mxschmitt/playwright-go v0.6201.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2

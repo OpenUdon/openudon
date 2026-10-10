@@ -1,4 +1,4 @@
-// Package packagev3 owns explicit-byte non-browser workflow packages. Record
+// Package packagev3 owns explicit-byte workflow packages and the versioned browser supplement. Record
 // validation proves structure/identity only, never source semantics or authority.
 package packagev3
 
@@ -42,13 +42,15 @@ type Source struct {
 	Artifact Artifact `json:"artifact"`
 }
 type Manifest struct {
-	Version      string   `json:"version"`
-	Scope        string   `json:"scope"`
-	Workflow     Artifact `json:"workflow"`
-	Data         Artifact `json:"data"`
-	Shapes       Artifact `json:"shapes"`
-	ShapeVersion string   `json:"shape_version"`
-	Sources      []Source `json:"sources"`
+	Version        string     `json:"version"`
+	Scope          string     `json:"scope"`
+	Workflow       Artifact   `json:"workflow"`
+	Data           Artifact   `json:"data"`
+	Shapes         Artifact   `json:"shapes"`
+	ShapeVersion   string     `json:"shape_version"`
+	Sources        []Source   `json:"sources"`
+	Browser        *Artifact  `json:"browser,omitempty"`
+	BrowserReviews []Artifact `json:"browser_reviews,omitempty"`
 }
 type Handoff struct {
 	Version          string     `json:"version"`
@@ -97,7 +99,7 @@ func scopeValid(scope string) bool {
 }
 func kindValid(kind string) bool {
 	switch kind {
-	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", RuntimeSourceKind:
+	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", RuntimeSourceKind, "browser-profile":
 		return true
 	}
 	return false
@@ -108,6 +110,7 @@ func (m Manifest) Validate() error {
 		return ErrRecord
 	}
 	apiSources, runtimeSources := 0, 0
+	browserSources := 0
 	ids := map[string]bool{}
 	paths := map[string]bool{WorkflowPath: true, DataPath: true, ShapesPath: true, ManifestPath: true, AssessmentPath: true, HandoffPath: true}
 	for _, source := range m.Sources {
@@ -120,6 +123,9 @@ func (m Manifest) Validate() error {
 				return ErrRecord
 			}
 		} else {
+			if source.Kind == "browser-profile" {
+				browserSources++
+			}
 			apiSources++
 		}
 		if apiSources > MaxAPISources || runtimeSources > 1 {
@@ -127,6 +133,23 @@ func (m Manifest) Validate() error {
 		}
 		ids[source.ID] = true
 		paths[source.Artifact.Path] = true
+	}
+	if (browserSources > 0) != (m.Browser != nil) || m.Browser == nil && m.BrowserReviews != nil {
+		return ErrRecord
+	}
+	if m.Browser != nil {
+		if m.Browser.Path != BrowserPath || !m.Browser.Valid() || paths[m.Browser.Path] || len(m.BrowserReviews) > 128 {
+			return ErrRecord
+		}
+		paths[m.Browser.Path] = true
+		previous := ""
+		for _, a := range m.BrowserReviews {
+			if !a.Valid() || paths[a.Path] || a.Path <= previous || !strings.HasPrefix(a.Path, "expected/browser-review/") {
+				return ErrRecord
+			}
+			paths[a.Path] = true
+			previous = a.Path
+		}
 	}
 	return nil
 }
@@ -140,6 +163,10 @@ func (m Manifest) InputArtifacts() ([]Artifact, error) {
 	files := []Artifact{m.Workflow, m.Data, m.Shapes}
 	for _, s := range m.Sources {
 		files = append(files, s.Artifact)
+	}
+	if m.Browser != nil {
+		files = append(files, *m.Browser)
+		files = append(files, m.BrowserReviews...)
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil
@@ -253,14 +280,24 @@ func recordShape(data []byte, t reflect.Type) error {
 	switch t.Kind() {
 	case reflect.Struct:
 		var object map[string]json.RawMessage
-		if json.Unmarshal(data, &object) != nil || object == nil || len(object) != t.NumField() {
+		if json.Unmarshal(data, &object) != nil || object == nil {
 			return ErrRecord
 		}
+		allowed := map[string]bool{}
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
 			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			allowed[name] = true
 			value, ok := object[name]
+			if !ok && strings.Contains(field.Tag.Get("json"), ",omitempty") {
+				continue
+			}
 			if !ok || recordShape(value, field.Type) != nil {
+				return ErrRecord
+			}
+		}
+		for name := range object {
+			if !allowed[name] {
 				return ErrRecord
 			}
 		}

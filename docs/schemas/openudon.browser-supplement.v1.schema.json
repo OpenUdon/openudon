@@ -1,0 +1,230 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "workflow_sha256",
+    "sources",
+    "calls",
+    "review_artifacts"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.browser-supplement.v1"
+    },
+    "workflow_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "artifact",
+          "profile_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 2048
+              }
+            }
+          },
+          "profile_version": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "calls": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "operation_id",
+          "invocation_id",
+          "kind",
+          "source_id",
+          "source_sha256",
+          "profile_version",
+          "selector",
+          "selected_sha256",
+          "outer_protocol",
+          "origins",
+          "effects",
+          "credential_slots",
+          "reuse_allowed",
+          "save_allowed"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "operation_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "invocation_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "profile_version": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "selector": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "value",
+              "key"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "value": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 2048
+              }
+            }
+          },
+          "selected_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "outer_protocol": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "inner_protocol": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "origins": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          },
+          "effects": {},
+          "confirmation_policy_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "credential_slots": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "slot",
+                "name"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 2048
+                }
+              }
+            }
+          },
+          "authentication_source_id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "session_name": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "registration_input_binding": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "reuse_allowed": {
+            "type": "boolean"
+          },
+          "save_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "review_artifacts": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.browser-supplement.v1.schema.json",
+  "title": "openudon.browser-supplement.v1",
+  "description": "Closed structural record. Independent source and complete ordered inventory verification remain mandatory."
+}

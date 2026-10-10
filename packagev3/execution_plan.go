@@ -62,6 +62,7 @@ type ExecutionOperation struct {
 	ConstraintsSHA256 string           `json:"constraints_sha256"`
 	MetadataComplete  bool             `json:"metadata_complete"`
 	Security          binding.Security `json:"security"`
+	Browser           *BrowserCallV1   `json:"browser,omitempty"`
 }
 
 // ExecutionPlan is exact review metadata for a bounded sequence. Its digest
@@ -161,6 +162,10 @@ func DeriveExecutionPlan(ctx context.Context, verified VerifiedPackage, options 
 	if err != nil {
 		return ExecutionPlan{}, ErrPackage
 	}
+	supplement, err := verified.BrowserSupplement()
+	if err != nil {
+		return ExecutionPlan{}, err
+	}
 	operations := map[string]*uws1.Operation{}
 	rawOperations := map[string]any{}
 	for _, op := range doc.Operations {
@@ -210,7 +215,12 @@ func DeriveExecutionPlan(ctx context.Context, verified VerifiedPackage, options 
 		}
 		leaf := ExecutionOperation{StepID: step.StepID, OperationID: op.OperationID, InvocationID: step.StepID, ConstraintsSHA256: hashBytes(constraints)}
 		var selected binding.Binding
-		if op.HasSourceBinding() {
+		browserCall := findBrowserCall(supplement, op.OperationID)
+		if browserCall != nil {
+			selected = binding.Binding{Source: binding.Source{ID: browserCall.SourceID, Kind: "browser-profile", SHA256: browserCall.SourceSHA256}, SelectorKind: browserCall.Selector.Kind, SelectorValue: browserCall.Selector.Value}
+			leaf.Browser = browserCall
+			needsRuntime = true
+		} else if op.HasSourceBinding() {
 			if len(op.Extensions) != 0 {
 				return ExecutionPlan{}, ErrPackage
 			}
@@ -253,6 +263,8 @@ func DeriveExecutionPlan(ctx context.Context, verified VerifiedPackage, options 
 			if err != nil {
 				return ExecutionPlan{}, err
 			}
+		} else if shape.Protocol == "browser" && browserCall != nil {
+			leaf.Kind = "browser"
 		} else if shape.Protocol == "fnct" && shape.Source.Kind == RuntimeSourceKind {
 			leaf.Kind = "fnct"
 		} else {

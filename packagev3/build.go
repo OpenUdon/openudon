@@ -37,6 +37,7 @@ type BuildOptions struct {
 	Sources         []SourceInput
 	Private         func([]byte) bool
 	RuntimeVerifier RuntimeVerifier
+	Browser         *BrowserBuildOptions
 }
 type Package struct {
 	Manifest   Manifest
@@ -121,6 +122,9 @@ func Build(ctx context.Context, options BuildOptions) (Package, error) {
 		return Package{}, ErrPackage
 	}
 	manifest.Shapes = artifactFor(ShapesPath, files[ShapesPath])
+	if err := addBrowserSupplement(ctx, &manifest, files, table, options.Browser, put); err != nil {
+		return Package{}, err
+	}
 	sort.Slice(manifest.Sources, func(i, j int) bool { return manifest.Sources[i].ID < manifest.Sources[j].ID })
 	bytes, err := manifest.Marshal()
 	if err != nil || put(ManifestPath, bytes) != nil {
@@ -139,6 +143,9 @@ func Build(ctx context.Context, options BuildOptions) (Package, error) {
 		return Package{}, ErrPackage
 	}
 	credentials, err := declaredCredentials(ctx, document, manifest.Sources, table)
+	if err == nil {
+		credentials, err = mergeBrowserCredentials(credentials, files)
+	}
 	if err != nil {
 		return Package{}, err
 	}
@@ -202,6 +209,10 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 	if err := verifyShapes(ctx, manifest.Sources, files, table, verifier); err != nil {
 		return Assessment{}, err
 	}
+	supplement, err := verifyBrowserSupplement(ctx, manifest, files, table)
+	if err != nil {
+		return Assessment{}, err
+	}
 	encoded, err := manifest.Marshal()
 	if err != nil {
 		return Assessment{}, ErrPackage
@@ -247,7 +258,7 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 	}
 	apiCount := 0
 	for _, source := range manifest.Sources {
-		if source.Kind != RuntimeSourceKind {
+		if source.Kind != RuntimeSourceKind && !browserRecipeSource(source, table) {
 			apiCount++
 		}
 	}
@@ -269,6 +280,10 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		scope := contracts.operationScope(op)
 		contracts.checkOutputs(op.Outputs, scope, add)
 		contracts.checkExpressionValues(op.Request, scope, add)
+		browserCall := findBrowserCall(supplement, op.OperationID)
+		if browserCall != nil && browserCall.Kind != "action" {
+			continue
+		}
 		if !op.HasSourceBinding() {
 			add("binding.profile_unproved", "indeterminate")
 			continue
@@ -287,6 +302,9 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		}
 		if op.OpenAPIOperationRef != "" {
 			selectorKind, selector = "ref", op.OpenAPIOperationRef
+		}
+		if browserCall != nil {
+			selectorKind, selector = "id", browserCall.Selector.Value
 		}
 		request := binding.Request{Binding: binding.Binding{Source: binding.Source{ID: source.ID, Kind: source.Kind, SHA256: source.Artifact.SHA256}, SelectorKind: selectorKind, SelectorValue: selector}, ExpressionContext: expressions.Context{Version: doc.UWS}}
 		request.ExpressionTypes = contracts.types(op.Request, scope)
@@ -312,6 +330,12 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 			request.Security, err = symbolicSecurity(resolved.Shape.Security)
 			if err != nil {
 				return Assessment{}, ErrPackage
+			}
+			if browserCall != nil {
+				request.Security = []binding.SecurityBinding{}
+				for _, slot := range browserCall.CredentialSlots {
+					request.Security = append(request.Security, binding.SecurityBinding{Scheme: slot.Slot, CredentialSlot: slot.Name})
+				}
 			}
 			for _, symbolic := range request.Security {
 				if !authority.Identifier(symbolic.CredentialSlot) {

@@ -64,6 +64,9 @@ func Verify(ctx context.Context, options VerifyOptions) (VerifiedPackage, error)
 		return VerifiedPackage{}, ErrPackage
 	}
 	credentials, err := declaredCredentials(ctx, document, manifest.Sources, table)
+	if err == nil {
+		credentials, err = mergeBrowserCredentials(credentials, files)
+	}
 	if err != nil || !reflect.DeepEqual(review.Credentials, credentials) {
 		return VerifiedPackage{}, ErrPackage
 	}

@@ -165,7 +165,8 @@
               "openrpc",
               "grpc-protobuf",
               "odata",
-            "runtime-function"
+              "runtime-function",
+              "browser-profile"
             ]
           },
           "artifact": {
@@ -203,6 +204,83 @@
                 "pattern": "^[0-9a-f]{64}$"
               }
             }
+          }
+        }
+      }
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "allOf": [
+            {
+              "not": {
+                "pattern": "(?i)\\.hcl$"
+              }
+            },
+            {
+              "not": {
+                "pattern": "\\.icot"
+              }
+            },
+            {
+              "not": {
+                "pattern": "^browser[/\\-]"
+              }
+            }
+          ],
+          "const": "expected/browser.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "browser_reviews": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "allOf": [
+              {
+                "not": {
+                  "pattern": "(?i)\\.hcl$"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "\\.icot"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "^browser[/\\-]"
+                }
+              }
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         }
       }

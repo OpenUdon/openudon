@@ -24,6 +24,8 @@ github.com/OpenUdon/browsertools v0.0.0-20260924034226-9333a9f25dbb h1:kC/zy1yp1
 github.com/OpenUdon/browsertools v0.0.0-20260924034226-9333a9f25dbb/go.mod h1:QBW+lMvpa8baS/WZOtVeHth0SmQX2w4BmKKs07oElYk=
 github.com/OpenUdon/browsertools v0.0.0-20260925161530-3abe70efc03d h1:MaR46QbewrQNNN453TIws0A3dZeen9QJwiUVBGehZiA=
 github.com/OpenUdon/browsertools v0.0.0-20260925161530-3abe70efc03d/go.mod h1:SuzJz6mgfuxqOxBt50c6r2Lf+lCQQLq8k0evHM+fF9o=
+github.com/OpenUdon/browsertools v0.0.0-20261010115646-1859f5e34367 h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk=
+github.com/OpenUdon/browsertools v0.0.0-20261010115646-1859f5e34367/go.mod h1:XWKEmtkaiTWi/xQiI0RA6Y7LpwvGI8dRq5KkT57y8FI=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736 h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=
@@ -42,6 +44,8 @@ github.com/OpenUdon/uws v0.0.0-20261006224744-c0b19385a3b0 h1:CXaT3naUUi4hKM4UfE
 github.com/OpenUdon/uws v0.0.0-20261006224744-c0b19385a3b0/go.mod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=
 github.com/OpenUdon/uws v0.0.0-20261008043726-b099f6803277 h1:4xy+/HBNh1CSJDO+qOzWdV/0zC/yFCKAz2kOBWufA7g=
 github.com/OpenUdon/uws v0.0.0-20261008043726-b099f6803277/go.mod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=
+github.com/OpenUdon/uws v0.0.0-20261009220914-f01a2542410c h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0=
+github.com/OpenUdon/uws v0.0.0-20261009220914-f01a2542410c/go.mod h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=
 github.com/OpenUdon/uws/hcl v0.0.0-20261006224744-c0b19385a3b0 h1:v42UQhy/CCLAe2+BKUDQzuofjziBXcDqMJgPIXCvIRM=
 github.com/OpenUdon/uws/hcl v0.0.0-20261006224744-c0b19385a3b0/go.mod h1:0cR/xLzEP8vJ9FAUhsLbaKVkU7UarXPc51nJjEaMP5Q=
 github.com/OpenUdon/uws/hcl v0.0.0-20261008043726-b099f6803277 h1:OJsmDK/RcFpyMAMGy84DjcX6kNalYH/E0Q/C3XwD5Uo=

@@ -77,7 +77,7 @@ func declaredCredentials(ctx context.Context, doc *uws1.Document, sources []Sour
 		if !op.HasSourceBinding() {
 			continue
 		}
-		b, err := operationBinding(op, sources)
+		b, err := browserOperationBinding(op, sources)
 		if err != nil {
 			continue
 		}

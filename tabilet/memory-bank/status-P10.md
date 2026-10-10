@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** Pending. No row has started. Review 0/10.
+**State:** Executing resumed isolated P10 lease. Review 0/10.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -71,7 +71,7 @@ SDK version.
 
 | Item | State | Notes |
 |---|---|---|
-| P10.1 — Versioned browser supplement | `[ ]` | Admit browser-profile, authentication and registration source artifacts and browser leaves in a versioned package v3 browser supplement. Browser shape tables are untrusted until reproduced through the published Browsertools:M33 verifier. Non-browser v3 package, approval and run-evidence identities stay byte-identical. |
+| P10.1 — Versioned browser supplement | `[+]` | Admit browser-profile, authentication and registration source artifacts and browser leaves in a versioned package v3 browser supplement. Browser shape tables are untrusted until reproduced through the published Browsertools:M33 verifier. Non-browser v3 package, approval and run-evidence identities stay byte-identical. |
 | P10.2 — Public browser verification subset | `[ ]` | Promote only the needed `browserverify` / `browsertransaction` behavior to public packages: profile transaction receipts v1–v4 and capture review evidence. Import nothing from synthesize, workflowintent, elicitor, projectwizard, udonrunner or trustedrunner. |
 | P10.3 — Browser approval and Authority | `[ ]` | Approval and Authority bind browser actions, origins, side effects, confirmation policy, credential-slot names and saved-session reuse permission. Changed bytes refuse. No value is carried. |
 | P10.4 — Browser run evidence | `[ ]` | Independently verify browser reports/run evidence, including `runevidence.BrowserConfig`, against exact action/dispatch identity. A typed error after authentication, registration or action dispatch cannot establish no effect. Preserve unknown after successful write then failed extraction, lost response, cancellation or crash; reject evidence that relabels uncertainty as safe retry or continuation. Positive non-dispatch proof is explicit and cannot transfer old authority. Evidence stays value-free; no private runtime import. Use M51 frozen native-report/interface fixtures for independent implementation beside Udon:M53. Preserve public/private isolation; M56/M52 subsequently prove actual producer interoperability. Contract drift pauses affected leases for coordinator reconciliation. |
@@ -169,3 +169,42 @@ This satisfies only the M33 input gate. Owning rows/review0 remain pending until
 lease execution; exactcachedreuse is offline, never new download/browser authority.
 P10 and M53 remain independently implementable from frozen M51 inputs.
 Audit stays disabled.
+
+## P10 execution lease — 2026-10-10
+
+Governing Kinet `tabilet/GOAL.md` SHA256 `cad15b1c175094505d380c581f577bde7ced4109ffda40b4b39d5ffe6ae88113`; complete frozen request SHA256 `dcb1e1f89ca30750456ab791f098fe000a1c45660bba14a98cf1055457b28665`. Assigned `OpenUdon:P10` only, branch `goal/P10`, worktree `/home/peter/Workspace/openudon.goal/P10`; captured primary `/home/peter/Workspace/openudon`, integration ref `refs/heads/main`, original goal base `c0b0d7aae77a9e68630f9e1d8bfe2a9525a0ddb6`, dispatch/review base `f9f48a007d721b984bd26358b300cb5748f63754`. Task commits, parallelism3, local-rebase-ff; effective protected child grants `{}`. Coordinator owns publication/integration/shared-memory/closure. Offline exact acquired M33/C10 reuse only; audit disabled. Frozen M51 manifest remains `0c445a5c90d2c09be561e713c364747f4ab9a3698ea8ab46e7b7b774ccf16bad`. No changing sibling inputs are consumed.
+
+## P10.1 interrupted verification — 2026-10-10
+
+The isolated draft adopts exact ordinary C10/M33 and adds optional browser
+manifest/supplement inputs, complete native shape reproduction, native source
+families, per-leaf protocol/call inventory and isolated runtime plan admission.
+The eleven inert native source vectors and six frozen M51 files hash-match the
+exact frozen corpus; formatting and `git diff --check` pass. These structural
+checks are not implementation acceptance. The Go behavioral checks have not run.
+
+Offline tidy first failed expanding cached libc under the private `/dev/shm`
+quota. Root preserved and deduplicated immutable input bytes, then assigned
+private `GOCACHE=/tmp/kinet-stage12-parallel-build-20261010/openudon/gocache` and
+`TMPDIR=GOTMPDIR=/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp`.
+Updated trusted context SHA256 is
+`402b45c17a4cbacd53c9e2803d844a1f1dfa281577c7fe2aa5be5ac5f8093054`;
+assignment/approval/ref/base remain unchanged. Focused
+`go test -mod=mod ./packagev3 ./browsercontract` also failed writing standard
+library compiler/vet/importcfg outputs with `disk quota exceeded` under `/tmp`,
+before compiling P10 or running tests. No failed compile is qualification.
+
+Tidy additionally awaits already-cached exact modernc opt0.1.4, sortutil1.2.1,
+strutil1.2.1, token1.1.0, gc/v2 2.6.5 and gc/v3 3.1.2 artifacts.
+Root is resolving headroom/cached inputs. There is no new network/browser
+request or expanded authority. Draft source remains uncommitted in this lease;
+no task is complete and formal review stays0/10. Resume this same row after
+usable isolated compiler capacity is supplied; preserve all source/fixture/
+module/provenance paths. Coordinator publication, consumer builds, complete
+checks, shared-memory proposals, review and closure remain unperformed gates.
+
+Resumed the same P10.1 lease after coordinator-proved isolated compiler headroom. Prior failed compiles remain failed evidence; no test/run identity is relabeled. No authority or baseline changes.
+
+## P10.1 verified row
+
+Focused `go test -mod=mod ./packagev3 ./browsercontract` and `go vet ./packagev3 ./browsercontract` pass using the assigned offline Go1.26.6 environment and repaired private `/tmp` compiler resources. All11 native source-family vectors, whole-selected canonical/source hashes, frozen M51 canonical/config goldens, immutable snapshots, rehashed shape refusal, runtime-admission constraints and prior non-browser goldens pass. Ordinary C10/M33 sums equal their accepted input proofs; retained codec b099 is independently asserted. `git diff --check` passes. New fields omit on non-browser records; all old fixtures remain unchanged. Task implementation advances the approved direction; no shared memory or evolution is edited by this lease. Formal review stays0/10.

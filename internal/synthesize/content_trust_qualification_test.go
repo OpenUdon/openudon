@@ -178,12 +178,13 @@ func TestContentTrustQualificationLegacyPackageIsUnchanged(t *testing.T) {
 	}
 }
 
-// Current owner regression uses the accepted Stage 11 core. Historical E12/M86
+// Current owner regression uses accepted Stage12 C10 and M33 with the retained codec. Historical E12/M86
 // qualification source and browser locks remain frozen in their evidence records.
-func TestContentTrustCurrentOwnerUsesStage11UWSAndRetainedBrowsertools(t *testing.T) {
+func TestContentTrustCurrentOwnerUsesC10M33AndRetainedCodec(t *testing.T) {
 	const (
-		wantUWS          = "v0.0.0-20261008043726-b099f6803277"
-		wantBrowsertools = "v0.0.0-20260925161530-3abe70efc03d"
+		wantUWS          = "v0.0.0-20261009220914-f01a2542410c"
+		wantCodec        = "v0.0.0-20261008043726-b099f6803277"
+		wantBrowsertools = "v0.0.0-20261010115646-1859f5e34367"
 	)
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
@@ -204,8 +205,8 @@ func TestContentTrustCurrentOwnerUsesStage11UWSAndRetainedBrowsertools(t *testin
 	if versions["github.com/OpenUdon/uws"] != wantUWS {
 		t.Fatalf("UWS version = %q, want %q", versions["github.com/OpenUdon/uws"], wantUWS)
 	}
-	if versions["github.com/OpenUdon/uws/hcl"] != wantUWS {
-		t.Fatalf("explicit codec version = %q, want %q", versions["github.com/OpenUdon/uws/hcl"], wantUWS)
+	if versions["github.com/OpenUdon/uws/hcl"] != wantCodec {
+		t.Fatalf("explicit codec version = %q, want %q", versions["github.com/OpenUdon/uws/hcl"], wantCodec)
 	}
 	if versions["github.com/OpenUdon/browsertools"] != wantBrowsertools {
 		t.Fatalf("Browsertools version = %q, want %q", versions["github.com/OpenUdon/browsertools"], wantBrowsertools)
