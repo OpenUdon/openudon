@@ -104,7 +104,24 @@ compiled-source fields, preserves all 20 immutable goldens and all 16 frozen
 wire declarations, and confirms no retained/private import in public graphs.
 Consumer replacements remain explicit prepublication fixtures.
 
-Full review 3 and actual coordinator publication/proof remain pending. All local
-results have complete command, environment, tool, exit and log receipts under
-the disk proof root. Audit stays disabled, and local qualification does not
-complete the milestone.
+That qualification preceded whole review 3 and left actual coordinator
+publication/proof pending. All local results have complete command, environment,
+tool, exit and log receipts under the disk proof root. Audit stayed disabled;
+local qualification did not complete the milestone.
+
+Whole review 3 found three P2 state-machine gaps before publication. Controlled
+counterexamples on the frozen prior source reproduce all three, plus refused
+future-leaf and earlier-leaf checkpoint stops. The corrected verifier binds
+every actual access to its acquiring leaf and source, latches every still-unknown
+dispatched leaf whenever execution stops, and withholds candidate/save after
+explicit human denial. Controls preserve completed authentication, undispatched
+actions, nil fresh access and approved saving after an unrelated checkpoint
+failure. Raw M51 vectors and public wires remain unchanged.
+
+The full `make check`, vet, affected Runevidence race, both consumer builds and
+fresh compiled graphs pass after these repairs. Six unaffected race packages,
+tidy, module verification and selected module listings retain their successful
+checks only after exact source/tool/module lineage verification. Current and
+retained results are distinguished in the machine-readable evidence. Full
+review 4 and actual coordinator publication/proof remain pending; audit stays
+disabled and no acceptance is claimed.

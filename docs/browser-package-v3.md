@@ -162,9 +162,20 @@ binding hash; unsupported or ambiguous identity refuses. The verifier never
 decodes that hash, computes a new native binding algorithm or copies expected
 facts as actual observation. Actual acquisition uses the exact leaf's name,
 source and permissions; global union rights cannot authorize another leaf.
+This exact acquiring-leaf name and source check also applies to a supplied
+fresh access witness with no reuse or save permission. Fresh registration
+metadata does not invent an authentication-bound native lease.
 
 Actually reused saved access requires creation at or before report start, start
 strictly before unchanged expiry, and each relevant named-session leaf start
 within those same bounds. Later teardown/report finalization remains allowed.
 Unused expired metadata during narrowed pre-launch fresh fallback is distinct
 from actually reused state and creates no new timestamp authority or permission.
+
+When execution stops, every dispatched leaf still in an unknown state becomes
+terminal. A refused continuation or a stop concerning another leaf cannot
+permit a late success to replace that uncertainty. Earlier completed leaves and
+undispatched leaves retain their outcomes. Explicit human denial also withholds
+subsequent session candidates and durable saving, including saving a candidate
+staged by earlier successful authentication. Unrelated machine failures do not
+cancel an otherwise valid one-use save permission.

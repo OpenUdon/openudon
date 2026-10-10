@@ -223,6 +223,15 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 	launchDone, joinDone, released, anySent, nonDispatch, candidate, generationCurrent, saveDone := false, false, false, false, false, false, false, false
 	credentialsLeased := len(expected.CredentialRevisions) == 0
 	stopped := false
+	humanDenied := false
+	stopExecution := func() {
+		stopped = true
+		for i := range outcomes {
+			if sent[i] && outcomes[i] == "unknown" {
+				terminal[i] = true
+			}
+		}
+	}
 	lastStarted := -1
 	ordinal := uint64(0)
 	pending := ""
@@ -268,7 +277,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			if expected.Session == nil || launchDone || anySent || joinDone || acquired != "" && !((acquired == "missing" || acquired == "expired") && e.Outcome == "fresh") {
 				return fail()
 			}
-			if access := host.SessionAccess; access != nil && (access.Session.ReuseAllowed && !call.ReuseAllowed || access.Session.SaveAllowed && !call.SaveAllowed || requiresAccess && call.SessionName != access.Session.Name) {
+			if access := host.SessionAccess; access != nil && (access.Session.ReuseAllowed && !call.ReuseAllowed || access.Session.SaveAllowed && !call.SaveAllowed || call.SessionName != access.Session.Name || call.Kind == "authentication" && call.SourceSHA256 != access.Binding.AuthenticationSHA256 || call.Kind == "action" && call.SourceSHA256 != access.Binding.ProfileSHA256) {
 				return fail()
 			}
 			switch e.Outcome {
@@ -345,10 +354,8 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			}
 			answered = e.Outcome != "deny"
 			if e.Outcome == "deny" {
-				stopped = true
-				if sent[index] && outcomes[index] == "unknown" {
-					terminal[index] = true
-				}
+				stopExecution()
+				humanDenied = true
 			}
 		case "authority_recheck":
 			if question == nil || !answered || questionLeaf != index || e.Outcome != "current" || joinDone || stopped || e.Question != nil && !sameCanonical(question, e.Question) || questionKind == "runtime_confirmation" && !sameCanonical(question, e.Question) {
@@ -360,7 +367,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				return fail()
 			}
 			if e.Outcome == "refused" {
-				stopped = true
+				stopExecution()
 				continue
 			}
 			if !browsercontract.Identifier(e.ProtocolRequestID) || e.MessageOrdinal != ordinal+1 || e.MessageOrdinal > 4096 || e.OuterProtocol != call.OuterProtocol {
@@ -441,9 +448,9 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				outcomes[index] = "succeeded"
 			case "definite_failure":
 				outcomes[index] = "failed"
-				stopped = true
+				stopExecution()
 			case "unknown":
-				stopped = true
+				stopExecution()
 			default:
 				return fail()
 			}
@@ -457,14 +464,14 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			}
 			outcomes[index] = "unknown"
 			terminal[index] = true
-			stopped = true
+			stopExecution()
 		case "registration_context_close":
 			if call.Kind != "registration" || !sent[index] || e.Outcome != "proved" || joinDone {
 				return fail()
 			}
 			closedRegistration[index] = true
 		case "candidate":
-			if call.Kind != "authentication" || !call.SaveAllowed || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || outcomes[index] != "succeeded" || candidate || joinDone || e.Outcome != "staged-before-close" {
+			if humanDenied || call.Kind != "authentication" || !call.SaveAllowed || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || outcomes[index] != "succeeded" || candidate || joinDone || e.Outcome != "staged-before-close" {
 				return fail()
 			}
 			candidate = true
@@ -481,7 +488,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 		case "session_save":
 			p := host.SavePermission
 			s := expected.Session
-			if !joinDone || !candidate || !generationCurrent || saveDone || p == nil || s == nil || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || !p.OneUse || !p.SaveAllowed || !browsercontract.Identifier(p.PermissionID) || p.SessionName != s.Name || p.BindingSHA256 != s.BindingSHA256 || p.Generation != s.Generation || p.AuthenticateOperationID != call.OperationID || !call.SaveAllowed || e.Outcome != "encrypted-accepted" {
+			if humanDenied || !joinDone || !candidate || !generationCurrent || saveDone || p == nil || s == nil || host.SessionAccess == nil || !host.SessionAccess.Session.SaveAllowed || !p.OneUse || !p.SaveAllowed || !browsercontract.Identifier(p.PermissionID) || p.SessionName != s.Name || p.BindingSHA256 != s.BindingSHA256 || p.Generation != s.Generation || p.AuthenticateOperationID != call.OperationID || !call.SaveAllowed || e.Outcome != "encrypted-accepted" {
 				return fail()
 			}
 			saveDone = true
@@ -504,7 +511,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			if e.Outcome != "checkpoint_failed" || outcomes[index] != "succeeded" || joinDone {
 				return fail()
 			}
-			stopped = true
+			stopExecution()
 		default:
 			return fail()
 		}

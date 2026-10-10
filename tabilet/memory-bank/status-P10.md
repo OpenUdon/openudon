@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 in progress. Whole review3 FAIL with three P2 state-machine findings; scoped corrections/requalification and publication remain pending.
+**State:** P10.1–4 verified; P10.5 in progress. Whole review 3/10 failed with three P2 findings; all repairs are verified and review 4 is pending. Source publication remains coordinator-owned and unperformed; acceptance is pending.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -623,3 +623,37 @@ The three new counterexamples are static source/fixture evidence only; no test
 execution is asserted yet. Existing source publication, independent proof,
 whole acceptance, integration, shared consolidation and closure remain root-owned
 and pending. Audit stays disabled; protected child grants remain{}.
+
+## Review 3 repairs verified
+
+Frozen pre-review-3 source reproduces all three findings through the intended
+assertions, including the exact initial-send identity after refused continuation
+and a save-approved authentication followed by action denial. Additional controls
+reproduce refused future-leaf and earlier completed-leaf checkpoint stops while
+another leaf is in flight. Complete before-source/test/argv/exit evidence is
+recorded under the private `proof-review3/fixes-20261010` directory. The repaired
+full Runevidence suite passes all 34 immutable M51 cases and all new positive
+and adverse controls.
+
+Every supplied actual access now matches the acquiring leaf's name and native
+authentication/profile source hash, including optional zero-rights fresh access.
+Unnamed fresh-registration metadata projects no authentication-bound actual
+lease; raw vectors stay unchanged. A single local stop barrier latches every
+dispatched still-unknown leaf, regardless of which leaf the stopping event names.
+Known completed and undispatched outcomes remain intact. Explicit human denial
+withholds later candidate/save; unrelated checkpoint failure preserves otherwise
+valid one-use saving. No frozen wire, public ABI, module or pin changes.
+
+Required `make check`, vet, affected Runevidence race, both frozen consumer builds
+and fresh compiled graphs pass. Exact unchanged source/tool/module lineage
+preserves six unaffected race packages, tidy, module verification and selected
+module listings. The fresh closure proof at SHA256
+`3f3be1822b9c07ca4b4317992f6ccd276309490e7d5733a2cf426e83f6c40e1e`
+again binds 373/390/519 packages, 91/85/171 modules, zero recursive metadata
+errors, 194 module artifacts, 7,260 source fields, 20 goldens and 16 wire
+declarations. Current compiled exports have complete hash records.
+
+Qualification records distinguish new commands from explicitly retained checks.
+Review 3 failure stays historical evidence; review 4 has not begun. P10.5 source
+publication, independently verified exact proof and coordinator closure remain
+required and unperformed. Child protected grants stay empty and audit disabled.

@@ -119,11 +119,18 @@ func fixtureInputs(c browserReportFixture) (browsercontract.BrowserConfigV1, udo
 	}
 	acquired := false
 	for _, e := range c.Trace {
-		acquired = acquired || e.Event == "session_acquire"
+		if e.Event == "session_acquire" && c.Host.Binding.Session != nil {
+			for _, call := range c.Host.Binding.Calls {
+				if call.StepID == e.StepID && call.OperationID == e.OperationID && call.InvocationID == e.InvocationID && call.SessionName == c.Host.Binding.Session.Name {
+					acquired = true
+				}
+			}
+		}
 	}
 	if !acquired {
 		// The frozen vectors can retain optional session metadata without
-		// actually acquiring native access. Project that absence explicitly;
+		// actually acquiring named native access. Fresh registration contexts
+		// have no authentication-bound lease. Project that absence explicitly;
 		// the original raw vector remains unchanged.
 		host.SessionAccess, host.ExpectedSessionBinding = nil, nil
 		host.DurableBindingCount = 0
