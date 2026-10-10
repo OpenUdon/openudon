@@ -77,5 +77,34 @@ and corrected effective-flag receipt adjuncts preserve the original metadata.
 The earlier exec module listing's nested Moby metadata error is retained; final
 owner91/author85/exec171listings have zero recursive errors.
 
-Full review2 and actual coordinator publication/proof remain pending; local
-checks and repaired findings do not complete the milestone.
+Full review 2 failed with three P2 findings: access could borrow another leaf's
+permission, optional supplied access facts were unchecked, and reused state
+lacked checks at its actual creation/expiry boundaries. The complete repair set
+now passes focused controls, including a source-overlay negative that reproduces
+the missing acquisition-trace guard. Every supplied access witness matches full
+native binding facts and completed acquisition before launch. Absent actual
+access uses empty join/trace access IDs without requiring a fresh lease. Reused
+state is valid at report start and consuming leaf starts; narrowed fresh fallback
+and later teardown remain supported.
+
+After an interruption removed the private module cache and original temporary
+inputs, the coordinator restored the genuine C10/M33 ZIPs under separate human
+authority. All seven new frozen Git archives match their original revisions.
+These are new restoration records; missing original receipts are not recreated.
+The partial interrupted full-test log remains unqualified. An offline tidy
+failure required only existing local metadata for versions already named in the
+unchanged owner/consumer sums; its failed receipt is preserved.
+
+Required `make check` passes and covers the full owner test suite once. Vet,
+tidy with unchanged module files, module verification, seven focused race suites
+and both frozen consumer builds pass. Fresh public/author/exec compiled graphs
+contain 373/390/519 packages and 91/85/171 modules, with zero recursive metadata
+errors. The closure proof binds 194 module artifact sets and 7,260 nonstandard
+compiled-source fields, preserves all 20 immutable goldens and all 16 frozen
+wire declarations, and confirms no retained/private import in public graphs.
+Consumer replacements remain explicit prepublication fixtures.
+
+Full review 3 and actual coordinator publication/proof remain pending. All local
+results have complete command, environment, tool, exit and log receipts under
+the disk proof root. Audit stays disabled, and local qualification does not
+complete the milestone.

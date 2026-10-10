@@ -148,3 +148,23 @@ The new evidence serializer validates closed Config, observation, timestamps,
 identity and sandbox/dry/native posture before emitting bytes. In-flight denial
 latches terminal uncertainty, so a subsequent success response cannot resurrect
 the denied leaf. Existing completed leaves survive a separate checkpoint failure.
+
+Every supplied access witness is checked even when access presence is optional.
+It must match a completed acquisition before launch. Absent actual access uses
+empty join and dispatch trace access identities; optional metadata alone does
+not require a durable lease or acquisition.
+It projects actual native owner/agent/profile/authentication digests, credential
+revisions, origins and binding identity/generation/timestamps. Source identity
+comes from the unique approved same-session authentication/action sources. An
+auth-only plan with no derivable action-profile digest needs a separately
+independent expected native binding projection anchored to Config's opaque
+binding hash; unsupported or ambiguous identity refuses. The verifier never
+decodes that hash, computes a new native binding algorithm or copies expected
+facts as actual observation. Actual acquisition uses the exact leaf's name,
+source and permissions; global union rights cannot authorize another leaf.
+
+Actually reused saved access requires creation at or before report start, start
+strictly before unchanged expiry, and each relevant named-session leaf start
+within those same bounds. Later teardown/report finalization remains allowed.
+Unused expired metadata during narrowed pre-launch fresh fallback is distinct
+from actually reused state and creates no new timestamp authority or permission.

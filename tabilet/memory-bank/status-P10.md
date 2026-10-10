@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 resumed final qualification/publication handoff. Review 1/10 failed; repairs requalified, review2/publication pending.
+**State:** P10.1–4 verified; P10.5 in progress. Whole review 2/10 failed with three P2 findings; all repairs are fully requalified and review 3 is pending. Source publication remains coordinator-owned and unperformed.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -108,7 +108,7 @@ status markers grant none; audit stays disabled.
 
 ## Review
 
-Whole-milestone review: 1/10 FAIL — 3 P2, 0 P1/P3; repairs and subsequent full review pending. Counter never resets.
+Whole-milestone review: 2/10 FAIL — 3P2/0P1/P3; access repairs and next full review pending. Counter never resets.
 
 ## Frozen M51 producer input checkpoint — 2026-10-09
 
@@ -418,3 +418,157 @@ refs/heads/main is clean and stillf9f48a007d721b984bd26358b300cb5748f63754.
 All three review1 P2 repairs and coordinator access reconciliation are ready
 for next full review. No publication, whole acceptance or closure is claimed;
 P10.5 stays in progress and counter1 never resets.
+
+## Whole-milestone review2 — STARTED
+
+Started2026-10-10 after all review1 repairs and required full/affected checks
+pass. Clean source candidate9dca5a27a52cf44fc1816cf513bd1cb2023e42f1, tree1f85b0d272357b7622b1a66cedc7661e7b9f9fa6;
+review baseline remainsf9f48a007d721b984bd26358b300cb5748f63754 and captured
+primary refs/heads/main is clean/unchanged. Complete66path manifestSHA2562586d4d6b61e53b964face205c3cff100e767932216136724e8a9eebb137fe3e
+and actual source diffSHA2565e95887d3ad603e28e04aab02f7a93cce6bfbcd05a17d0a6392835456e28343b
+freeze this full candidate/evidence. All source publication tasks remain
+coordinator-owned and unperformed; full review2 must stay pending through
+actual publication/proof, with no acceptance inferred from local checks.
+Coordinator notified before independent dispatch; counters and review1 findings
+never reset. Whole-source own review and joined root read-only review share
+this iteration2.
+
+### Review2 findings persisted before fixes
+
+P10-R2-01 confirmed P2: independently reproduced on immutable9dca source,
+actual reuse acquisition borrows another leaf's global Config.Session permission
+while the exact event leaf is fresh-only/different-name. Native acquisition is
+bound to BrowserSessionRequest.Leaf, so exact leaf rights/name/source must match
+observed access. Reproducer overlay/log under assigned disk proof root; no source
+fix applied. P10-R2-02 joined confirmed P2: every supplied actual-access witness
+must validate, even when presence is optional. Fresh-only approval currently
+accepts actual reuse/true rights while trace saysfresh. Check all supplied actual
+identity/generation/timestamps/lease/outcome/rights and trace correspondence;
+only witness presence remains conditional. Preserve narrower permissions, same
+pre-launch fallback, optional fresh-only/no-Acquire and16unchanged declarations.
+Coordinator finishing full review2/source projection reconciliation; source
+publication remains held. Collect joined findings before fixes; counter2 never
+resets and cannot pass with these open P2s.
+
+### Review2 complete — FAIL,3P2/0P1/P3
+
+Combined full review2 reportSHA256aaadb2d0e0837991accff83cfc7bc88ac1530eec222c36884cac8c3e838ffe58
+under assigned disk root verifies63postimages/63qualification references/20goldens
+and prior fixes intact. Exactly P10-R2-01 per-leaf actual reuse rights/name/source,
+P10-R2-02 every supplied access witness/outcome/identity/rights correspondence,
+and P10-R2-03 actually consumed saved-access time boundaries remain P2. The
+third requires CreatedAt<=reportStart<ExpiresAt and relevant consumed saved-state
+leaf starts before unchanged expiry, preserving later teardown and fresh narrowed
+fallback that does not use expired saved state. All findings persist before fixes.
+
+Coordinator source reconciliation: project actual native ProfileSHA256 and
+AuthenticationSHA256 plus full value-free native owner/agent/credential/origin/
+identity/time facts out of band. Derive authentication source from exact approved
+establishing call and profile hash from unique same-session action source. For
+auth-only/no-derivable-profile cases require separately independent expected
+native binding projection anchored to Config.Session.BindingSHA256, or refuse
+unsupported verification. Never decode/guess opaque binding hashes or substitute
+expected facts as actual observation. Only permissions may narrow; preserve
+conditional presence, fresh/no-Acquire fallback and16immutable declarations.
+After fixes/requalification start full review3 without resetting2. Publication
+remains held; whole acceptance unclaimed.
+
+Review2 access repairs implemented and focused checks pass. Every supplied
+actual native binding/access is checked (presence alone remains conditional),
+including owner/agent, unique profile/authentication source hashes, exact native
+credentials/origins, opaque identity/generation/times, lease/count and actual
+outcome/rights against acquisition. Actual rights cannot widen the exact leaf,
+and reuse needs its own same-session permission. Auth-only/no-derivable-profile
+verification needs a separately independent expected native binding projection
+anchored to Config; no opaque-hash decoding/new algorithm. Actually reused
+state respects CreatedAt<=reportStart<ExpiresAt and relevant leaf starts, while
+later finalization and unused-expired narrowed fresh fallback remain supported.
+Explicit fixture-only actual and expected full-binding projections use separate
+frozen input records; all34immutable controls and new positive/adverse controls
+pass. An initial focused run exposed no-session fixture adapters retaining a
+stale actual pointer; adapters now correctly project no requested native access.
+Its failed log remains preserved. Full required requalification/review3 pending;
+no publication or acceptance.
+
+## Interrupted qualification recovery — 2026-10-10
+
+The resumed lease preserves source candidate
+`9dca5a27a52cf44fc1816cf513bd1cb2023e42f1`, the five uncommitted review 2
+repair files, the original captured integration identity and counter 2/10.
+The review 2 full-test log ends during package output and has no final exit
+receipt. Its invocation is unqualified; it must not be counted as a pass or
+restarted on an assumed process timeout. No original qualification process
+survives the restart.
+
+The original `/dev/shm` module cache, offline launcher, resolved-request copy
+and frozen sibling inputs, plus the earlier `/tmp` proof tree, are unavailable.
+The disk compiler cache, review 1 proof outputs and frozen consumer copies
+survive. Recovery inventory
+`/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restart-inventory.json`
+at SHA256 `3c0b9284dbb79a417b502d2e2eecd32ce4277b15c2bb970ee2114a98f3fccd64`
+records 43 matching prior proof references, 18 unavailable references and two
+references changed by the already authorized repairs. Of 194 exact owner and
+consumer module versions, 190 complete artifact sets remain in the existing
+home cache. The missing ordinary artifacts are the exact C10/M33 inputs and
+the frozen consumers' APItools `409d4dd54ffa` and Udon `9c99eab6051f` versions.
+
+The coordinator has the exact missing identities and checksum requirements.
+Qualification awaits verified immutable input recovery; locally generated
+source archives cannot substitute for ordinary published module ZIPs. Original
+proof availability limits remain explicit. No network acquisition, new grant,
+audit activation, publication, whole review iteration or acceptance follows
+from this recovery record.
+
+Recovery preparation also completes the existing review 2 witness/trace repair:
+any supplied actual access witness now requires a matching completed acquisition
+before launch, even when its presence is optional. The unchanged frozen vectors
+without acquisition explicitly project nil actual access and empty access IDs
+in their fixture adapter. Fresh-only nil access still requires no acquisition.
+An adverse control covers a supplied fresh witness with the acquisition event
+removed, alongside its nil-witness positive counterpart. These source changes
+are prepared but cannot yet claim executed tests: genuine C10/M33 module input
+recovery remains required. Counter 2/10 and publication state are unchanged.
+
+The same preparation repair rejects claimed join/trace access identities when
+the actual witness is absent. Its nil-witness positive keeps metadata-only
+session presence with empty access IDs and no acquisition; unused configured
+binding counts do not themselves require an actual lease. Neither this change
+nor its prepared controls has executed qualification yet.
+
+## Review 2 repairs fully requalified after verified input restoration
+
+The coordinator's first authorized restoration invocation succeeded and ended
+its acquisition grant. Genuine C10/M33 ZIPs, native archive/module sums and all
+747 source files match recorded identities. Restoration proof SHA256
+`6dbc4dc3ab0367a83e2b69bd78da5a9cd368e1ff7b56855b9e05d2e4a13205fa`
+and the seven new frozen archive manifest SHA256
+`d8e83c81a0fd9ae7610e56730a39991a8178c53b360e80cd51792814a90ceab9`
+bind recovered inputs. These new records do not replace lost original receipts.
+The child retains empty protected grants and performs only offline checks.
+
+The controlled source overlay reproduces the optional access/acquisition gap
+with expected exit 1; the repaired source and all 34 immutable M51 controls
+pass. Required `make check` passes, including the full owner tests, standalone
+build and actual lease boundary check. Only the exact sibling-presence command
+uses the freshly built lease CLI from the restored immutable sibling cwd.
+Vet, tidy, unchanged `go.mod`/`go.sum`, module verification and all seven focused
+race suites pass. The initial tidy failure stays failed evidence; 97 existing
+local metadata files for versions already in unchanged sums restore its exact
+offline inputs, without source retrieval or pin changes.
+
+Both exact 72-file frozen Kinet consumer fixtures compile with the explicit
+unpublished local SDK replacement. Fresh public/author/exec compiled graphs
+have 373/390/519 packages, 91/85/171 modules and zero recursive metadata errors.
+Public and author graphs import no retained OpenUdon or private Udon package.
+Owner replacements remain absent; the private fixture retains its existing
+Docker-to-Moby version replacement. Complete closure proof SHA256
+`c7199fa1853c24e10f72421a8189293510d8ea6ed93b72028d9e2fa36784a12c`
+binds 194 module artifact sets and 7,260 nonstandard source fields; all 20 legacy
+goldens, raw M51 bytes and 16 public wire declarations remain unchanged.
+
+All current command/exit/log/tool/environment receipts live under
+`/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/`
+and [qualification](../../docs/p10-qualification.json). The interrupted partial
+full-test log remains unqualified. Counter 2/10 stays failed historical evidence;
+next full review 3, required source publication, exact independent proof and
+coordinator integration/closure remain pending. No whole acceptance is claimed.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/OpenUdon/openudon/browsercontract"
@@ -111,7 +112,26 @@ func fixtureInputs(c browserReportFixture) (browsercontract.BrowserConfigV1, udo
 	}
 	if c.Host.Binding.Session != nil {
 		host.DurableBindingCount = 1
-		host.SessionAccess = &runevidence.BrowserSessionAccessWitness{LeaseID: c.Host.Join.SessionAccessLeaseID, Outcome: "fresh", Session: *c.Host.Binding.Session}
+		actual := fixtureNativeSessionBinding(c.Host.Binding)
+		expectedBinding := fixtureNativeSessionBinding(c.Expected)
+		host.ExpectedSessionBinding = &expectedBinding
+		host.SessionAccess = &runevidence.BrowserSessionAccessWitness{LeaseID: c.Host.Join.SessionAccessLeaseID, Outcome: "fresh", Session: *c.Host.Binding.Session, Binding: actual}
+	}
+	acquired := false
+	for _, e := range c.Trace {
+		acquired = acquired || e.Event == "session_acquire"
+	}
+	if !acquired {
+		// The frozen vectors can retain optional session metadata without
+		// actually acquiring native access. Project that absence explicitly;
+		// the original raw vector remains unchanged.
+		host.SessionAccess, host.ExpectedSessionBinding = nil, nil
+		host.DurableBindingCount = 0
+		host.Join.SessionAccessLeaseID = ""
+		host.Trace = append([]runevidence.BrowserTraceEvent{}, c.Trace...)
+		for n := range host.Trace {
+			host.Trace[n].SessionAccessLeaseID = ""
+		}
 	}
 	if c.DurableCount != nil {
 		host.DurableBindingCount = *c.DurableCount
@@ -120,6 +140,52 @@ func fixtureInputs(c browserReportFixture) (browsercontract.BrowserConfigV1, udo
 		host.NonDispatch = &runevidence.BrowserNonDispatchWitness{RunID: p.RunID, PlanSHA256: p.PlanSHA256, ApprovedCalls: p.Calls, AllInitialAndContinuationMessagesCovered: p.Complete, NoMessageTransmitted: p.None, Joined: p.Joined}
 	}
 	return expected, inventory, host
+}
+
+// The immutable vectors predate full access projections. These are explicit
+// FIXTURE-ONLY native metadata identities, projected separately from their
+// expected and actual frozen host bindings. They are not real saved state.
+func fixtureNativeSessionBinding(f browserBindingFixture) runevidence.BrowserSessionBindingWitness {
+	s := f.Session
+	b := runevidence.BrowserSessionBindingWitness{OwnerID: f.OwnerID, AgentID: f.AgentID, Name: s.Name, BindingSHA256: s.BindingSHA256, Generation: s.Generation, CreatedAt: s.CreatedAt, ExpiresAt: s.ExpiresAt, CredentialRevisions: []browsercontract.CredentialRevision{}, Origins: []string{}, ProfileSHA256: browsercontract.SHA256([]byte("FIXTURE-only-session-profile")), AuthenticationSHA256: browsercontract.SHA256([]byte("FIXTURE-only-unused-authentication"))}
+	origins, creds := map[string]bool{}, map[string]bool{}
+	for _, call := range f.Calls {
+		if call.SessionName != s.Name {
+			continue
+		}
+		for _, o := range call.Origins {
+			origins[o] = true
+		}
+		for _, slot := range call.CredentialSlots {
+			creds[slot.Name] = true
+		}
+		if call.Kind == "authentication" {
+			b.AuthenticationSHA256 = call.SourceSHA256
+		}
+		if call.Kind == "action" {
+			b.ProfileSHA256 = call.SourceSHA256
+		}
+	}
+	if len(origins) == 0 {
+		for _, call := range f.Calls {
+			for _, o := range call.Origins {
+				origins[o] = true
+			}
+		}
+		for _, r := range f.Credentials {
+			creds[r.Name] = true
+		}
+	}
+	for _, r := range f.Credentials {
+		if creds[r.Name] {
+			b.CredentialRevisions = append(b.CredentialRevisions, r)
+		}
+	}
+	for o := range origins {
+		b.Origins = append(b.Origins, o)
+	}
+	sort.Strings(b.Origins)
+	return b
 }
 func TestBrowserReportReproducesAllFrozenM51CasesIndependently(t *testing.T) {
 	for _, c := range browserReportFixtures(t) {
@@ -604,6 +670,7 @@ func TestBrowserOptionalFreshAccessHasNoInventedDurableLease(t *testing.T) {
 			c, i, h := fixtureInputs(f)
 			c.Session = nil
 			h.Config.Session = nil
+			h.SessionAccess, h.ExpectedSessionBinding = nil, nil
 			h.DurableBindingCount = 0
 			h.Join.SessionAccessLeaseID = ""
 			trace := []runevidence.BrowserTraceEvent{}
@@ -754,12 +821,23 @@ func TestBrowserDurableAccessIsObservedAndAcquirePrecedesLaunch(t *testing.T) {
 		})
 	}
 	fresh, inventory, report, freshHost := validBrowserReportInputs(t)
-	freshHost.SessionAccess = nil
+	freshHost.SessionAccess, freshHost.ExpectedSessionBinding = nil, nil
+	freshHost.Join.SessionAccessLeaseID = ""
+	expired := freshHost.Trace[0]
+	expired.Outcome, expired.SessionAccessLeaseID = "expired", ""
+	trace := []runevidence.BrowserTraceEvent{}
+	for _, e := range freshHost.Trace {
+		if e.Event == "session_acquire" {
+			continue
+		}
+		e.SessionAccessLeaseID = ""
+		trace = append(trace, e)
+	}
+	freshHost.Trace = trace
 	if _, err := runevidence.ObserveBrowserReport(fresh, inventory, report, freshHost); err != nil {
 		t.Fatal("fresh-only access made mandatory", err)
 	}
-	freshHost.Trace = append([]runevidence.BrowserTraceEvent{}, freshHost.Trace...)
-	freshHost.Trace[0].Outcome = "expired"
+	freshHost.Trace = append([]runevidence.BrowserTraceEvent{expired}, freshHost.Trace...)
 	if _, err := runevidence.ObserveBrowserReport(fresh, inventory, report, freshHost); err == nil {
 		t.Fatal("unresolved expired acquisition reached Launch")
 	}
@@ -885,5 +963,193 @@ func TestBrowserObservedReuseAndNarrowedFreshFallback(t *testing.T) {
 	host.Trace = append([]runevidence.BrowserTraceEvent{missing, fresh}, host.Trace[1:]...)
 	if _, err := runevidence.ObserveBrowserReport(c, i, fixture.Report, host); err != nil {
 		t.Fatal("narrowed reuse-to-fresh permission", err)
+	}
+}
+
+func actualReuseFixture(t *testing.T) (browsercontract.BrowserConfigV1, udonreport.InventoryV5, []byte, runevidence.BrowserHostWitnesses) {
+	t.Helper()
+	c, i, report, host := validBrowserReportInputs(t)
+	s := *c.Session
+	s.ReuseAllowed = true
+	c.Session = &s
+	for n := range c.ApprovedCalls {
+		c.ApprovedCalls[n].ReuseAllowed = true
+	}
+	host.Config = c
+	a := *host.SessionAccess
+	a.Outcome, a.Session = "reuse", s
+	host.SessionAccess = &a
+	host.Trace = append([]runevidence.BrowserTraceEvent{}, host.Trace...)
+	host.Trace[0].Outcome = "reuse"
+	return c, i, report, host
+}
+
+func TestBrowserReuseAcquisitionCannotBorrowOtherLeafRights(t *testing.T) {
+	c, i, report, h := actualReuseFixture(t)
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, h); err != nil {
+		t.Fatal("positive exact leaf reuse", err)
+	}
+	c.ApprovedCalls[0].ReuseAllowed = false
+	h.Config = c
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, h); err == nil {
+		t.Fatal("acquisition borrowed later action reuse permission")
+	}
+	h.SessionAccess.Outcome, h.Trace[0].Outcome = "fresh", "fresh"
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, h); err == nil {
+		t.Fatal("fresh acquisition widened the exact requesting leaf's rights")
+	}
+}
+
+func TestBrowserEverySuppliedAccessFactIsValidatedEvenWhenOptional(t *testing.T) {
+	c, i, report, h := validBrowserReportInputs(t)
+	for name, mutate := range map[string]func(*runevidence.BrowserHostWitnesses){
+		"actual reuse against fresh approval": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Outcome = "reuse"
+			h.SessionAccess.Session.ReuseAllowed = true
+		},
+		"native profile": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Binding.ProfileSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"native authentication": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Binding.AuthenticationSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"owner": func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Binding.OwnerID = "foreign" },
+		"agent": func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Binding.AgentID = "foreign" },
+		"binding identity": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Binding.BindingSHA256 = browsercontract.SHA256([]byte("foreign"))
+		},
+		"origin union": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Binding.Origins = []string{"http://127.0.0.1:46052"}
+		},
+		"credential union": func(h *runevidence.BrowserHostWitnesses) {
+			h.SessionAccess.Binding.CredentialRevisions = []browsercontract.CredentialRevision{{Name: "foreign", Revision: "foreign"}}
+		},
+		"lease":               func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.LeaseID = "foreign" },
+		"time identity":       func(h *runevidence.BrowserHostWitnesses) { h.SessionAccess.Binding.CreatedAt = "2026-10-09T00:00:01Z" },
+		"actual access count": func(h *runevidence.BrowserHostWitnesses) { h.DurableBindingCount = 0 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := cloneBrowserHost(t, h)
+			mutate(&copy)
+			if _, err := runevidence.ObserveBrowserReport(c, i, report, copy); err == nil {
+				t.Fatal("optional malformed actual access ignored")
+			}
+		})
+	}
+	reuse, inventory, reuseReport, reuseHost := actualReuseFixture(t)
+	reuseHost.Trace[0].Outcome = "fresh"
+	if _, err := runevidence.ObserveBrowserReport(reuse, inventory, reuseReport, reuseHost); err == nil {
+		t.Fatal("actual reuse contradicted fresh acquisition trace")
+	}
+	withoutAcquisition := cloneBrowserHost(t, h)
+	withoutAcquisition.Trace = nil
+	for _, e := range h.Trace {
+		if e.Event != "session_acquire" {
+			withoutAcquisition.Trace = append(withoutAcquisition.Trace, e)
+		}
+	}
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, withoutAcquisition); err == nil {
+		t.Fatal("optional actual access accepted without an acquisition trace")
+	}
+	withoutAcquisition.SessionAccess, withoutAcquisition.ExpectedSessionBinding = nil, nil
+	withoutAcquisition.DurableBindingCount = 0
+	withoutAcquisition.Join.SessionAccessLeaseID = ""
+	for n := range withoutAcquisition.Trace {
+		withoutAcquisition.Trace[n].SessionAccessLeaseID = ""
+	}
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, withoutAcquisition); err != nil {
+		t.Fatal("optional nil access without acquisition refused", err)
+	}
+	missingActual := cloneBrowserHost(t, h)
+	missingActual.SessionAccess = nil
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, missingActual); err == nil {
+		t.Fatal("claimed access lease accepted without its actual witness")
+	}
+	missingActual.Join.SessionAccessLeaseID = ""
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, missingActual); err == nil {
+		t.Fatal("trace claimed access despite absent actual witness and empty join identity")
+	}
+	// A separately expected binding is required only when a profile digest
+	// cannot be independently derived from the approved same-session actions.
+	var auth browserReportFixture
+	for _, f := range browserReportFixtures(t) {
+		if f.Name == "authentication-success" {
+			auth = f
+		}
+	}
+	ac, ai, ah := fixtureInputs(auth)
+	ah.ExpectedSessionBinding = nil
+	if _, err := runevidence.ObserveBrowserReport(ac, ai, auth.Report, ah); err == nil {
+		t.Fatal("auth-only profile identity guessed")
+	}
+	ah.SessionAccess = nil
+	ah.Join.SessionAccessLeaseID = ""
+	trace := []runevidence.BrowserTraceEvent{}
+	for _, e := range ah.Trace {
+		if e.Event == "session_acquire" {
+			continue
+		}
+		e.SessionAccessLeaseID = ""
+		trace = append(trace, e)
+	}
+	ah.Trace = trace
+	if _, err := runevidence.ObserveBrowserReport(ac, ai, auth.Report, ah); err != nil {
+		t.Fatal("optional fresh access made mandatory", err)
+	}
+}
+
+func setObservedSessionTimes(c *browsercontract.BrowserConfigV1, h *runevidence.BrowserHostWitnesses, created, expires string) {
+	s := *c.Session
+	s.CreatedAt, s.ExpiresAt = created, expires
+	// Explicit independently retained fixture binding identity, not a decoded
+	// or invented native hash algorithm.
+	s.BindingSHA256 = browsercontract.SHA256([]byte("FIXTURE-only-times-" + created + "-" + expires))
+	c.Session = &s
+	h.Config = *c
+	a := *h.SessionAccess
+	a.Session = s
+	a.Binding.CreatedAt, a.Binding.ExpiresAt, a.Binding.BindingSHA256 = created, expires, s.BindingSHA256
+	h.SessionAccess = &a
+	e := *h.ExpectedSessionBinding
+	e.CreatedAt, e.ExpiresAt, e.BindingSHA256 = created, expires, s.BindingSHA256
+	h.ExpectedSessionBinding = &e
+}
+
+func TestBrowserActuallyReusedAccessRespectsUnchangedSessionTimes(t *testing.T) {
+	for _, tc := range []struct {
+		name, created, expires string
+		start                  string
+		want                   bool
+	}{
+		{"report at expiry", "2026-10-08T23:59:00Z", "2026-10-09T00:00:00Z", "", false},
+		{"created after report", "2026-10-09T00:00:01Z", "2026-10-09T00:05:00Z", "", false},
+		{"leaf at expiry", "2026-10-08T23:59:00Z", "2026-10-09T00:00:01Z", "2026-10-09T00:00:01Z", false},
+		{"leaf after expiry", "2026-10-08T23:59:00Z", "2026-10-09T00:00:01Z", "2026-10-09T00:00:02Z", false},
+		{"creation boundary and later finalization", "2026-10-09T00:00:00Z", "2026-10-09T00:00:01Z", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, i, report, h := actualReuseFixture(t)
+			setObservedSessionTimes(&c, &h, tc.created, tc.expires)
+			if tc.start != "" {
+				var r udonreport.ReportV5
+				json.Unmarshal(report, &r)
+				r.Steps[1].StartedAt, r.Steps[1].FinishedAt = tc.start, tc.start
+				r.FinishedAt = "2026-10-09T00:00:03Z"
+				report, _ = json.Marshal(r)
+			}
+			_, err := runevidence.ObserveBrowserReport(c, i, report, h)
+			if (err == nil) != tc.want {
+				t.Fatalf("valid=%v want=%v: %v", err == nil, tc.want, err)
+			}
+		})
+	}
+	c, i, report, h := actualReuseFixture(t)
+	setObservedSessionTimes(&c, &h, "2026-10-08T23:59:00Z", "2026-10-09T00:00:00Z")
+	h.SessionAccess.Outcome, h.SessionAccess.Session.ReuseAllowed = "fresh", false
+	missing, fresh := h.Trace[0], h.Trace[0]
+	missing.Outcome, fresh.Outcome = "expired", "fresh"
+	h.Trace = append([]runevidence.BrowserTraceEvent{missing, fresh}, h.Trace[1:]...)
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, h); err != nil {
+		t.Fatal("unused expired metadata blocked narrowed fresh fallback", err)
 	}
 }

@@ -3,6 +3,7 @@ package runevidence
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"strconv"
 	"time"
 
@@ -87,20 +88,33 @@ type BrowserSessionAccessWitness struct {
 	LeaseID string
 	Outcome string
 	Session browsercontract.BrowserSessionV1
+	Binding BrowserSessionBindingWitness
+}
+
+// Full value-free native binding facts. BindingSHA256 is an opaque native
+// identity; this package neither decodes it nor invents its hash algorithm.
+type BrowserSessionBindingWitness struct {
+	OwnerID, AgentID, Name, BindingSHA256 string
+	ProfileSHA256, AuthenticationSHA256   string
+	CredentialRevisions                   []browsercontract.CredentialRevision
+	Origins                               []string
+	Generation                            uint64
+	CreatedAt, ExpiresAt                  string
 }
 
 type BrowserHostWitnesses struct {
-	CredentialLease     *BrowserCredentialLeaseWitness
-	SessionAccess       *BrowserSessionAccessWitness
-	Config              BrowserConfigV1
-	Inventory           udonreport.InventoryV5
-	FactRefs            []string
-	Launch              BrowserLaunchWitness
-	Join                BrowserJoinWitness
-	Trace               []BrowserTraceEvent
-	NonDispatch         *BrowserNonDispatchWitness
-	SavePermission      *BrowserSavePermissionWitness
-	DurableBindingCount int
+	CredentialLease        *BrowserCredentialLeaseWitness
+	SessionAccess          *BrowserSessionAccessWitness
+	ExpectedSessionBinding *BrowserSessionBindingWitness // independent host expectation, anchored to Config's opaque binding
+	Config                 BrowserConfigV1
+	Inventory              udonreport.InventoryV5
+	FactRefs               []string
+	Launch                 BrowserLaunchWitness
+	Join                   BrowserJoinWitness
+	Trace                  []BrowserTraceEvent
+	NonDispatch            *BrowserNonDispatchWitness
+	SavePermission         *BrowserSavePermissionWitness
+	DurableBindingCount    int
 }
 type BrowserReportResult struct {
 	Observation       udonreport.ObservationV5
@@ -162,13 +176,32 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 	if !host.Launch.AllTraffic || !host.Launch.Sandbox || !browsercontract.Identifier(host.Launch.LeaseID) || host.Launch.LaunchNonce != expected.LaunchNonce || host.Launch.Worker != expected.Worker || host.Launch.DriverClosureSHA256 != expected.DriverClosureSHA256 || host.Launch.ContainmentLeaseID != expected.ContainmentLeaseID || !reflect.DeepEqual(host.Launch.Origins, expected.Origins) || !joined(host.Join, host.Launch, requiresAccess) {
 		return fail()
 	}
-	if requiresAccess && (host.DurableBindingCount != 1 || !sessionAccessMatches(expected.Session, host.Join.SessionAccessLeaseID, host.SessionAccess)) {
+	if host.SessionAccess == nil {
+		if requiresAccess || host.Join.SessionAccessLeaseID != "" {
+			return fail()
+		}
+	} else if host.DurableBindingCount != 1 || !sessionAccessMatches(expected, host.Join.SessionAccessLeaseID, host.SessionAccess, host.ExpectedSessionBinding) {
 		return fail()
 	}
 	deadline, _ := time.Parse(time.RFC3339Nano, expected.AdmittedDeadline)
 	reportStart, err := time.Parse(time.RFC3339Nano, observation.StartedAt)
 	if err != nil || !reportStart.Before(deadline) {
 		return fail()
+	}
+	if host.SessionAccess != nil && host.SessionAccess.Outcome == "reuse" {
+		created, _ := time.Parse(time.RFC3339Nano, host.SessionAccess.Session.CreatedAt)
+		expires, _ := time.Parse(time.RFC3339Nano, host.SessionAccess.Session.ExpiresAt)
+		if reportStart.Before(created) || !reportStart.Before(expires) {
+			return fail()
+		}
+		for i, call := range expected.ApprovedCalls {
+			if call.SessionName == host.SessionAccess.Session.Name && observation.Steps[i].StartedAt != "" {
+				at, err := time.Parse(time.RFC3339Nano, observation.Steps[i].StartedAt)
+				if err != nil || at.Before(created) || !at.Before(expires) {
+					return fail()
+				}
+			}
+		}
 	}
 	for _, step := range observation.Steps {
 		if step.StartedAt != "" {
@@ -235,18 +268,24 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			if expected.Session == nil || launchDone || anySent || joinDone || acquired != "" && !((acquired == "missing" || acquired == "expired") && e.Outcome == "fresh") {
 				return fail()
 			}
+			if access := host.SessionAccess; access != nil && (access.Session.ReuseAllowed && !call.ReuseAllowed || access.Session.SaveAllowed && !call.SaveAllowed || requiresAccess && call.SessionName != access.Session.Name) {
+				return fail()
+			}
 			switch e.Outcome {
 			case "fresh", "missing", "expired":
 			case "reuse":
-				if expected.Session == nil || !expected.Session.ReuseAllowed {
+				if expected.Session == nil || !expected.Session.ReuseAllowed || !call.ReuseAllowed || call.SessionName != expected.Session.Name {
 					return fail()
 				}
 			default:
 				return fail()
 			}
+			if host.SessionAccess != nil && e.Outcome != "missing" && e.Outcome != "expired" && e.Outcome != host.SessionAccess.Outcome {
+				return fail()
+			}
 			acquired = e.Outcome
 		case "launch":
-			if launchDone || joinDone || !credentialsLeased || e.Outcome != "contained" || acquired != "" && acquired != "fresh" && acquired != "reuse" || requiresAccess && acquired != host.SessionAccess.Outcome {
+			if launchDone || joinDone || !credentialsLeased || e.Outcome != "contained" || acquired != "" && acquired != "fresh" && acquired != "reuse" || host.SessionAccess != nil && acquired != host.SessionAccess.Outcome {
 				return fail()
 			}
 			launchDone = true
@@ -607,8 +646,9 @@ func credentialLeaseMatches(c BrowserConfigV1, w *BrowserCredentialLeaseWitness)
 	return true
 }
 
-func sessionAccessMatches(expected *browsercontract.BrowserSessionV1, lease string, observed *BrowserSessionAccessWitness) bool {
-	if expected == nil || observed == nil || observed.LeaseID != lease || observed.Outcome != "fresh" && observed.Outcome != "reuse" {
+func sessionAccessMatches(config BrowserConfigV1, lease string, observed *BrowserSessionAccessWitness, independentlyExpected *BrowserSessionBindingWitness) bool {
+	expected := config.Session
+	if expected == nil || observed == nil || !browsercontract.Identifier(observed.LeaseID) || observed.LeaseID != lease || observed.Outcome != "fresh" && observed.Outcome != "reuse" {
 		return false
 	}
 	s := observed.Session
@@ -618,5 +658,88 @@ func sessionAccessMatches(expected *browsercontract.BrowserSessionV1, lease stri
 	// Observed permissions may narrow approved rights on missing/expired->fresh;
 	// all immutable binding identities and timestamps still match exactly.
 	s.ReuseAllowed, s.SaveAllowed = expected.ReuseAllowed, expected.SaveAllowed
-	return sameCanonical(s, expected)
+	if !sameCanonical(s, expected) {
+		return false
+	}
+	bound, ok := expectedSessionBinding(config, independentlyExpected)
+	return ok && reflect.DeepEqual(observed.Binding, bound)
+}
+
+func expectedSessionBinding(c BrowserConfigV1, independent *BrowserSessionBindingWitness) (BrowserSessionBindingWitness, bool) {
+	if c.Session == nil {
+		return BrowserSessionBindingWitness{}, false
+	}
+	s := c.Session
+	b := BrowserSessionBindingWitness{OwnerID: c.OwnerID, AgentID: c.AgentID, Name: s.Name, BindingSHA256: s.BindingSHA256, Generation: s.Generation, CreatedAt: s.CreatedAt, ExpiresAt: s.ExpiresAt, CredentialRevisions: []browsercontract.CredentialRevision{}, Origins: []string{}}
+	authID := ""
+	profiles, credentials, origins := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, call := range c.ApprovedCalls {
+		if call.SessionName != s.Name {
+			continue
+		}
+		for _, o := range call.Origins {
+			origins[o] = true
+		}
+		for _, slot := range call.CredentialSlots {
+			credentials[slot.Name] = true
+		}
+		if call.Kind == "authentication" {
+			if authID != "" {
+				return BrowserSessionBindingWitness{}, false
+			}
+			authID, b.AuthenticationSHA256 = call.SourceID, call.SourceSHA256
+		}
+		if call.Kind == "action" {
+			profiles[call.SourceSHA256] = true
+		}
+	}
+	for _, call := range c.ApprovedCalls {
+		if call.Kind == "action" && call.SessionName == s.Name && call.AuthenticationSourceID != authID {
+			return BrowserSessionBindingWitness{}, false
+		}
+	}
+	if len(profiles) > 1 {
+		return BrowserSessionBindingWitness{}, false
+	}
+	for sha := range profiles {
+		b.ProfileSHA256 = sha
+	}
+	if len(origins) == 0 {
+		for _, o := range c.Origins {
+			origins[o] = true
+		}
+		for _, r := range c.CredentialRevisions {
+			credentials[r.Name] = true
+		}
+	}
+	for _, r := range c.CredentialRevisions {
+		if credentials[r.Name] {
+			b.CredentialRevisions = append(b.CredentialRevisions, r)
+		}
+	}
+	if len(b.CredentialRevisions) != len(credentials) {
+		return BrowserSessionBindingWitness{}, false
+	}
+	for o := range origins {
+		b.Origins = append(b.Origins, o)
+	}
+	sort.Strings(b.Origins)
+	// An auth-only plan has no action-profile digest to derive. Its expected
+	// native binding must come separately from the host, anchored to Config.
+	// Fresh-only legacy metadata may likewise lack an establishing auth source.
+	if b.ProfileSHA256 == "" || b.AuthenticationSHA256 == "" {
+		if independent == nil {
+			return BrowserSessionBindingWitness{}, false
+		}
+		if b.ProfileSHA256 == "" {
+			b.ProfileSHA256 = independent.ProfileSHA256
+		}
+		if b.AuthenticationSHA256 == "" {
+			b.AuthenticationSHA256 = independent.AuthenticationSHA256
+		}
+	}
+	if !browsercontract.DigestValid(b.ProfileSHA256) || !browsercontract.DigestValid(b.AuthenticationSHA256) || independent != nil && !reflect.DeepEqual(*independent, b) {
+		return BrowserSessionBindingWitness{}, false
+	}
+	return b, true
 }
