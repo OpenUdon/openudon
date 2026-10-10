@@ -249,3 +249,39 @@ func TestBrowserPlanUsesExactCallAndRequiresIndependentRuntime(t *testing.T) {
 		t.Fatal("rehashed changed browser plan accepted")
 	}
 }
+
+func TestSelectedBrowserProfileRefusesMixedExecutionBeforeNativeAdmission(t *testing.T) {
+	for _, kind := range []string{"http", "fnct"} {
+		t.Run(kind, func(t *testing.T) {
+			options := browserOptions(t, browserVectors(t)[4])
+			yaml := string(options.WorkflowYAML)
+			worker := packagev3.WorkerIdentity{BinarySHA256: strings.Repeat("a", 64), ClosureSHA256: strings.Repeat("b", 64), RuntimeRevision: strings.Repeat("c", 40)}
+			if kind == "http" {
+				options.Sources = append(options.Sources, packagev3.SourceInput{ID: "api", Kind: "openapi", Path: "sources/openapi/api.yaml", Bytes: []byte(apiFixture)})
+				yaml = strings.Replace(yaml, "sourceDescriptions: [{name: browser, type: browser-profile, url: sources/browser-profile/action-1.9.json}]", "sourceDescriptions: [{name: browser, type: browser-profile, url: sources/browser-profile/action-1.9.json}, {name: api, type: openapi, url: sources/openapi/api.yaml}]", 1)
+				yaml = strings.Replace(yaml, "workflows:", "  - operationId: mixed\n    sourceDescription: api\n    sourceOperationId: fetch\n    effect: read\n    request: {query: {n: 9007199254740993}}\nworkflows:", 1)
+			} else {
+				native := runtimeOptions(t)
+				options.Sources = append(options.Sources, native.Sources...)
+				options.RuntimeVerifier = native.RuntimeVerifier
+				worker.RuntimeRevision = runtimeRevision
+				yaml = strings.Replace(yaml, "workflows:", "  - operationId: mixed\n    effect: read\n    x-uws-operation-profile: uws.runtime.1.0\n    x-uws-runtime: {type: fnct, function: identity, arguments: [literal]}\nworkflows:", 1)
+			}
+			yaml = strings.Replace(yaml, "steps: [{stepId: leaf, operationRef: op}]", "steps: [{stepId: leaf, operationRef: op}, {stepId: mixed, operationRef: mixed}]", 1)
+			options.WorkflowYAML = []byte(yaml)
+			p, err := packagev3.Build(context.Background(), options)
+			if err != nil {
+				t.Fatal("mixed review package", err)
+			}
+			v, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files, RuntimeVerifier: options.RuntimeVerifier})
+			if err != nil {
+				t.Fatal("mixed read-only proof", err)
+			}
+			called := false
+			execution := packagev3.ExecutionOptions{Worker: worker, RuntimeAdmission: func(context.Context, packagev3.RuntimeAdmissionRequest) error { called = true; return nil }}
+			if _, err := packagev3.DeriveExecutionPlan(context.Background(), v, execution); err == nil || called {
+				t.Fatal("unsupported mixed profile reached native admission")
+			}
+		})
+	}
+}

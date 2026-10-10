@@ -74,7 +74,7 @@ SDK version.
 | P10.1 — Versioned browser supplement | `[+]` | Admit browser-profile, authentication and registration source artifacts and browser leaves in a versioned package v3 browser supplement. Browser shape tables are untrusted until reproduced through the published Browsertools:M33 verifier. Non-browser v3 package, approval and run-evidence identities stay byte-identical. |
 | P10.2 — Public browser verification subset | `[+]` | Promote only the needed `browserverify` / `browsertransaction` behavior to public packages: profile transaction receipts v1–v4 and capture review evidence. Import nothing from synthesize, workflowintent, elicitor, projectwizard, udonrunner or trustedrunner. |
 | P10.3 — Browser approval and Authority | `[+]` | Approval and Authority bind browser actions, origins, side effects, confirmation policy, credential-slot names and saved-session reuse permission. Changed bytes refuse. No value is carried. |
-| P10.4 — Browser run evidence | `[ ]` | Independently verify browser reports/run evidence, including `runevidence.BrowserConfig`, against exact action/dispatch identity. A typed error after authentication, registration or action dispatch cannot establish no effect. Preserve unknown after successful write then failed extraction, lost response, cancellation or crash; reject evidence that relabels uncertainty as safe retry or continuation. Positive non-dispatch proof is explicit and cannot transfer old authority. Evidence stays value-free; no private runtime import. Use M51 frozen native-report/interface fixtures for independent implementation beside Udon:M53. Preserve public/private isolation; M56/M52 subsequently prove actual producer interoperability. Contract drift pauses affected leases for coordinator reconciliation. |
+| P10.4 — Browser run evidence | `[+]` | Independently verify browser reports/run evidence, including `runevidence.BrowserConfig`, against exact action/dispatch identity. A typed error after authentication, registration or action dispatch cannot establish no effect. Preserve unknown after successful write then failed extraction, lost response, cancellation or crash; reject evidence that relabels uncertainty as safe retry or continuation. Positive non-dispatch proof is explicit and cannot transfer old authority. Evidence stays value-free; no private runtime import. Use M51 frozen native-report/interface fixtures for independent implementation beside Udon:M53. Preserve public/private isolation; M56/M52 subsequently prove actual producer interoperability. Contract drift pauses affected leases for coordinator reconciliation. |
 | P10.5 — Qualify and publish | `[ ]` | No Udon import; v2 and v3 history readers and existing wires unchanged; consumer builds (Kinet author/exec workers); SDK publication handoff under named authority. |
 
 ## Acceptance and verification
@@ -218,3 +218,34 @@ Coordinator preparation comparison of immutable first2-task source52b057d/tree a
 ## P10.3 verified row
 
 Additive sandbox-only browser approval v1 finalizes exact independent human receipt bytes before Config/Authority hashing. Public Config/Authority strict bounded decoders preserve frozen declarations/canonical identity, complete calls/origin/credential unions, protocol pairs, one durable binding and at most one save permission. Derivation independently reproduces verified package/plan/calls under actual consumer runtime admission and explicit host time; changed actions/effects/policy/origins/worker/driver/inputs/deadline/reuse/credentials or receipt bytes refuse. Existing approval v1/v2 APIs refuse all browser leaves, including mixed sequences. Focused packagev3/browsercontract/approval/authority/browserverify tests and vet pass; frozen config golden and privacy/refusal checks pass; old nonbrowser goldens remain unchanged. `git diff --check` passes. Config/receipt validation remains metadata only, with actual human confirmation/grants/current claims/custody owned by Kinet. Formal review0/10.
+
+Coordinator scope reconciliation during P10.4: exact frozen M51 host ABI
+`BrowserExecutionBinding.Inventory []BrowserLeaf`, closed `BrowserLeaf.Purpose`
+action/authentication/registration, and public complete ordered Calls select a
+browser-only executable inventory. Mixed HTTP/fnct/browser artifacts may remain
+review packages, but SDK execution/Authority must refuse them before runtime
+admission or host access. Existing pure non-browser profiles/goldens stay
+unchanged. This corrects unsupported-profile enforcement within approved P10
+scope, without new ABI/kind/edge or new milestone. Udon:M53 independently
+implements that same selected profile; this lease reads no changing checkout.
+Formal review remains0/10.
+
+Preparation review of immutable task1–3 sourceaf8e945 identified one P2:
+current browser Authority compared session expiry to explicit Now but omitted
+creation/current-time comparison. Exact frozen session contract requires
+creation not in the future. P10.4 fixes creation comparison in the owning
+current-time Authority path and verifies before/at-creation boundaries; historical
+Config validation remains clock-free. Review preparation manifestSHA256
+c41e1fb607dd178e2c8f671a5acfdedc5a49008696e4fad84fd195227d79a53f.
+Formal count stays0/10; this is scoped pre-acceptance implementation repair.
+
+The task1–3 preparation report consolidates1P2/0P1/P3 at
+SHA256dce7648c5afb3e7985e9035be2c14c72d508422a8c4f0fce0907d16baa7196de,
+with56manifest postimages verified. The future-created session finding is fixed:
+current-time derivation refuses Now before CreatedAt, accepts the exact creation
+boundary, and clock-free metadata validation preserves canonical UTC timestamps.
+Affected focused packagev3/approval/authority/report suites pass.
+
+## P10.4 verified row
+
+Public explicit-byte browser report/run-evidence verification independently passes all34 exact frozen M51 metadata cases, plus current identity/claim/question/protocol/deadline/positive-join/safe-successor/privacy regressions. Initial and effect-capable continuation sends require a immediately preceding exact claim; typed errors/extraction/loss/cancellation/crash remain unknown and stop later sends, retry and fallback. Complete non-dispatch evidence supports only a distinct newly confirmed successor; old authority never transfers. Known completed leaves survive later checkpoint failure. Candidate/save ordering, one-use permission/current generation and join/release are checked. New browser evidence v1 is closed/value-free; legacy report-v5/RunEvidence/BrowserConfig/schema/fixture bytes remain unchanged. Mixed browser+HTTP/nonsequence-fnct plans now refuse before native admission; standalone nonbrowser fixtures and pure-browser positives pass. Opaque native credential revision IDs and registration fresh-access metadata match M51 without inventing private input values. Future-created session P2 is repaired and focused before/at-creation regressions pass. Focused tests/vet and `git diff --check` pass; no private runtime import or actual browser/process/conformance claim. Formal0/10.

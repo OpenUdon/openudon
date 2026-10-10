@@ -172,3 +172,25 @@ func TestFrozenBrowserConfigGoldenAndClosedPrivacyBoundary(t *testing.T) {
 		})
 	}
 }
+
+func TestBrowserCurrentAuthorityRefusesFutureSessionCreation(t *testing.T) {
+	v, execution, o := browserAuthorityFixture(t)
+	// A fresh access-binding metadata object grants no reuse/save permission.
+	o.ExpectedConfig.Session = &browsercontract.BrowserSessionV1{Name: "unreused-fresh-binding", BindingSHA256: strings.Repeat("e", 64), Generation: 1, CreatedAt: "2026-10-10T00:01:00Z", ExpiresAt: "2026-10-17T00:01:00Z"}
+	record, err := approval.ReviewBrowserConfig(o.ExpectedConfig, "2026-10-10T00:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.FinalizedApproval, err = record.CanonicalBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.ExpectedConfig.ApprovalSHA256 = browsercontract.SHA256(o.FinalizedApproval)
+	if _, err := packagev3.DeriveBrowserAuthority(context.Background(), v, execution, o); err == nil {
+		t.Fatal("future session accepted as current")
+	}
+	o.Now = time.Date(2026, 10, 10, 0, 1, 0, 0, time.UTC)
+	if _, err := packagev3.DeriveBrowserAuthority(context.Background(), v, execution, o); err != nil {
+		t.Fatal("creation boundary refused", err)
+	}
+}

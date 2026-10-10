@@ -92,3 +92,43 @@ session binding and at most one candidate-producing authentication save
 permission are supported. Other fresh named contexts remain allowed. Current
 policy, actual closure provenance, durable claims, credentials/session
 revocation and browser interaction authority remain separate host obligations.
+
+## Independent browser report and run evidence
+
+`runevidence.ObserveBrowserReport` takes independently expected Config,
+complete approved report inventory and trusted host witnesses, separately from
+submitted unchanged report-v5 bytes. It checks every message claim/send and
+request/ordinal/protocol/question identity, contained launch, original deadline,
+complete current credential lease, joined transport/driver/Chromium/callbacks,
+registration context closure and bounded session candidate/save/release order.
+Typed errors, extraction failure, missing responses, cancellation and crashes
+remain unknown after any possible dispatch; all following leaves stay unstarted.
+A successful complete leaf remains known across a separate checkpoint failure.
+Unknown cannot authorize retry, continuation or fresh-session fallback.
+
+A positive non-dispatch witness must cover the complete same attempt/inventory,
+all initial and continuation messages and positively joined ownership. It can
+only establish eligibility to propose a distinct newly confirmed successor;
+old approval/claims are never transferred. Missing reports and `not_started`
+without that witness establish no successor eligibility.
+
+`openudon.browser-run-evidence.v1` is a separate closed, value-free wire using the
+frozen BrowserConfig declarations and unchanged report observation. Its verifier
+requires exact expected Authority/Config/scope/dry-run mode/report bytes and
+independent trusted witnesses. No self-reported trace, booleans or hash can
+supply host authority; current state and actual containment provenance remain
+Kinet checks. Existing RunEvidence and legacy BrowserConfig/wires stay unchanged.
+
+The selected M51 executable profile is a complete flat **browser-only** inventory.
+Mixed HTTP/fnct/browser packages remain review inputs and refuse execution plan/
+Authority derivation before native admission or host access. Pure HTTP/fnct
+profiles remain supported under their existing contracts. No multi-kind host
+ABI is invented. Actual consumer isolation/interoperability remains M56/M52.
+
+The exact frozen M51 corpus qualifies 34 metadata report/host cases independently.
+Test adapters explicitly identify fixture-only worker/handoff/driver placeholders;
+they establish no actual process, browser, credential or containment proof.
+Credential revisions are opaque native symbolic revision IDs, not invented SHA
+fields. An optional session with no reuse/save permission can describe a fresh
+access binding; registration input binding remains optional report metadata,
+while package construction still requires its exact native declaration.

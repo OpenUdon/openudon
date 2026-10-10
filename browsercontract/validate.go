@@ -73,7 +73,7 @@ func (c BrowserCallV1) Validate() error {
 		if !symbol.MatchString(c.Selector.Key) {
 			return ErrContract
 		}
-		if !strings.HasPrefix(c.ProfileVersion, "uws.browser-registration.") || c.SessionName != "" || c.AuthenticationSourceID != "" || c.ReuseAllowed || c.SaveAllowed || c.ProfileVersion != "uws.browser-registration.1.0" && !Identifier(c.RegistrationInputBinding) {
+		if !strings.HasPrefix(c.ProfileVersion, "uws.browser-registration.") || c.SessionName != "" || c.AuthenticationSourceID != "" || c.ReuseAllowed || c.SaveAllowed || c.RegistrationInputBinding != "" && !Identifier(c.RegistrationInputBinding) {
 			return ErrContract
 		}
 	default:
@@ -163,7 +163,7 @@ func (c BrowserConfigV1) Validate() error {
 		return ErrContract
 	}
 	for i, r := range c.CredentialRevisions {
-		if !credentials[r.Name] || !Identifier(r.Name) || !DigestValid(r.Revision) || i > 0 && c.CredentialRevisions[i-1].Name >= r.Name {
+		if !credentials[r.Name] || !Identifier(r.Name) || !Identifier(r.Revision) || i > 0 && c.CredentialRevisions[i-1].Name >= r.Name {
 			return ErrContract
 		}
 	}
@@ -180,7 +180,7 @@ func (c BrowserConfigV1) Validate() error {
 		}
 		created, e1 := time.Parse(time.RFC3339Nano, s.CreatedAt)
 		expires, e2 := time.Parse(time.RFC3339Nano, s.ExpiresAt)
-		if e1 != nil || e2 != nil || !expires.After(created) || expires.Sub(created) > 30*24*time.Hour || !deadline.After(created) {
+		if e1 != nil || e2 != nil || !strings.HasSuffix(s.CreatedAt, "Z") || !strings.HasSuffix(s.ExpiresAt, "Z") || !expires.After(created) || expires.Sub(created) > 30*24*time.Hour || !deadline.After(created) {
 			return ErrContract
 		}
 		found, reuse, save := false, false, false
@@ -191,7 +191,7 @@ func (c BrowserConfigV1) Validate() error {
 				save = save || call.SaveAllowed
 			}
 		}
-		if !found || reuse != s.ReuseAllowed || save != s.SaveAllowed {
+		if !found && (s.ReuseAllowed || s.SaveAllowed) || reuse != s.ReuseAllowed || save != s.SaveAllowed {
 			return ErrContract
 		}
 	}

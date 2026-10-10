@@ -272,6 +272,16 @@ func DeriveExecutionPlan(ctx context.Context, verified VerifiedPackage, options 
 		}
 		plan.Operations = append(plan.Operations, leaf)
 	}
+	if supplement != nil {
+		// Frozen M51 Host.Binding.Inventory is []BrowserLeaf with a closed
+		// action/authentication/registration Purpose. The selected executable
+		// profile is the COMPLETE browser inventory, never a mixed subsequence.
+		for _, leaf := range plan.Operations {
+			if leaf.Kind != "browser" {
+				return ExecutionPlan{}, ErrPackage
+			}
+		}
+	}
 	if len(used) != len(operations) {
 		return ExecutionPlan{}, ErrPackage
 	}

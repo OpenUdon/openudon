@@ -33,8 +33,9 @@ func DeriveBrowserAuthority(ctx context.Context, v VerifiedPackage, execution Ex
 		return browsercontract.BrowserAuthorityV1{}, ErrPackage
 	}
 	if c.Session != nil {
+		created, creationErr := time.Parse(time.RFC3339Nano, c.Session.CreatedAt)
 		expires, err := time.Parse(time.RFC3339Nano, c.Session.ExpiresAt)
-		if err != nil || !o.Now.Before(expires) {
+		if creationErr != nil || o.Now.Before(created) || err != nil || !o.Now.Before(expires) {
 			return browsercontract.BrowserAuthorityV1{}, ErrPackage
 		}
 	}
