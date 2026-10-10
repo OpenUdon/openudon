@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 in progress. Whole review 3/10 STARTED after the complete review 2 repair set passed qualification. Source publication remains coordinator-owned and unperformed; acceptance is pending.
+**State:** P10.1–4 verified; P10.5 in progress. Whole review3 FAIL with three P2 state-machine findings; scoped corrections/requalification and publication remain pending.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -108,7 +108,7 @@ status markers grant none; audit stays disabled.
 
 ## Review
 
-Whole-milestone review: 2/10 FAIL — 3P2/0P1/P3; access repairs and next full review pending. Counter never resets.
+Whole-milestone review: 3/10 FAIL — 3P2/0P1/P3; scoped state-machine corrections and next full review pending. Counter never resets.
 
 ## Frozen M51 producer input checkpoint — 2026-10-09
 
@@ -597,3 +597,29 @@ required, unperformed and coordinator-owned. Review 3 must include those actual
 results before passing acceptance. Local qualification, source commits and
 this STARTED record establish no whole acceptance, closure or ordinary SDK
 adoption. Child protected grants stay empty and audit remains disabled.
+
+### Whole review3 — FAIL before corrections
+
+Joined root/independent full review on frozen b6c54b7 finds exactly three P2,
+zero P1/P3. [Recorded review](../../docs/p10-review3.json) precedes any correction:
+optional actual access still skips acquiring-leaf name equality when rights are
+zero; a refused inflight continuation claim can accept a later success matching
+the initial send; explicit human denial can still create a candidate or save
+earlier authenticated state after positive Join/current one-use permission.
+
+Correct every supplied actual access binding independently of required presence,
+latch refused inflight uncertainty, and withhold candidate/save after explicit
+denial without erasing known prior outcomes or banning save on unrelated failure
+cases. Keep nil/zeroAcquire, complete native source tuples, frozen wire/ABI and
+raw M51 fixtures unchanged. Capture controlled beforefail/afterpass, qualify
+affected checks, then persist review4 STARTED; never reset counter3.
+
+All1673 fullsource files/66 assignment paths and59 qualification references match;
+19 command receipts retain their expected outcomes (controlled negative exit1
+is explicitly expected). All7260compiled source records/1279exports/194ordinary
+module sets,20legacygoldens/sixrawM51files/16decls match. Package graphs373/390/519
+(public/author/exec) have zero recursive errors; public/author isolation passes.
+The three new counterexamples are static source/fixture evidence only; no test
+execution is asserted yet. Existing source publication, independent proof,
+whole acceptance, integration, shared consolidation and closure remain root-owned
+and pending. Audit stays disabled; protected child grants remain{}.

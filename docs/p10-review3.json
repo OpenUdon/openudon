@@ -1,0 +1,59 @@
+{
+  "version": "openudon.p10-whole-review-result.v1",
+  "iteration": 3,
+  "result": "FAIL",
+  "candidate": "b6c54b7e99cbfc0910d1f4cb7834ccd229af7788",
+  "assignmentBase": "f9f48a007d721b984bd26358b300cb5748f63754",
+  "P1": 0,
+  "P2": 3,
+  "P3": 0,
+  "findings": [
+    {
+      "id": "P10-R3-F01",
+      "severity": "P2",
+      "title": "Optional actual access can bind to the wrong acquisition leaf",
+      "path": "runevidence/browser.go:271",
+      "evidence": "Acquiring leaf session-name equality is conditional on requiresAccess. A supplied fresh full access with zero permissions can acquire under another context leaf.",
+      "correction": "Every supplied actual access matches the exact acquisition leaf/session/source identity, independent of whether witness presence is required. Preserve nilactual/zeroAcquire."
+    },
+    {
+      "id": "P10-R3-F02",
+      "severity": "P2",
+      "title": "Refused continuation claims permit late success to replace uncertainty",
+      "path": "runevidence/browser.go:362",
+      "evidence": "Refused claim sets stopped but not terminal for an already-sent unknown leaf; response branch434 accepts success with original initial-send identity.",
+      "correction": "Latch refused inflight continuation as terminalunknown; reject contradictory late success/later execution while preserving earlier completed leaves."
+    },
+    {
+      "id": "P10-R3-F03",
+      "severity": "P2",
+      "title": "Explicit human denial still permits durable save",
+      "path": "runevidence/browser.go:481",
+      "evidence": "interact deny stops but candidate/generation/session_save lacks denial guard. Earlier completed/save-approved auth can candidate then later action confirmationdeny and still encryptedsave afterJoin/currentpermission.",
+      "correction": "Explicit denial withholds subsequent candidate/save, keeping prior authentication outcome; do not impose general save ban for unrelated failure cases."
+    }
+  ],
+  "controlledCounterexamples": "Established by full static source/frozen fixture inspection; not yet executed. Writer will capture beforefail/afterpass without changing rawM51 files.",
+  "verified": {
+    "fullSourceFiles": 1673,
+    "assignmentPaths": 66,
+    "qualificationRefs": 59,
+    "indexedChecks": 19,
+    "compiledSourceRecords": 7260,
+    "exportRecords": 1279,
+    "ordinaryModuleSets": 194,
+    "legacyGoldens": 20,
+    "rawM51Files": 6,
+    "publicDeclarations": 16,
+    "graphPackages": {
+      "public": 373,
+      "author": 390,
+      "exec": 519
+    },
+    "recursiveErrors": 0
+  },
+  "remainingPublicationGate": "Existing root-only source publication/independent exactproof unperformed; not an additional finding or acceptance",
+  "reviewerActions": "Read-only source/Git/hash/standardlibrary evidence inspection only; no project tests/code/mutations/network/audit",
+  "recordedAt": "2026-10-10T19:21:05.083400+00:00",
+  "auditEnabled": false
+}
