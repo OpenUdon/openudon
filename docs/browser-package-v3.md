@@ -39,3 +39,29 @@ These APIs perform no browser launch, external request or private-runtime import
 Kinet M56/M52 own actual containment/custody and later actual producer
 interoperability qualification. Frozen synthetic M51 vectors are metadata
 conformance inputs and grant no execution authority.
+
+## Public verification subset
+
+Public `browsertransaction` supports the unchanged transaction receipt v1–v4
+records, canonical digests, strict decoding and closed lifecycle transitions.
+The retained CLI consumes aliases to that public implementation; no authoring
+engine, synthesis, wizard, runtime or trusted-runner package enters its closure.
+All original transaction and report regression tests remain active at their
+public owner paths, and the focused Make verification selector follows them.
+
+Public `browserverify.InspectBytes` verifies explicit value-free live/portability
+reports against one exact native profile without filesystem/browser access.
+The retained file readers preserve their earlier bounded regular-file checks.
+`DecodeCaptureReceipt` reads the unchanged `openudon.browser-capture-import.v1`
+wire with transaction versions1–4. `VerifyCaptureReceipt` requires independently
+retained original receipt/start/transaction identities and exact public
+source/review bytes; changed/missing/expired evidence refuses. Omitting `At`
+is historical byte inspection only. Current adoption requires the host's time,
+issued original capture identity and separate human confirmation.
+
+Package review artifacts remain bounded explicit reviewed inputs. Their hashes
+enter the supplement and complete package input identity; possessing those
+bytes never proves an actual capture or supplies new host authority. Kinet's
+capture adapter uses the public receipt verifier before adopting an issued
+capture. No raw private envelope, live browser state, credential or model input
+is promoted into the public verification subset.

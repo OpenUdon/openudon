@@ -16,7 +16,7 @@ func TestRegistrationV4RequiresExactProfileAndProducerLineage(t *testing.T) {
 	testVersionedRegistrationLineage(t, "v4")
 }
 func testVersionedRegistrationLineage(t *testing.T, version string) {
-	data, err := os.ReadFile("../../docs/schemas/openudon.browser-profile-transaction." + version + ".schema.json")
+	data, err := os.ReadFile("../docs/schemas/openudon.browser-profile-transaction." + version + ".schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}

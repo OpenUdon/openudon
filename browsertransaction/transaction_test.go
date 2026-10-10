@@ -183,7 +183,7 @@ func TestCompositionAndValueFreeBoundary(t *testing.T) {
 }
 
 func TestPublicSchemaCompilesAndAcceptsCanonicalTransactions(t *testing.T) {
-	schemaBytes, err := os.ReadFile(filepath.Join("..", "..", "docs", "schemas", "openudon.browser-profile-transaction.v1.schema.json"))
+	schemaBytes, err := os.ReadFile(filepath.Join("..", "docs", "schemas", "openudon.browser-profile-transaction.v1.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestPublicSchemaCompilesAndAcceptsCanonicalTransactions(t *testing.T) {
 }
 
 func TestPublicV2SchemaCompilesAndAcceptsOnlyRegistrationV2(t *testing.T) {
-	schemaBytes, err := os.ReadFile(filepath.Join("..", "..", "docs", "schemas", "openudon.browser-profile-transaction.v2.schema.json"))
+	schemaBytes, err := os.ReadFile(filepath.Join("..", "docs", "schemas", "openudon.browser-profile-transaction.v2.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestPublicV2SchemaCompilesAndAcceptsOnlyRegistrationV2(t *testing.T) {
 }
 
 func TestPublishedExamplesValidate(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("..", "..", "docs", "examples", "browser-profile-transaction-*.json"))
+	paths, err := filepath.Glob(filepath.Join("..", "docs", "examples", "browser-profile-transaction-*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
