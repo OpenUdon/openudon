@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 in progress. Whole review 2/10 failed with three P2 findings; all repairs are fully requalified and review 3 is pending. Source publication remains coordinator-owned and unperformed.
+**State:** P10.1–4 verified; P10.5 in progress. Whole review 3/10 STARTED after the complete review 2 repair set passed qualification. Source publication remains coordinator-owned and unperformed; acceptance is pending.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -572,3 +572,28 @@ and [qualification](../../docs/p10-qualification.json). The interrupted partial
 full-test log remains unqualified. Counter 2/10 stays failed historical evidence;
 next full review 3, required source publication, exact independent proof and
 coordinator integration/closure remain pending. No whole acceptance is claimed.
+
+## Whole-milestone review 3 — STARTED
+
+Started on 2026-10-10 after the complete review 2 repair set and all required
+local checks pass. Qualified source checkpoint
+`32743e9879b436ccc11e5322c182f0fedc1dc08a` includes all verified repairs,
+qualification evidence and review 2 findings. Exact qualification SHA256
+`8ae75290184cd5157dd40f7a056557b11332864b8dafb01eff9a599cbbe1febf`
+records the prior counter 2 qualification stage; this status owns current
+counter 3. Review 1 and 2 failures stay preserved and never reset.
+
+The reviewed integration baseline remains
+`f9f48a007d721b984bd26358b300cb5748f63754`, with captured primary
+`/home/peter/Workspace/openudon`, symbolic `refs/heads/main`, clean and unchanged.
+Original goal base remains `c0b0d7aae77a9e68630f9e1d8bfe2a9525a0ddb6`.
+No rebase or history rewrite was needed. The coordinator receives a complete
+immutable Git archive and full assignment postimage manifest after this start
+record is committed. Formal review begins only after this persisted record;
+the child performs no review 3 finding pass before that handoff.
+
+P10.5 source publication and independently verified exact Git proof remain
+required, unperformed and coordinator-owned. Review 3 must include those actual
+results before passing acceptance. Local qualification, source commits and
+this STARTED record establish no whole acceptance, closure or ordinary SDK
+adoption. Child protected grants stay empty and audit remains disabled.
