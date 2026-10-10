@@ -15,7 +15,7 @@ grants remain ungranted launch prerequisites; no implementation is authorized.
 Kinet R65 approved STG-12, browser profiles and legacy cleanup, as planning on
 2026-10-09. OpenUdon owns two required units:
 
-- **[P10](status-P10.md)** — Package v3 browser supplement.
+- **[P10](../docs/history/status-P10.md)** — Package v3 browser supplement.
 - **[A32](status-A32.md)** — Legacy closure removal. It follows Kinet:M53's
   retirement of the pinned browser path.
 
@@ -346,7 +346,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P10 | Package v3 browser supplement | [status-P10.md](status-P10.md) | Pending (STG-12) |
 | A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12) |
 
 ## Requested Changes After Initialization
@@ -620,59 +619,6 @@ only.
 from the later confirmed goal. Source publication requires separately named
 authority. Consumers record exact accepted local Kinet prerequisites and accepted,
 independently published sibling prerequisites before adoption.
-
-### P10 — Package v3 browser supplement
-
-**Stage/owner.** STG-12 Phase A; OpenUdon. Dispatch priority position 6/19.
-
-**Dependencies.** The Kinet:M51 contract; published UWS:C10 and Browsertools:M33;
-accepted P09.
-
-**Scope.**
-
-- A versioned browser supplement admitting browser sources and leaves, with
-  shapes reproduced through Browsertools.
-- A public browser verification and transaction subset with no retained-set
-  imports.
-- Browser approval and Authority covering actions, origins, side effects,
-  confirmation policy, credential slots and session permission.
-- Browser run evidence independently preserves possible effects after typed
-  errors/extraction failure/lost response/cancellation/crash. Uncertainty forbids
-  retry/continuation; positive non-dispatch proof cannot transfer authority.
-
-**Acceptance.** Browser packages yield exact Authority; tampering refuses;
-non-browser identities are unchanged; there is no Udon import.
-
-**Downstream.** Udon:M53, Kinet:M56, Kinet:W20, Kinet:M52 and A32.
-
-**Tasks/review.** [status-P10.md](status-P10.md), 5 rows, review 0/10.
-
-**Depends on.** Kinet:M51, UWS:C10, Browsertools:M33. All required prerequisites must have
-accepted closure at exact revisions; sibling producer adoption also needs
-independently verified publication. A priority position never supplies authority.
-
-**Downstream impacts.** Kinet:M56, Kinet:W20, Kinet:M52, OpenUdon:A32.
-
-**Write set.** The owning `openudon/` package's implementation, tests, ordinary
-documentation, manifests and qualification outputs only as required by this
-milestone's existing scope, plus `tabilet/memory-bank/status-P10.md` in its
-assigned worktree. Excludes `AGENTS.md`, `tabilet/GOAL.md`, shared memory-bank
-files, other statuses, evolution, stages, history/knowledge, the package audit
-database/sidecars, coordination docs and launch input. The coordinator alone applies shared-memory and closure
-changes serially; no child writes a sibling repository or user ledger.
-
-**Contracts read.** Immutable exact prerequisite artifacts listed above, the
-M51 native-owner-reviewed contract/fixtures when applicable, the assigned
-package baseline and frozen shared-memory/consumer snapshots captured at
-dispatch. Cross-package checks use read-only exact snapshots or approved
-published module inputs, never changing sibling checkouts. Record full source,
-artifact and fixture hashes in the later execution brief; contract drift pauses
-affected leases for coordinator reconciliation. Existing no-workspace/no-directory
-substitution requirements for ordinary published adoption remain in force.
-
-**Parallel-safe.** yes. Eligible only under the explicit Stage 12 lease opt-in, with no dependency path or bidirectional read/write conflict against any running lease.
-At most one live milestone per package. All tests use private lease ports,
-disposable stores/caches/browser profiles and unique output directories.
 
 ### A32 — Legacy closure removal
 

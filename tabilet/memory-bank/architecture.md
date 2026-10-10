@@ -1,5 +1,26 @@
 # Architecture
 
+## P10 accepted browser public boundary — 2026-10-10
+
+Optional v3 browser supplement reproduces native shapes through exact published
+Browsertools M33. Pure browserverify/browsertransaction replace only their old
+internal aliases; public closure has no retained OpenUdon or private Udon import.
+Source/operation/step/worker/origin/effect/credential/session identities bind an
+independent finalized receipt and exact plan; no digest self-reference supplies
+authority. The selected executable profile is complete flat browser-only, with
+mixed HTTP/complex function refusal before native admission.
+
+Out-of-band actual launch/session witnesses are independently bound, not copied
+from requested Config. Every supplied access matches complete native binding and
+its acquiring leaf; nil fresh access/no acquisition remains legal. Reuse checks
+original creation/expiry at actual use; missing/expired fallback only narrows
+rights before dispatch. Each send needs an immediately preceding exact claim.
+Stopping terminalizes every dispatched unknown leaf, preventing late success;
+explicit denial separately prevents candidate/save while completed evidence
+survives. Positive non-dispatch supports only a newly confirmed successor.
+[Contract](../../docs/browser-package-v3.md) and
+[review4](../../docs/p10-review4.json) retain these boundaries.
+
 ## Stage 11 package v3 SDK — P09 accepted
 
 P09 closing review 4 accepts qualified/public source

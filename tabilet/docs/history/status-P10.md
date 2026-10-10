@@ -1,3 +1,81 @@
+# Retired milestone P10 - Package v3 browser supplement
+
+**Milestone.** P10
+**Outcome.** completed
+**Retired.** 2026-10-10
+**Source status.** tabilet/memory-bank/status-P10.md
+**Source specification.** tabilet/memory-bank/milestone.md#p10--package-v3-browser-supplement
+**Evidence.** ddf1c21736b2b7131244e585c551e583811d4032
+**Worktree.** Includes coordinator acceptance/consolidation/reconciliation/retirement changes following the observed integrated evidence head.
+**Review.** passed
+**Review iterations.** 4
+**Verification.** Full owner makecheck/tests/vet, affected and explicitly unchanged retained races, tidy/modverify, source/API/schema/goldens, public-private/compiled/module closure and explicit source-fixture consumer builds pass; exact integrated tests/modverify and independently fetched1676source files match.
+**Accepted source.** 261563d846c755de2188d4f1e228cf1e374d1725
+**Qualified implementation.** a71858413147616d464bfd4ddc028fe10561881d
+**Consolidated into.** Current product/architecture/tech-stack/lessons; pending A32 and Kinet M56/W20/M52 reconciliation.
+**Publication.** Exact source261563d, tree74f917e337de689206ec1666f74626b063792611, all1676files independently verified under existing root f7 envelope. Final closure uses the same source-only scope. No ordinary new self-module or physical-browser/custody qualification is claimed.
+
+## Milestone specification
+
+````markdown
+### P10 — Package v3 browser supplement
+
+**Stage/owner.** STG-12 Phase A; OpenUdon. Dispatch priority position 6/19.
+
+**Dependencies.** The Kinet:M51 contract; published UWS:C10 and Browsertools:M33;
+accepted P09.
+
+**Scope.**
+
+- A versioned browser supplement admitting browser sources and leaves, with
+  shapes reproduced through Browsertools.
+- A public browser verification and transaction subset with no retained-set
+  imports.
+- Browser approval and Authority covering actions, origins, side effects,
+  confirmation policy, credential slots and session permission.
+- Browser run evidence independently preserves possible effects after typed
+  errors/extraction failure/lost response/cancellation/crash. Uncertainty forbids
+  retry/continuation; positive non-dispatch proof cannot transfer authority.
+
+**Acceptance.** Browser packages yield exact Authority; tampering refuses;
+non-browser identities are unchanged; there is no Udon import.
+
+**Downstream.** Udon:M53, Kinet:M56, Kinet:W20, Kinet:M52 and A32.
+
+**Tasks/review.** [status-P10.md](status-P10.md), 5 rows, review 0/10.
+
+**Depends on.** Kinet:M51, UWS:C10, Browsertools:M33. All required prerequisites must have
+accepted closure at exact revisions; sibling producer adoption also needs
+independently verified publication. A priority position never supplies authority.
+
+**Downstream impacts.** Kinet:M56, Kinet:W20, Kinet:M52, OpenUdon:A32.
+
+**Write set.** The owning `openudon/` package's implementation, tests, ordinary
+documentation, manifests and qualification outputs only as required by this
+milestone's existing scope, plus `tabilet/memory-bank/status-P10.md` in its
+assigned worktree. Excludes `AGENTS.md`, `tabilet/GOAL.md`, shared memory-bank
+files, other statuses, evolution, stages, history/knowledge, the package audit
+database/sidecars, coordination docs and launch input. The coordinator alone applies shared-memory and closure
+changes serially; no child writes a sibling repository or user ledger.
+
+**Contracts read.** Immutable exact prerequisite artifacts listed above, the
+M51 native-owner-reviewed contract/fixtures when applicable, the assigned
+package baseline and frozen shared-memory/consumer snapshots captured at
+dispatch. Cross-package checks use read-only exact snapshots or approved
+published module inputs, never changing sibling checkouts. Record full source,
+artifact and fixture hashes in the later execution brief; contract drift pauses
+affected leases for coordinator reconciliation. Existing no-workspace/no-directory
+substitution requirements for ordinary published adoption remain in force.
+
+**Parallel-safe.** yes. Eligible only under the explicit Stage 12 lease opt-in, with no dependency path or bidirectional read/write conflict against any running lease.
+At most one live milestone per package. All tests use private lease ports,
+disposable stores/caches/browser profiles and unique output directories.
+
+````
+
+## Status record
+
+````markdown
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
@@ -717,3 +795,8 @@ whole review4 now pass their publication/verification gates. Serialized local
 integration, consolidation/downstream reconciliation and retirement still gate
 acceptance. No ordinary new self-module, physical browser/custody, deployment or
 live authority is claimed. Audit stays disabled and closure remains root-owned.
+
+## Coordinator acceptance and retirement
+
+All five rows and whole review4 pass; one factual P3 summary hash was corrected without runtime/ABI/pin changes. Source261563d/tree74f917e/all1676postimages is independently Git-published under existing f7 scope. Qualified implementationa7185841 is exact. Captured refs/heads/main fast-forwarded from f9f48a0 to ddf1c21736b2b7131244e585c551e583811d4032; exact integrated private-source tests for all seven public/browser packages and modverify pass. Shared facts/lessons and pending A32/Kinet consumers are reconciled; actual ordinary new-module adoption, physical containment/encryption and consumer qualification remain separate gates. Full spec/status is retired; no deployment/live/browser/audit authority follows.
+````

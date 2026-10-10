@@ -1,5 +1,24 @@
 # Product
 
+## P10 accepted public browser supplement — 2026-10-10
+
+Versioned v3 browser source/shape construction, pure public browser verification
+and transaction receipts, exact browser approval/Authority and independent run
+evidence are accepted after five rows/whole review4. Qualified implementation
+a7185841 is Git-published in261563d; [full record](../docs/history/status-P10.md),
+[contract](../../docs/browser-package-v3.md) and
+[publication](../../docs/p10-source-publication.json) bind exact bytes/proof.
+Nonbrowser v3 and historical v2 wires/identities remain unchanged.
+
+Exact expected host metadata and independently observed launch/session/claim
+facts precede report acceptance. Typed/lost/extraction/cancelled uncertainty and
+refused in-flight claims stop later execution; human denial also withholds save.
+Known completed leaves and optional fresh contexts remain distinguishable.
+This supplies metadata/source/evidence checks, never host permission, physical
+containment, credentials or encrypted custody. Kinet still owns those and actual
+consumer adoption. Browser authoring/retained CLI stays until accepted A32;
+ordinary new SDK artifact adoption, deployment/live and audit remain separate.
+
 ## Stage 11 package v3 SDK — P09 accepted
 
 P09 accepted all five rows after pre-publication review 3 and closing review 4

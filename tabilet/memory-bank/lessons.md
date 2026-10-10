@@ -1,5 +1,25 @@
 # Lessons
 
+## Verify actual browser access and terminal stop evidence
+
+A requested Config cannot attest an actual launch or session. Validate every
+supplied access tuple and acquiring leaf even when presence is optional; nil
+access is distinct from a malformed positive witness. Once dispatch is possible,
+refused continuations and cross-leaf stops terminalize unknown outcomes; late
+success cannot upgrade them. Human denial separately withholds candidate/save
+without erasing earlier completed evidence or banning independent save on other
+failure paths. Evidence: [P10](../docs/history/status-P10.md),
+runevidence/browser_review3_test.go and exact frozen M51 controls.
+
+## Preserve qualification lineage after interrupted work
+
+Do not convert partial logs or missing old artifacts into successful receipts.
+Record actual exits/tools and fresh byte/native-sum/source/compiled closure proof,
+retain controlled failures, and reuse unaffected checks only with unchanged
+source/module/tool hashes. A summary hash must match the actual referenced log;
+a correct full proof does not excuse stale summary metadata. P10 review4 corrected
+that factual P3 without rerunning unchanged code.
+
 Keep concise, reusable lessons that still affect decisions. Consult the topics
 relevant to the current task before substantial changes; this is not a session
 log or a requirement to produce one lesson per milestone.

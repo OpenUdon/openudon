@@ -54,7 +54,7 @@ disposable stores/caches/browser profiles and unique output directories.
 
 **Upstream.**
 
-- [OpenUdon:P10](status-P10.md), the public browser subset.
+- [OpenUdon:P10](../docs/history/status-P10.md), the public browser subset.
 - Accepted [Kinet:M53](../../../kinet/tabilet/memory-bank/status-M53.md), with its
   exact proof that Kinet consumes no OpenUdon CLI, image or internal package.
 
@@ -107,3 +107,5 @@ status markers grant none; audit stays disabled.
 ## Review
 
 Whole-milestone review: 0/10, not started.
+
+**Accepted P10 reconciliation.** Public browser supplement is accepted/retired at whole review4, exact published source261563d (qualifieda7185841). Public packages browsercontract/browserverify/browsertransaction and additive approval/Authority/evidence remain supported; preserve them in eventual removal. This supplies only P10 prerequisite: accepted Kinet:M53 no-consumer proof is still absent, so every A32 row/review remains pending. No source/pin/audit/live authority changes.

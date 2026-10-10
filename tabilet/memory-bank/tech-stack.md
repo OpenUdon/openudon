@@ -1,5 +1,24 @@
 # Tech Stack
 
+## P10 accepted browser producer tooling — 2026-10-10
+
+Cached Go1.26.6/GOWORKoff, exact C10 f01a2542/M33 1859f5e3 ordinary ZIP/sums and
+retained UWS codec b099 qualify SDKpublic373/91, author390/85, exec519/171 package/
+module graphs. All194ordinarymodule sets/7260source inputs/1279compiledexports,
+20legacygoldens, rawM51fixtures and16wire declarations are matched. No schema/API
+or module pin changed in review repairs. Go module/version substitutions remain
+explicit; no owner directory replacement. [Qualification](../../docs/p10-qualification.json)
+records current checks and exact unchanged-file retention, including six
+unaffected race checks. Controlled old-source failures are distinct from passing
+corrected controls. Fullowner tests/vet/makecheck, tidy/modverify, affected races,
+compiled boundaries and frozen consumer source-fixture builds pass.
+
+Private persistent caches/temp and immutable frozen sources preserve exact
+verification. Source overlays are prepublication compatibility only; ordinary
+new SDK module/source/bundle adoption remains consumer work. Source261563d is
+Git-published, but no new self-module version/checksum or physical browser/custody
+claim follows. Old wire/schema/browser/tool locks and evolution remain unchanged.
+
 ## Stage 11 package v3 SDK — P09 accepted
 
 Qualified SDK source a6a3ef010fe27f277f8191204c1c81ea1cc0334b resolves as

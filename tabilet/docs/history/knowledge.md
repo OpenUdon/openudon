@@ -6099,3 +6099,16 @@ hard-refuses such names even during review-only Build/Assess/Verify.
 [M99.2](status-M99.md) owns the pending indeterminate review treatment;
 credential/broker execution authority remains independently closed.
 ````
+
+## 2026-10-10 — P10 current boundary supersedes M98 browser-only-CLI wording
+
+Original source: architecture.md, Stage11 publictrust libraries M98. P10 now
+provides the pure public verification/transaction subset while old authoring/
+execution CLI remains retained untilA32. Evidence: accepted P10/review4.
+
+```markdown
+The host supplies immutable snapshots, format-specific required paths, independent attempt/inventory identities and optional trusted signer bytes. Broker v4 uses the unchanged embedded schemas with a closed loader. Public browser wire types are metadata; retained browser verification/execution stay on the explicit pinned CLI path.
+```
+
+Replacement: current architecture P10 boundary; the original dated M98 text
+remains historical in place. No retained authoring/runtime import is added.

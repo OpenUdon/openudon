@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Accepted Stage12 P10 public browser supplement
+
+P10 is accepted/retired: five rows, whole review4, zero remaining findings,
+exact published source261563d846c755de2188d4f1e228cf1e374d1725 (qualifieda7185841).
+[Current bank](tabilet/memory-bank/milestone.md) and
+[full record](tabilet/docs/history/status-P10.md) bind public construction,
+verification/transaction, approval/Authority and conservative browser evidence.
+Public closure imports no retained package or private Udon; old wires/pins remain.
+A32 remains pending on Kinet:M53 no-consumer proof. Physical containment, custody,
+ordinary successor adoption and live/deployment authority remain owner gates.
+Audit stays disabled; standalone GOAL and old history/evolution are unchanged.
+
 ## Approved Stage 11 planning
 
 [Stage 11](../kinet/docs/stage11.md) coordinates both refactoring phases across five package-local ledgers. Read the local [milestones](tabilet/memory-bank/milestone.md) before selecting work. Accepted OpenUdon:M98 exposes format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. Accepted OpenUdon:P09 supplies supported public v3 construction/assessment, independently reproduced source/shape/plan/authority checks and read-only v2/v3 history at a6a3ef010fe27f277f8191204c1c81ea1cc0334b, closing review 4. [Contract](docs/package-v3.md) and [qualification](docs/p09-qualification.md) bind ordinary published SDK v0.1.1-0.20261007094531-a6a3ef010fe2; isolation, actual worker identity and current grants belong to the consuming host. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
