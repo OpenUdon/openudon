@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** P10.1–4 verified; P10.5 in progress. Whole review 3/10 failed with three P2 findings; all repairs are verified and review 4 is pending. Source publication remains coordinator-owned and unperformed; acceptance is pending.
+**State:** P10.1–4 verified; P10.5 in progress. Whole review 4/10 STARTED after the complete review 3 repair set passed qualification. Source publication remains coordinator-owned and unperformed; acceptance is pending.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -657,3 +657,27 @@ Qualification records distinguish new commands from explicitly retained checks.
 Review 3 failure stays historical evidence; review 4 has not begun. P10.5 source
 publication, independently verified exact proof and coordinator closure remain
 required and unperformed. Child protected grants stay empty and audit disabled.
+
+## Whole-milestone review 4 — STARTED
+
+Started on 2026-10-10 after all review 3 findings and adjacent stop-barrier
+controls passed required verification. Qualified repair checkpoint
+`a71858413147616d464bfd4ddc028fe10561881d` includes the complete state-machine
+repairs, regression controls and current qualification. Qualification SHA256
+`59e1f3d0a56c638e0193be4d6a6761d0d3c885601ed53e3f3a73188b937bc5ac`
+records the prior counter 3 qualifying stage; this status owns current counter 4.
+All earlier failures and counters remain preserved.
+
+Captured primary `/home/peter/Workspace/openudon`, symbolic `refs/heads/main`,
+remains clean at reviewed integration baseline
+`f9f48a007d721b984bd26358b300cb5748f63754`; original goal base remains
+`c0b0d7aae77a9e68630f9e1d8bfe2a9525a0ddb6`. No rebase or history rewrite was
+needed. The coordinator receives the complete frozen Git archive and assignment
+manifest after this start record is committed. No formal review 4 inspection
+begins before this persisted STARTED record and handoff.
+
+Root-only source publication and independently verified exact Git proof remain
+required and unperformed. Review 4 must include those actual results before
+whole acceptance. P10.5 stays in progress; local qualification and this record
+establish no acceptance, integration, closure or ordinary SDK adoption. Audit
+stays disabled and child protected grants remain empty.
