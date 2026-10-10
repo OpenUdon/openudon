@@ -453,7 +453,7 @@
       "private_udon_packages": [],
       "compiled_dependency_export_files": 372,
       "nonstandard_source_fields_verified": 1812,
-      "package_listing_sha256": "75858df2fd1b5ac4574951773109fa2bd115ff5048911c2a5a8486e65289ff5d",
+      "package_listing_sha256": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
       "module_listing_sha256": "7ab143a657dd41136c18e00f7c2d9a7b7f35d88856d367f68d6f1ca60e9ef468"
     },
     "author": {
@@ -767,5 +767,12 @@
       "sha256": "3f4def0833bf78e995a9350f1dd3c8d6e3c4e43a9037540030c51a2313c50e76",
       "bytes": 2483
     }
-  ]
+  ],
+  "review4_summary_correction": {
+    "finding": "P3 stale owner graph summary hash",
+    "priorValue": "75858df2fd1b5ac4574951773109fa2bd115ff5048911c2a5a8486e65289ff5d",
+    "correctValue": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
+    "basis": "Actual current hashed owner-public-packages log, current check receipt and compiled closure proof agree",
+    "scope": "Summary metadata only; no source, command result, module, API, schema or oracle change; frozenb75candidate preserves previous summary bytes"
+  }
 }

@@ -108,7 +108,7 @@ status markers grant none; audit stays disabled.
 
 ## Review
 
-Whole-milestone review: 3/10 FAIL — 3P2/0P1/P3; scoped state-machine corrections and next full review pending. Counter never resets.
+Whole-milestone review: 4/10 code review PASS — zero P1/P2/P3 remaining; one factual P3 summary hash corrected. Required root publication/acceptance remain pending. Counter never resets.
 
 ## Frozen M51 producer input checkpoint — 2026-10-09
 
@@ -681,3 +681,20 @@ required and unperformed. Review 4 must include those actual results before
 whole acceptance. P10.5 stays in progress; local qualification and this record
 establish no acceptance, integration, closure or ordinary SDK adoption. Audit
 stays disabled and child protected grants remain empty.
+
+### Whole review4 — code review PASS; factual P3 corrected
+
+Joined coordinator/independent whole review of b75bfed and allfive rows/68paths
+finds zero P1/P2 and one P3: graph_summary.owner.package_listing_sha256 retained
+prior75858df2 while its actual current log/check/compiled proof bind cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b.
+Root independently hashes the real current log and corrects only that summary.
+Frozen b75/archive retains prior bytes; no runtime/tests/API/schema/pin/oracle
+changes and no new command pass is invented. [Full review](../../docs/p10-review4.json)
+records one P3 found/resolved and zero remaining. Counter stays4, not reset.
+
+All1675source files/65qualificationreferences,13current andsixexplicitretained
+checks,53unchanged sourcefiles supporting retention,7260source/1279exports/194
+ordinarymodule sets/20goldens/frozen types and rawM51 files match. Allthree prior
+P2s and adjacent cross-leaf stop controls pass. Source publication and exact
+independent proof, integration, shared consolidation/reconciliation/retirement
+still prevent whole acceptance; root alone owns them. Audit stays disabled.
