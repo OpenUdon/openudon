@@ -72,7 +72,13 @@ type BrowserSavePermissionWitness struct {
 	OneUse                  bool   `json:"one_use"`
 	SaveAllowed             bool   `json:"save_allowed"`
 }
+type BrowserCredentialLeaseWitness struct {
+	Slots     []browsercontract.CredentialSlotBinding
+	Revisions []browsercontract.CredentialRevision
+}
+
 type BrowserHostWitnesses struct {
+	CredentialLease     *BrowserCredentialLeaseWitness
 	Config              BrowserConfigV1
 	Inventory           udonreport.InventoryV5
 	FactRefs            []string
@@ -96,8 +102,8 @@ func sameCanonical(a, b any) bool {
 	right, e2 := browsercontract.CanonicalDigest(b)
 	return e1 == nil && e2 == nil && left == right
 }
-func joined(w BrowserJoinWitness, launch BrowserLaunchWitness) bool {
-	return w.LaunchLeaseID == launch.LeaseID && w.ContainmentLeaseID == launch.ContainmentLeaseID && browsercontract.Identifier(w.SessionAccessLeaseID) && w.TransportJoined && w.DriverJoined && w.ChromiumJoined && w.CallbacksJoined
+func joined(w BrowserJoinWitness, launch BrowserLaunchWitness, requireAccess bool) bool {
+	return w.LaunchLeaseID == launch.LeaseID && w.ContainmentLeaseID == launch.ContainmentLeaseID && (browsercontract.Identifier(w.SessionAccessLeaseID) || !requireAccess && w.SessionAccessLeaseID == "") && w.TransportJoined && w.DriverJoined && w.ChromiumJoined && w.CallbacksJoined
 }
 func traceKey(e BrowserTraceEvent) string {
 	return e.StepID + "\x00" + e.OperationID + "\x00" + e.InvocationID + "\x00" + e.ProtocolRequestID + "\x00" + strconv.FormatUint(e.MessageOrdinal, 10) + "\x00" + e.MessageKind + "\x00" + e.OuterProtocol
@@ -139,7 +145,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			return fail()
 		}
 	}
-	if !host.Launch.AllTraffic || !host.Launch.Sandbox || !browsercontract.Identifier(host.Launch.LeaseID) || host.Launch.ContainmentLeaseID != expected.ContainmentLeaseID || !reflect.DeepEqual(host.Launch.Origins, expected.Origins) || !joined(host.Join, host.Launch) {
+	if !host.Launch.AllTraffic || !host.Launch.Sandbox || !browsercontract.Identifier(host.Launch.LeaseID) || host.Launch.ContainmentLeaseID != expected.ContainmentLeaseID || !reflect.DeepEqual(host.Launch.Origins, expected.Origins) || !joined(host.Join, host.Launch, expected.Session != nil && (expected.Session.ReuseAllowed || expected.Session.SaveAllowed)) {
 		return fail()
 	}
 	deadline, _ := time.Parse(time.RFC3339Nano, expected.AdmittedDeadline)
@@ -147,10 +153,19 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 	if err != nil || !reportStart.Before(deadline) {
 		return fail()
 	}
+	for _, step := range observation.Steps {
+		if step.StartedAt != "" {
+			at, err := time.Parse(time.RFC3339Nano, step.StartedAt)
+			if err != nil || !at.Before(deadline) {
+				return fail()
+			}
+		}
+	}
 	outcomes := make([]string, len(inventory.Steps))
 	for i := range outcomes {
 		outcomes[i] = "not_started"
 	}
+	terminal := make([]bool, len(outcomes))
 	sent := make([]bool, len(outcomes))
 	requests := make([]string, len(outcomes))
 	lastMessage := make([]string, len(outcomes))
@@ -171,7 +186,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			return fail()
 		}
 		if e.Event == "credential_lease" {
-			if launchDone || anySent || e.Outcome == "" {
+			if launchDone || anySent || (e.Outcome != "whole-plan-private" && e.Outcome != "whole-plan-private-totp-seed") || !credentialLeaseMatches(expected, host.CredentialLease) {
 				return fail()
 			}
 			credentialsLeased = true
@@ -217,7 +232,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			}
 			launchDone = true
 		case "registration_input":
-			if call.Kind != "registration" || joinDone {
+			if call.Kind != "registration" || joinDone || stopped || e.Question != nil && !sameCanonical(question, e.Question) {
 				return fail()
 			}
 			if e.Outcome == "initial-private" {
@@ -233,7 +248,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				return fail()
 			}
 		case "question":
-			if !launchDone || joinDone || !sent[index] || outcomes[index] != "unknown" || !questionValid(e.Question) {
+			if !launchDone || joinDone || stopped || terminal[index] || !questionValid(e.Question) || e.Outcome != "runtime_confirmation" && (!sent[index] || outcomes[index] != "unknown") {
 				return fail()
 			}
 			switch e.Outcome {
@@ -246,7 +261,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 					return fail()
 				}
 			case "runtime_confirmation":
-				if call.Kind != "action" {
+				if call.Kind != "action" || sent[index] {
 					return fail()
 				}
 			default:
@@ -255,7 +270,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			question, questionKind, questionLeaf = e.Question, e.Outcome, index
 			answered, rechecked = false, false
 		case "interact":
-			if question == nil || questionLeaf != index || joinDone {
+			if question == nil || questionLeaf != index || joinDone || stopped || e.Question != nil && !sameCanonical(question, e.Question) || questionKind == "runtime_confirmation" && !sameCanonical(question, e.Question) {
 				return fail()
 			}
 			switch questionKind {
@@ -271,8 +286,11 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				return fail()
 			}
 			answered = e.Outcome != "deny"
+			if e.Outcome == "deny" {
+				stopped = true
+			}
 		case "authority_recheck":
-			if question == nil || !answered || questionLeaf != index || e.Outcome != "current" || joinDone {
+			if question == nil || !answered || questionLeaf != index || e.Outcome != "current" || joinDone || stopped || e.Question != nil && !sameCanonical(question, e.Question) || questionKind == "runtime_confirmation" && !sameCanonical(question, e.Question) {
 				return fail()
 			}
 			rechecked = true
@@ -288,7 +306,14 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				return fail()
 			}
 			if !sent[index] {
-				if e.MessageKind != initialKind(call.Kind) || e.Outcome != call.Kind || index != lastStarted+1 || e.Question != nil {
+				if e.MessageKind != initialKind(call.Kind) || e.Outcome != call.Kind || index != lastStarted+1 {
+					return fail()
+				}
+				if questionKind == "runtime_confirmation" {
+					if questionLeaf != index || !answered || !rechecked || !sameCanonical(question, e.Question) {
+						return fail()
+					}
+				} else if e.Question != nil {
 					return fail()
 				}
 				for i := 0; i < index; i++ {
@@ -327,7 +352,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 				if !sameCanonical(question, e.Question) || e.Outcome != pendingQuestion {
 					return fail()
 				}
-			} else if e.Outcome != call.Kind {
+			} else if e.Outcome != call.Kind || questionKind == "runtime_confirmation" && !sameCanonical(question, e.Question) {
 				return fail()
 			}
 			pending = ""
@@ -346,9 +371,10 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			questionLeaf = -1
 			answered, rechecked = false, false
 		case "response":
-			if !sent[index] || joinDone || lastMessage[index] != traceKey(e) || outcomes[index] != "unknown" {
+			if !sent[index] || joinDone || terminal[index] || lastMessage[index] != traceKey(e) || outcomes[index] != "unknown" {
 				return fail()
 			}
+			terminal[index] = true
 			switch e.Outcome {
 			case "success":
 				outcomes[index] = "succeeded"
@@ -360,11 +386,16 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			default:
 				return fail()
 			}
-		case "write_completed", "extraction", "typed_driver_error":
+		case "write_completed":
+			if !sent[index] || joinDone || terminal[index] || e.Outcome != "proved" {
+				return fail()
+			}
+		case "extraction", "typed_driver_error":
 			if !sent[index] || joinDone || outcomes[index] == "succeeded" || outcomes[index] == "failed" {
 				return fail()
 			}
 			outcomes[index] = "unknown"
+			terminal[index] = true
 			stopped = true
 		case "registration_context_close":
 			if call.Kind != "registration" || !sent[index] || e.Outcome != "proved" || joinDone {
@@ -412,6 +443,7 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			if e.Outcome != "checkpoint_failed" || outcomes[index] != "succeeded" || joinDone {
 				return fail()
 			}
+			stopped = true
 		default:
 			return fail()
 		}
@@ -498,4 +530,28 @@ func MarshalBrowserRunEvidence(e BrowserRunEvidenceV1) ([]byte, error) {
 		return nil, browsercontract.ErrContract
 	}
 	return browsercontract.CanonicalJSON(raw)
+}
+
+func credentialLeaseMatches(c BrowserConfigV1, w *BrowserCredentialLeaseWitness) bool {
+	if w == nil || !reflect.DeepEqual(c.CredentialRevisions, w.Revisions) {
+		return false
+	}
+	expected := map[string]bool{}
+	for _, call := range c.ApprovedCalls {
+		for _, slot := range call.CredentialSlots {
+			expected[slot.Slot+"\x00"+slot.Name] = true
+		}
+	}
+	if len(w.Slots) != len(expected) {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, slot := range w.Slots {
+		key := slot.Slot + "\x00" + slot.Name
+		if !expected[key] || seen[key] {
+			return false
+		}
+		seen[key] = true
+	}
+	return true
 }

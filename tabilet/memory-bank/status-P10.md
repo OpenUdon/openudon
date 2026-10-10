@@ -1,7 +1,7 @@
 # P10 — Package v3 browser supplement
 
 **Stage:** Kinet STG-12, Phase A. **Owner:** OpenUdon.
-**State:** Executing resumed isolated P10 lease. Review 0/10.
+**State:** P10.1–4 verified; P10.5 resumed final qualification/publication handoff. Review 0/10.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -75,7 +75,7 @@ SDK version.
 | P10.2 — Public browser verification subset | `[+]` | Promote only the needed `browserverify` / `browsertransaction` behavior to public packages: profile transaction receipts v1–v4 and capture review evidence. Import nothing from synthesize, workflowintent, elicitor, projectwizard, udonrunner or trustedrunner. |
 | P10.3 — Browser approval and Authority | `[+]` | Approval and Authority bind browser actions, origins, side effects, confirmation policy, credential-slot names and saved-session reuse permission. Changed bytes refuse. No value is carried. |
 | P10.4 — Browser run evidence | `[+]` | Independently verify browser reports/run evidence, including `runevidence.BrowserConfig`, against exact action/dispatch identity. A typed error after authentication, registration or action dispatch cannot establish no effect. Preserve unknown after successful write then failed extraction, lost response, cancellation or crash; reject evidence that relabels uncertainty as safe retry or continuation. Positive non-dispatch proof is explicit and cannot transfer old authority. Evidence stays value-free; no private runtime import. Use M51 frozen native-report/interface fixtures for independent implementation beside Udon:M53. Preserve public/private isolation; M56/M52 subsequently prove actual producer interoperability. Contract drift pauses affected leases for coordinator reconciliation. |
-| P10.5 — Qualify and publish | `[ ]` | No Udon import; v2 and v3 history readers and existing wires unchanged; consumer builds (Kinet author/exec workers); SDK publication handoff under named authority. |
+| P10.5 — Qualify and publish | `[~]` | No Udon import; v2 and v3 history readers and existing wires unchanged; consumer builds (Kinet author/exec workers); SDK publication handoff under named authority. |
 
 ## Acceptance and verification
 
@@ -249,3 +249,56 @@ Affected focused packagev3/approval/authority/report suites pass.
 ## P10.4 verified row
 
 Public explicit-byte browser report/run-evidence verification independently passes all34 exact frozen M51 metadata cases, plus current identity/claim/question/protocol/deadline/positive-join/safe-successor/privacy regressions. Initial and effect-capable continuation sends require a immediately preceding exact claim; typed errors/extraction/loss/cancellation/crash remain unknown and stop later sends, retry and fallback. Complete non-dispatch evidence supports only a distinct newly confirmed successor; old authority never transfers. Known completed leaves survive later checkpoint failure. Candidate/save ordering, one-use permission/current generation and join/release are checked. New browser evidence v1 is closed/value-free; legacy report-v5/RunEvidence/BrowserConfig/schema/fixture bytes remain unchanged. Mixed browser+HTTP/nonsequence-fnct plans now refuse before native admission; standalone nonbrowser fixtures and pure-browser positives pass. Opaque native credential revision IDs and registration fresh-access metadata match M51 without inventing private input values. Future-created session P2 is repaired and focused before/at-creation regressions pass. Focused tests/vet and `git diff --check` pass; no private runtime import or actual browser/process/conformance claim. Formal0/10.
+
+## P10.5 preparation repairs and qualification progress
+
+Second preparation review of immutable f79fa0a source, manifestSHA256
+724c613ca350dc7cf8f11a7e6b6b4f139795837a1ce700ceb61e02859983750c,
+consolidates1P1/5P2 at reportSHA256
+08d52a1fd846569c917324d510158d4fe54d4ae4dd21f7e14f0c6431004dc614.
+All are repaired in this pending qualification checkpoint: per-leaf terminal
+response/uncertainty latch; pre-send exact runtime confirmation; each started
+leaf before the original deadline; positive complete symbolic credential lease;
+irreversible denial/checkpoint stop; supplied answer/recheck/private checkpoint
+question identity. Frozen omitted question fields retain implicit current trusted
+identity. Native coordinator optional-access reconciliation permits exact empty
+access identity when no durable reuse/save is requested, with positive fresh
+no-session auth/action/registration controls. All34 frozen cases and new adverse/
+positive focused regressions pass. No old report/wire/private snapshot changes.
+Formal review remains0/10; preparation checks are not closing acceptance.
+
+Initial full tests exposed the expected additive API surface guard and tidy's
+unused-codec removal. P09 original surface/goldens remain frozen; P10 adds a
+versioned current surface manifest/guard. A meaningful test imports the exact
+retained ordinary b099 codec and render/verifies an existing immutable P09 YAML
+fixture, preserving real test dependency/pin without production HCL changes.
+Final full tests and vet, tidy and modverify pass. Frozen Kinet author/exec workers
+from09834b6 copy/hash verification and unpublished local SDK compatibility builds
+pass; no actual adoption/native/browser conformance is claimed. Public closure
+373 packages/owner91 modules has no internal/retained/private import or directory/
+workspace replacement;20 legacy wire/golden files remain byte-identical.
+
+Required make check subsequently encountered isolated `/tmp` disk quota during
+linking/SQLite fixtures; focused races encountered the same quota during stdlib
+compile. Those failed invocations are not qualified or waived. Their logs and all
+source/module/consumer/proof outputs are preserved. Coordinator headroom repair
+is requested before rerunning only the affected gates. Publication, authoritative
+whole review and closure remain pending. Evidence progress artifact is
+`/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/qualification-progress.json`
+SHA2565ee58679fada77d6afc4b35d0752cb46e1b420ee2f5ec68a6663d6145f5f24e5.
+
+Coordinator isolated disk cache repair contextSHA256af3b593ca2d166877a37156926b76b0423bc458287c4f1a983351606116e7d18 and receiptSHA256b682484546fbe5baec1d63fb7e366549b592c0637d7b0c8eb3a643a6753913cd preserve source/module/proof/grant identity. New private cache/temp roots under `/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/` have9993hash-verified cache files/960583768bytes and positive32MiB fsynced probe. Resume only the affected makecheck/race gates sequentially; all earlier failures remain failed evidence.
+
+## P10.5 successful local qualification checkpoint
+
+Under repaired isolated disk cache, required make check and focused seven-package
+races both pass. All final full tests/vet/tidy/modverify, public boundary/closure,
+wire/golden immutability, additive public API and retained codec checks, and frozen
+Kinet author/exec compatibility builds pass. Failed prior runs stay failed evidence;
+[qualification](../../docs/p10-qualification.md) and its machine-readable log/hash
+manifest bind the results and exact fixture wiring. Captured primary main and this
+lease's main reference still equal dispatch basef9f48a007d721b984bd26358b300cb5748f63754;
+no rebase or history rewrite is needed. This local qualification/source checkpoint
+leaves P10.5 in progress for root-owned source publication and independent proof.
+Formal review stays0/10 until the candidate is frozen and the coordinator is
+notified before reviewer dispatch; no whole acceptance or closure is claimed.

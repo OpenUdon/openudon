@@ -24,7 +24,7 @@ require (
 	github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc // indirect
 	github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 // indirect
 	github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 // indirect
-	github.com/OpenUdon/uws/hcl v0.0.0-20261008043726-b099f6803277 // indirect
+	github.com/OpenUdon/uws/hcl v0.0.0-20261008043726-b099f6803277
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
 	github.com/antchfx/xpath v1.3.6 // indirect
@@ -47,7 +47,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/theory/jsonpath v0.12.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect

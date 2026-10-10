@@ -1,0 +1,247 @@
+{
+  "version": "openudon.p10-local-qualification.v1",
+  "milestone": "OpenUdon:P10",
+  "dispatch_base": "f9f48a007d721b984bd26358b300cb5748f63754",
+  "source_candidate": "Identified by coordinator handoff manifest after this qualification checkpoint is committed; this file does not hash itself.",
+  "formal_review": {
+    "counter": 0,
+    "state": "not_started",
+    "whole_acceptance": false
+  },
+  "publication": {
+    "performed": false,
+    "owner": "coordinator",
+    "required_gate": true
+  },
+  "effective_protected_child_grants": {},
+  "audit_enabled": false,
+  "isolation_context": {
+    "path": "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/context-disk.json",
+    "sha256": "af3b593ca2d166877a37156926b76b0423bc458287c4f1a983351606116e7d18",
+    "bytes": 4958
+  },
+  "resolved_request": {
+    "path": "/dev/shm/kinet-stage12-leases-f8qot0xc/resources/openudon/p10/resolved-request.txt",
+    "sha256": "dcb1e1f89ca30750456ab791f098fe000a1c45660bba14a98cf1055457b28665",
+    "bytes": 26673
+  },
+  "checks": [
+    {
+      "command": "go mod tidy",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/tidy.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    {
+      "command": "GOWORK=off go test ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-test-fixed.log",
+        "sha256": "4413cb866cf8a401baab46b685bce9a7eecf9eede88fdbfcbbbb38d7f1002d3a",
+        "bytes": 4933
+      }
+    },
+    {
+      "command": "GOWORK=off go vet ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-vet-fixed.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    {
+      "command": "go mod verify",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/mod-verify.log",
+        "sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+        "bytes": 21
+      }
+    },
+    {
+      "command": "make check GO=/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/go-check",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/make-check-disk.log",
+        "sha256": "aa7f085f16103df60141f533d3f321cf27df56b5bff245a9034620dd639342ba",
+        "bytes": 5394
+      }
+    },
+    {
+      "command": "go test -race ./packagev3 ./runevidence ./browsertransaction ./browserverify ./approval ./authority ./udonreport",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/focused-race-disk.log",
+        "sha256": "97be410d798ccd4699ad1efcc7bfc4167cd45d7ed68174e756c61e851be63051",
+        "bytes": 373
+      }
+    },
+    {
+      "command": "frozen Kinet author: go build -mod=mod ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-author-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    {
+      "command": "frozen Kinet exec: go build -mod=mod ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-exec-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    }
+  ],
+  "additional_pass": [
+    "git diff --check",
+    "native source/selected canonical/numeric goldens: 11 families",
+    "all 34 frozen M51 report/host cases and preparation safety regressions",
+    "373-package public closure and 91 selected modules; no retained/private imports or directory/workspace replacements",
+    "20 immutable prior wire/golden files",
+    "additive P10 public API guard and meaningful exact retained b099 codec fixture"
+  ],
+  "proofs": [
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/closure-wire-proof.json",
+      "sha256": "4b1b73cfeb94db98eb13552dee0c1bc9499ba6c52a37dd90ecc71008d9466ca8",
+      "bytes": 3611
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-proof.json",
+      "sha256": "b1c812f1097811fef44d9cd292318281dadc903f60caee0b2ae889bc0577d0ef",
+      "bytes": 3752
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/public-packages.json",
+      "sha256": "252e53f345da83ab6185d92604dcd3891df04ba4984d0b63fbad29eb0325105a",
+      "bytes": 1087310
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/owner-modules.json",
+      "sha256": "36ec0eaa2447a2c50dff11bec17881fe804f91bc4c2980c5d836d6b4d3f77be2",
+      "bytes": 42727
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-author-packages.json",
+      "sha256": "c121a00aca407770e3ea543de9458f30ac4da236efe67b2f82f2aa8c9a924520",
+      "bytes": 1215551
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-exec-packages.json",
+      "sha256": "bd0ef709dbc65ae4d861374c89a402e3f25c450dafd6736ae45d318e37c1d9a2",
+      "bytes": 2056776
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-author-modules.json",
+      "sha256": "2c386bffdf789c60e66a940c1c8d429575b5cf927dd85dc267f5f01cdae1be0e",
+      "bytes": 43893
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumer-exec-modules.json",
+      "sha256": "a19450c4508a81c68a5dc02c5b476235b1b9988acd3b452e207007712890afe9",
+      "bytes": 83141
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/go-check",
+      "sha256": "ffa896da307518e2c562c07a4434ad3d759bd8dcd012f8a9f6fcedbf6f7c2f2f",
+      "bytes": 370
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/openudon-check-cli",
+      "sha256": "16222c7eef204564ca7a86b1845fd5851d7ac5f554ab50368e7c5228a3bdacc1",
+      "bytes": 50623763
+    },
+    {
+      "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/consumers/copy-manifest.json",
+      "sha256": "bc38fe1b2b95e1ee1647a2fb88623205ebb0b9c0bdb21bec4a067b894f50b69a",
+      "bytes": 11776
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/P10/docs/p10-public-surface.json",
+      "sha256": "cba672cb812503d6b0d30560dce139a86fa14e4b864d5a9330aaccc94d400a1f",
+      "bytes": 45068
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/P10/packagev3/testdata/browser/manifest.json",
+      "sha256": "ee562ed610bed94b7da65c41bffd6211469096ddbb904ea067095807dffda5fd",
+      "bytes": 7061
+    }
+  ],
+  "ordinary_producers": {
+    "browsertools": {
+      "version": "v0.0.0-20261010115646-1859f5e34367",
+      "source": "1859f5e34367cb0a3fbc34ddbc2446b59ce3f2bc",
+      "zip_sha256": "c3234a3d63fa624bef8e571ca042324548a7dea1cdea2955473ad1b93621b946",
+      "sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk=",
+      "go_mod_sum": "h1:XWKEmtkaiTWi/xQiI0RA6Y7LpwvGI8dRq5KkT57y8FI="
+    },
+    "uws": {
+      "version": "v0.0.0-20261009220914-f01a2542410c",
+      "source": "f01a2542410c583d0ea909dadd8f17527cc0d27d",
+      "sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0=",
+      "go_mod_sum": "h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw="
+    },
+    "uws_hcl": {
+      "version": "v0.0.0-20261008043726-b099f6803277",
+      "source": "b099f6803277ae94c7e9f1da0904a0140b278f20",
+      "role": "retained independent codec; meaningful immutable P09 fixture test only"
+    }
+  },
+  "frozen_m51_manifest_sha256": "0c445a5c90d2c09be561e713c364747f4ab9a3698ea8ab46e7b7b774ccf16bad",
+  "frozen_consumer_revision": "09834b632c713a514b084491804745416cc02f65",
+  "fixture_wiring": {
+    "make_check": "Only exact run ./cmd/openudon check executes the actual lease-built CLI from immutable frozen sibling fixture cwd; all other commands execute in the actual lease. No production CLI changes.",
+    "consumer_overlay": "Private copied frozen consumer go.mod files overlay only this unpublished local SDK for compatibility. Original pins remain frozen; this is not ordinary producer adoption. Separate exec retains its existing Docker-to-Moby module version replacement."
+  },
+  "failed_attempts_preserved": [
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/full-test.log",
+        "sha256": "6d8fba9a2ca1cdad5fd7cd5961fecbed9263ada662fe9d6937c8f19920bdaaf4",
+        "bytes": 5152
+      }
+    },
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/make-check.log",
+        "sha256": "dbdf166bb9e63f562845c237ed80c048ededa92c9d6a75de2b86b70fea604660",
+        "bytes": 5992
+      }
+    },
+    {
+      "result": "FAIL",
+      "evidence": {
+        "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/focused-race.log",
+        "sha256": "02ddc6e0126516844611f2bb82cbfdca10157f27e865a21d762dad61577c74ea",
+        "bytes": 514
+      }
+    }
+  ],
+  "prior_progress": {
+    "path": "/tmp/kinet-stage12-parallel-build-20261010/openudon/tmp/p10-proof/qualification-progress.json",
+    "sha256": "5ee58679fada77d6afc4b35d0752cb46e1b420ee2f5ec68a6663d6145f5f24e5",
+    "bytes": 2621
+  },
+  "limits": [
+    "Fixture metadata conformance only; no actual browser/process/model/provider action or new source retrieval.",
+    "Actual producer containment/custody interoperability is later Kinet:M56/M52.",
+    "Required coordinator source publication, independently verified Git proof, whole acceptance and serialized integration/closure remain pending."
+  ]
+}

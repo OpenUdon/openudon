@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	uwstrust "github.com/OpenUdon/uws/contenttrust"
+	uwsview "github.com/OpenUdon/uws/hcl"
 	"github.com/OpenUdon/uws/uws1"
 	"golang.org/x/mod/modfile"
 )
@@ -299,4 +300,26 @@ func assertQualificationEdge(t *testing.T, report *uwstrust.Report, from, to str
 		}
 	}
 	t.Fatalf("missing edge %s -> %s (%s, %s): %#v", from, to, provenance, capability, report.Edges)
+}
+
+// Retain the independently pinned native b099 presentation codec as a real
+// qualified test dependency, separate from current C10 core. Runtime HCL input
+// and all retained CLI behavior remain on their existing implementations.
+func TestRetainedNativeHCLCodecStillRenderVerifiesUnderC10(t *testing.T) {
+	bytes, err := os.ReadFile("../../docs/fixtures/package-v3-v1/package/workflows/workflow.uws.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := uwsview.Source{Format: uwsview.YAML, Bytes: bytes}
+	options := uwsview.Options{Revision: "b099f6803277ae94c7e9f1da0904a0140b278f20"}
+	view, err := uwsview.Render(context.Background(), source, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := uwsview.Verify(context.Background(), source, view, options); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(view.HCL), "9007199254740993") {
+		t.Fatal("native wide value lost")
+	}
 }

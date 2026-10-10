@@ -32,11 +32,13 @@ type browserReportFixture struct {
 	Expected      browserBindingFixture `json:"expected_browser"`
 	SubmittedRefs []string              `json:"submitted_host_fact_refs"`
 	Host          struct {
-		Binding     browserBindingFixture                     `json:"binding"`
-		Launch      runevidence.BrowserLaunchWitness          `json:"launch"`
-		Join        runevidence.BrowserJoinWitness            `json:"join"`
-		Save        *runevidence.BrowserSavePermissionWitness `json:"save_permission"`
-		NonDispatch *struct {
+		CredentialSlots     []browsercontract.CredentialSlotBinding   `json:"credential_slots"`
+		CredentialRevisions []browsercontract.CredentialRevision      `json:"credential_revisions"`
+		Binding             browserBindingFixture                     `json:"binding"`
+		Launch              runevidence.BrowserLaunchWitness          `json:"launch"`
+		Join                runevidence.BrowserJoinWitness            `json:"join"`
+		Save                *runevidence.BrowserSavePermissionWitness `json:"save_permission"`
+		NonDispatch         *struct {
 			RunID      string                          `json:"run_id"`
 			PlanSHA256 string                          `json:"plan_sha256"`
 			Calls      []browsercontract.BrowserCallV1 `json:"approved_inventory"`
@@ -98,6 +100,9 @@ func fixtureInputs(c browserReportFixture) (browsercontract.BrowserConfigV1, udo
 	expected := configFromFixture(c.Expected, c.Host.Launch, c.SubmittedRefs)
 	inventory := inventoryFromFixture(c.Expected)
 	host := runevidence.BrowserHostWitnesses{Config: configFromFixture(c.Host.Binding, c.Host.Launch, c.SubmittedRefs), Inventory: inventoryFromFixture(c.Host.Binding), FactRefs: c.SubmittedRefs, Launch: c.Host.Launch, Join: c.Host.Join, Trace: c.Trace, SavePermission: c.Host.Save, DurableBindingCount: 0}
+	if c.Host.CredentialSlots != nil {
+		host.CredentialLease = &runevidence.BrowserCredentialLeaseWitness{Slots: c.Host.CredentialSlots, Revisions: c.Host.CredentialRevisions}
+	}
 	if c.Host.Binding.Session != nil {
 		host.DurableBindingCount = 1
 	}
@@ -366,6 +371,276 @@ func TestBrowserEveryInitialAndContinuationClaimAndHostIdentityIsMandatory(t *te
 			mutate(&host)
 			if r, err := runevidence.ObserveBrowserReport(c, i, f.Report, host); err == nil || r.SuccessorEligible {
 				t.Fatal("unproved continuation accepted")
+			}
+		})
+	}
+}
+
+func cloneBrowserHost(t *testing.T, h runevidence.BrowserHostWitnesses) runevidence.BrowserHostWitnesses {
+	t.Helper()
+	raw, err := json.Marshal(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var copy runevidence.BrowserHostWitnesses
+	if json.Unmarshal(raw, &copy) != nil {
+		t.Fatal("clone")
+	}
+	return copy
+}
+func TestBrowserTerminalUncertaintyCannotBeResurrectedByLaterSuccess(t *testing.T) {
+	for _, kind := range []string{"typed_driver_error", "extraction", "response"} {
+		t.Run(kind, func(t *testing.T) {
+			c, i, report, host := validBrowserReportInputs(t)
+			host = cloneBrowserHost(t, host)
+			index := -1
+			for n, e := range host.Trace {
+				if e.Event == "response" && e.OperationID == c.ApprovedCalls[len(c.ApprovedCalls)-1].OperationID {
+					index = n
+				}
+			}
+			failure := host.Trace[index]
+			failure.Event = kind
+			switch kind {
+			case "typed_driver_error":
+				failure.Outcome = "invalid_response"
+			case "extraction":
+				failure.Outcome = "failed"
+			case "response":
+				failure.Outcome = "unknown"
+			}
+			host.Trace = append(host.Trace[:index], append([]runevidence.BrowserTraceEvent{failure}, host.Trace[index:]...)...)
+			if r, err := runevidence.ObserveBrowserReport(c, i, report, host); err == nil || r.SuccessorEligible {
+				t.Fatal("terminal uncertainty relabeled succeeded")
+			}
+		})
+	}
+}
+func TestBrowserOriginalDeadlineCoversEveryStartedLeaf(t *testing.T) {
+	for _, at := range []string{"2026-10-09T00:05:00Z", "2026-10-09T00:06:00Z"} {
+		t.Run(at, func(t *testing.T) {
+			c, i, report, h := validBrowserReportInputs(t)
+			var r udonreport.ReportV5
+			json.Unmarshal(report, &r)
+			last := len(r.Steps) - 1
+			r.Steps[last].StartedAt = at
+			r.Steps[last].FinishedAt = "2026-10-09T00:06:01Z"
+			r.FinishedAt = "2026-10-09T00:06:02Z"
+			raw, _ := json.Marshal(r)
+			if _, err := udonreport.DecodeV5(raw); err != nil {
+				t.Fatal("fixture malformed", err)
+			}
+			if _, err := runevidence.ObserveBrowserReport(c, i, raw, h); err == nil {
+				t.Fatal("late leaf accepted")
+			}
+		})
+	}
+	c, i, report, h := validBrowserReportInputs(t)
+	var r udonreport.ReportV5
+	json.Unmarshal(report, &r)
+	r.FinishedAt = "2026-10-09T00:06:00Z"
+	raw, _ := json.Marshal(r)
+	if _, err := runevidence.ObserveBrowserReport(c, i, raw, h); err != nil {
+		t.Fatal("separate later finalization refused", err)
+	}
+}
+func withRuntimeConfirmation(t *testing.T, host runevidence.BrowserHostWitnesses) (runevidence.BrowserHostWitnesses, int) {
+	t.Helper()
+	host = cloneBrowserHost(t, host)
+	index := -1
+	for n, e := range host.Trace {
+		if e.Event == "claim_dispatch" && e.MessageKind == "action" {
+			index = n
+			break
+		}
+	}
+	if index < 0 {
+		t.Fatal("no action")
+	}
+	q := &runevidence.BrowserQuestionWitness{ID: "runtime-confirmation", Revision: 1, IssuedSHA256: browsercontract.SHA256([]byte("exact issued confirmation"))}
+	event := host.Trace[index]
+	event.ProtocolRequestID = ""
+	event.MessageOrdinal = 0
+	event.MessageKind = ""
+	event.OuterProtocol = ""
+	event.Question = q
+	question := event
+	question.Event, question.Outcome = "question", "runtime_confirmation"
+	answer := event
+	answer.Event, answer.Outcome = "interact", "approve"
+	current := event
+	current.Event, current.Outcome = "authority_recheck", "current"
+	host.Trace[index].Question = q
+	host.Trace[index+1].Question = q
+	host.Trace = append(host.Trace[:index], append([]runevidence.BrowserTraceEvent{question, answer, current}, host.Trace[index:]...)...)
+	return host, index
+}
+func TestBrowserRuntimeConfirmationIsBoundBeforeInitialActionSend(t *testing.T) {
+	c, i, report, host := validBrowserReportInputs(t)
+	host, index := withRuntimeConfirmation(t, host)
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, host); err != nil {
+		t.Fatal("pre-send confirmation refused", err)
+	}
+	for name, mutate := range map[string]func(*runevidence.BrowserHostWitnesses){
+		"changed answer identity": func(h *runevidence.BrowserHostWitnesses) {
+			q := *h.Trace[index+1].Question
+			q.ID = "other"
+			h.Trace[index+1].Question = &q
+		},
+		"changed recheck revision": func(h *runevidence.BrowserHostWitnesses) {
+			q := *h.Trace[index+2].Question
+			q.Revision++
+			h.Trace[index+2].Question = &q
+		},
+		"changed claim digest": func(h *runevidence.BrowserHostWitnesses) {
+			q := *h.Trace[index+3].Question
+			q.IssuedSHA256 = browsercontract.SHA256([]byte("other"))
+			h.Trace[index+3].Question = &q
+		},
+		"deny then old approve": func(h *runevidence.BrowserHostWitnesses) {
+			denial := h.Trace[index+1]
+			denial.Outcome = "deny"
+			h.Trace = append(h.Trace[:index+1], append([]runevidence.BrowserTraceEvent{denial}, h.Trace[index+1:]...)...)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := cloneBrowserHost(t, host)
+			mutate(&copy)
+			if _, err := runevidence.ObserveBrowserReport(c, i, report, copy); err == nil {
+				t.Fatal("unbound/denied confirmation accepted")
+			}
+		})
+	}
+	// Denial stops this attempt but preserves completed authentication. It is not
+	// non-dispatch for the whole attempt and supplies no successor authority.
+	denied := cloneBrowserHost(t, host)
+	denied.Trace[index+1].Outcome = "deny"
+	tail := []runevidence.BrowserTraceEvent{}
+	for _, e := range denied.Trace[index+2:] {
+		if e.Event == "join" || e.Event == "session_release" {
+			tail = append(tail, e)
+		}
+	}
+	denied.Trace = append(denied.Trace[:index+2], tail...)
+	var r udonreport.ReportV5
+	json.Unmarshal(report, &r)
+	r.Status = "error"
+	r.ErrorCode = "execution_failed"
+	last := len(r.Steps) - 1
+	r.Steps[last] = udonreport.StepV5{StepID: r.Steps[last].StepID, OperationID: r.Steps[last].OperationID, InvocationID: r.Steps[last].InvocationID, Outcome: "not_started"}
+	raw, _ := json.Marshal(r)
+	result, err := runevidence.ObserveBrowserReport(c, i, raw, denied)
+	if err != nil || result.SuccessorEligible || result.Observation.Steps[0].Outcome != "succeeded" {
+		t.Fatal("denial lost known facts", err)
+	}
+}
+func TestBrowserCheckpointFailureStopsLaterDispatch(t *testing.T) {
+	c, i, report, host := validBrowserReportInputs(t)
+	host = cloneBrowserHost(t, host)
+	index := 0
+	for n, e := range host.Trace {
+		if e.Event == "response" && e.OperationID == c.ApprovedCalls[0].OperationID {
+			index = n + 1
+			break
+		}
+	}
+	failure := host.Trace[index-1]
+	failure.Event, failure.Outcome = "failure", "checkpoint_failed"
+	host.Trace = append(host.Trace[:index], append([]runevidence.BrowserTraceEvent{failure}, host.Trace[index:]...)...)
+	if _, err := runevidence.ObserveBrowserReport(c, i, report, host); err == nil {
+		t.Fatal("checkpoint failure allowed later action")
+	}
+}
+func TestBrowserCredentialLeaseMustBePositiveAndComplete(t *testing.T) {
+	var f browserReportFixture
+	for _, c := range browserReportFixtures(t) {
+		if c.Name == "automatic-totp-seed-environment" {
+			f = c
+			break
+		}
+	}
+	c, i, h := fixtureInputs(f)
+	if _, err := runevidence.ObserveBrowserReport(c, i, f.Report, h); err != nil {
+		t.Fatal(err)
+	}
+	for _, outcome := range []string{"refused", "unknown", "", "partial"} {
+		copy := cloneBrowserHost(t, h)
+		copy.Trace[0].Outcome = outcome
+		if _, err := runevidence.ObserveBrowserReport(c, i, f.Report, copy); err == nil {
+			t.Fatal("nonpositive credential lease accepted", outcome)
+		}
+	}
+	for name, mutate := range map[string]func(*runevidence.BrowserHostWitnesses){
+		"missing complete lease": func(h *runevidence.BrowserHostWitnesses) { h.CredentialLease = nil },
+		"missing slot":           func(h *runevidence.BrowserHostWitnesses) { h.CredentialLease.Slots = nil },
+		"foreign revision":       func(h *runevidence.BrowserHostWitnesses) { h.CredentialLease.Revisions[0].Revision = "foreign" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := cloneBrowserHost(t, h)
+			mutate(&copy)
+			if _, err := runevidence.ObserveBrowserReport(c, i, f.Report, copy); err == nil {
+				t.Fatal("incomplete credential union accepted")
+			}
+		})
+	}
+}
+func TestBrowserOptionalFreshAccessHasNoInventedDurableLease(t *testing.T) {
+	for _, name := range []string{"authentication-success", "action-success", "registration-success"} {
+		t.Run(name, func(t *testing.T) {
+			var f browserReportFixture
+			for _, c := range browserReportFixtures(t) {
+				if c.Name == name {
+					f = c
+					break
+				}
+			}
+			c, i, h := fixtureInputs(f)
+			c.Session = nil
+			h.Config.Session = nil
+			h.DurableBindingCount = 0
+			h.Join.SessionAccessLeaseID = ""
+			trace := []runevidence.BrowserTraceEvent{}
+			for _, e := range h.Trace {
+				if e.Event == "session_acquire" {
+					continue
+				}
+				e.SessionAccessLeaseID = ""
+				trace = append(trace, e)
+			}
+			h.Trace = trace
+			if _, err := runevidence.ObserveBrowserReport(c, i, f.Report, h); err != nil {
+				t.Fatal("fresh no-session access refused", err)
+			}
+		})
+	}
+}
+func TestBrowserSuppliedContinuationAnswerIdentityMustMatchCurrentQuestion(t *testing.T) {
+	for _, name := range []string{"claimed-push-continuation", "claimed-private-registration-input-and-submit"} {
+		t.Run(name, func(t *testing.T) {
+			var f browserReportFixture
+			for _, c := range browserReportFixtures(t) {
+				if c.Name == name {
+					f = c
+					break
+				}
+			}
+			c, i, h := fixtureInputs(f)
+			for _, kind := range []string{"interact", "authority_recheck", "registration_input"} {
+				copy := cloneBrowserHost(t, h)
+				found := false
+				for n, e := range copy.Trace {
+					if e.Event == kind && (kind != "registration_input" || e.Outcome == "checkpoint-private") {
+						copy.Trace[n].Question = &runevidence.BrowserQuestionWitness{ID: "foreign", Revision: 2, IssuedSHA256: browsercontract.SHA256([]byte("foreign"))}
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+				if _, err := runevidence.ObserveBrowserReport(c, i, f.Report, copy); err == nil {
+					t.Fatal("foreign supplied answer identity accepted", kind)
+				}
 			}
 		})
 	}
