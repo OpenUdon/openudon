@@ -1,7 +1,7 @@
 # P12 — Browser authentication timeout interoperability
 
 **Stage/owner:** STG-12 Phase A; OpenUdon. Required.
-**State:** Pending; all four rows untouched. Whole review0/10.
+**State:** P12.1 in progress in a fresh producer worktree; other three rows pending. Whole review0/10.
 **Source baseline:** `ec2fa2666dad604a4512f8fff4155d269c8597b3`; coordinator captures actual integration ref/primary/original leasebase before dispatch.
 **Approval:** Latest explicit human P12 approval on 2026-10-13: “I Approve this P12 plan and bounded publication/acquisition scope, then resume the existing goal with audit disabled”. Planning application and later execution/publication remain separate operations under the resolved request.
 
@@ -36,7 +36,7 @@ review iteration or a claim that the repair passed. Audit disabled.
 
 | Item | State | Notes |
 |---|---|---|
-| P12.1 — Freeze the authored authentication timeout contract | `[ ]` | Specify existing optional UWS operation Timeout, finite (0,600] seconds for exact auth call1.0/1.1 only; retain untimed public proof/history semantics and genuine native unsupported behavior. |
+| P12.1 — Freeze the authored authentication timeout contract | `[+]` | Specify existing optional UWS operation Timeout, finite (0,600] seconds for exact auth call1.0/1.1 only; retain untimed public proof/history semantics and genuine native unsupported behavior. |
 | P12.2 — Admit bounded browser authentication in public proof | `[ ]` | Add the browser-specific bounded-auth predicate to supplement and execution-plan construction with complete existing hash bindings; preserve generic/non-browser/action/registration/step/workflow restrictions and prohibit timeout injection, new wires and private imports. |
 | P12.3 — Prove public and pure native exact-byte compatibility | `[ ]` | Positive/negative Build/Assess/Verify/plan/approval/Authority fixtures plus isolated exact-byte native Compile/CheckSupported for authentication/read/write, zero effect callbacks; cover timeout tampering, numbers/extensions, old untimed history/output goldens. Label source fixtures separately from ordinary adoption. |
 | P12.4 — Qualify, review and hand off the published producer | `[ ]` | Offline owner gates, affected races, public closure/no-private-import guard, persisted whole review (maximum10), bounded coordinator publication and independently verified exact source/module handoff; actual Kinet adoption stays M52 and physical qualification stays M53.4. |
@@ -75,3 +75,15 @@ Use the unchanged governing Kinet GOAL and complete resolved approved request. T
 ## Review
 
 Whole-milestone review: 0/10, not started.
+
+## P12 fresh execution dispatch
+
+Coordinator captures originalleasebase9fa3bfc2d7cc77b8c621001025fb32d714dd45b5, integrationref`refs/heads/main`, primary`/home/peter/Workspace/openudon`, worktree`/home/peter/Workspace/openudon.goal/P12`, branch`goal/P12`. Approvedplanningcommits Kinetdea8917a/Open9fa3bfc qualify sourcebaseline only; no publication or implementation acceptance. Rootownsallledger/shared/Git. Fourrows/whole0 retain counters, exactcachedproducers, immutableoldfixtures and no effects. Row1freezecontract first; actualCode implementation waitsitsreview/commit. Audit disabled.
+
+### P12.1 contract freeze and task review1 started
+
+[Authored timeout contract](../../docs/p12-browser-auth-timeout-contract.md) freezes atSHA3be7b99ba08415151f9fe6c141f7819e445d5035dbe87459bdc85a62da75295a. Cached public readiness passes0.026s:373packages/35reachedmodules at exactC10/M33/APItools inputs and no privateUdon or retainedinternal imports. Only ordinarycontract doc changed; no implementation/test/protected/browsing/publication acceptance claimed. Root starts independenttaskreview1; row1[~], otherthreepending, whole0 and auditdisabled remain.
+
+### P12.1 completed after task review 1
+
+Independent read-only task review 1 passes with no P1/P2/P3 findings against the frozen contract SHA256 `3be7b99ba08415151f9fe6c141f7819e445d5035dbe87459bdc85a62da75295a`. The retained offline readiness output independently confirms 373 packages, 35 reached modules and zero private/retained imports; a coordinator repeat to retain that output passes in 0.139 seconds. This completes the contract/readiness row only. P12.2/P12.3 implementation and compatibility, final verification, publication and consumer adoption remain pending. Whole-milestone review remains 0/10; audit stays disabled.
