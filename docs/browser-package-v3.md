@@ -82,8 +82,8 @@ never insert timing or rewrite approved bytes. A freshly authored timed
 successor changes the existing workflow/package/constraints/plan bindings and
 needs its own exact approval and Authority. No wire or schema version changes.
 [The authored contract](p12-browser-auth-timeout-contract.md) separates these
-public rules from pending joint native qualification, publication and Kinet
-consumer adoption. Physical qualification remains Kinet M53.4.
+public rules from [passing joint source compatibility](p12-compatibility.md),
+pending publication and Kinet adoption. Physical proof remains Kinet M53.4.
 
 ## Public verification subset
 

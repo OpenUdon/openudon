@@ -38,7 +38,7 @@ review iteration or a claim that the repair passed. Audit disabled.
 |---|---|---|
 | P12.1 — Freeze the authored authentication timeout contract | `[+]` | Specify existing optional UWS operation Timeout, finite (0,600] seconds for exact auth call1.0/1.1 only; retain untimed public proof/history semantics and genuine native unsupported behavior. |
 | P12.2 — Admit bounded browser authentication in public proof | `[+]` | Add the browser-specific bounded-auth predicate to supplement and execution-plan construction with complete existing hash bindings; preserve generic/non-browser/action/registration/step/workflow restrictions and prohibit timeout injection, new wires and private imports. |
-| P12.3 — Prove public and pure native exact-byte compatibility | `[ ]` | Positive/negative Build/Assess/Verify/plan/approval/Authority fixtures plus isolated exact-byte native Compile/CheckSupported for authentication/read/write, zero effect callbacks; cover timeout tampering, numbers/extensions, old untimed history/output goldens. Label source fixtures separately from ordinary adoption. |
+| P12.3 — Prove public and pure native exact-byte compatibility | `[+]` | Positive/negative Build/Assess/Verify/plan/approval/Authority fixtures plus isolated exact-byte native Compile/CheckSupported for authentication/read/write, zero effect callbacks; cover timeout tampering, numbers/extensions, old untimed history/output goldens. Label source fixtures separately from ordinary adoption. |
 | P12.4 — Qualify, review and hand off the published producer | `[ ]` | Offline owner gates, affected races, public closure/no-private-import guard, persisted whole review (maximum10), bounded coordinator publication and independently verified exact source/module handoff; actual Kinet adoption stays M52 and physical qualification stays M53.4. |
 
 ## Acceptance and verification
@@ -99,3 +99,15 @@ The four-file public predicate/regression change is frozen for independent revie
 ### P12.2 completed after task review 1
 
 Independent read-only task review 1 passes with no P1/P2/P3 findings. The shared predicate requires exact independently reproduced authentication call provenance, finite `(0,600]` timing and every other existing flat restriction. The four-file source manifest is unchanged; focused tests and affected historical/browser/output/numeric/extension controls pass. Current public API documentation and product/architecture/tooling pointers describe the implementation while keeping P12.3 native/approval/Authority evidence, P12.4 closure/publication and M52 ordinary adoption pending. Whole review stays 0/10; audit disabled.
+
+### P12.3 fixture dispatch
+
+P12.2 is committed and integrated locally at `9352d394bfd2dabc4a627ccf4ca827d06526c737`. P12.3 now owns complete approval/Authority and isolated pure native exact-byte authentication/read/write qualification. Public source is frozen at that commit; native Udon remains exact accepted 5bbf292. Source overlays are producer fixture evidence only. No Run, browser, external request or effect callback is permitted. Original lease baseline and whole review 0/10 remain unchanged; audit disabled.
+
+### P12.3 frozen; task review 1 started
+
+[Compatibility matrix](../../docs/p12-compatibility.md) and its [portable source/evidence record](../../docs/p12-compatibility.json) retain the exact external fixture, 10 workflow identities and all three focused outcomes. The corrected matrix passes in 4.452 seconds for auth1.0/1.1 at 0.25/30/600 seconds followed by native read/write. Public approval/Authority and actual accepted native Compile/CheckSupported use the same workflow/data/source bytes; all ten effect callbacks remain zero. Timeout successors refuse old proof/authority; untimed public history stays readable with genuine native invalid_plan. The first two cheap runs diagnosed an unsupported synthetic a11y/missing count-output fixture, corrected only in disposable sources. This is source compatibility evidence, not ordinary adoption. Independent task review 1 starts; row remains in progress, whole review stays 0/10. Publication and M52 adoption remain pending; audit disabled.
+
+### P12.3 completed after task review 1
+
+Two independent read-only lenses pass task review 1 with no P1/P2/P3 findings. All seven embedded sources, ten workflows and the canonical filename/hash aggregate match retained bytes. Native/C10/M33 ZIP H1, go.mod H1 and extracted source provenance are independently checked (685/396/351 files). The coordinator retained a separately inspectable cheap confirmation: all ten cases pass, zero effects, 6.648-second wall time, unchanged fixture. Earlier failed fixture diagnoses remain retained; no native semantics or historical source changed. This completes source compatibility only. Whole review remains 0/10; P12.4 owner qualification/publication and M52 ordinary adoption remain pending. Audit disabled.
