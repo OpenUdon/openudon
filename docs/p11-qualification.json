@@ -1,0 +1,256 @@
+{
+  "version": "openudon.p11-offline-qualification.v1",
+  "milestone": "P11",
+  "qualified_row": "P11.3",
+  "state": "Offline candidate verified; whole review, acceptance, publication and actual consumer adoption remain separate",
+  "candidate_baseline": "22beb2a7b7ff9661b991423a5b54c86d1b4f9f7f",
+  "included_changes": [
+    "packagev3/kinet_browser_adapter_test.go",
+    "this qualification record (written after verification)"
+  ],
+  "audit_enabled": false,
+  "environment": {
+    "go": "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "go_sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45",
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOAUTH": "off",
+    "GOENV": "off",
+    "GOTOOLCHAIN": "local",
+    "GOMAXPROCS": "2",
+    "GOFLAGS": "-mod=readonly -p=1",
+    "GOMODCACHE": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/gomodcache-restored",
+    "GOCACHE": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/gocache",
+    "TMPDIR": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/tmp",
+    "cache_policy": "Existing caches only; no copying or downloads"
+  },
+  "exact_dependencies": [
+    {
+      "path": "github.com/OpenUdon/browsertools",
+      "version": "v0.0.0-20261010115646-1859f5e34367",
+      "sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk=",
+      "go_mod_sum": "h1:XWKEmtkaiTWi/xQiI0RA6Y7LpwvGI8dRq5KkT57y8FI=",
+      "archive_sha256": "c3234a3d63fa624bef8e571ca042324548a7dea1cdea2955473ad1b93621b946",
+      "go_mod_sha256": "d9d7087f304ff65f71abc9cf614f6868163edacd2b7e53e4ea10a79a58df5436"
+    },
+    {
+      "path": "github.com/OpenUdon/uws",
+      "version": "v0.0.0-20261009220914-f01a2542410c",
+      "sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0=",
+      "go_mod_sum": "h1:DlqFOnO9lbmYWLLIh5WicNX6NTWIuytU6mIHmxj9BVw=",
+      "archive_sha256": "5f0478a4a2a87fa54e921a685d70364ade125d01cb5dacc0bcd09ec11d7a2c47",
+      "go_mod_sha256": "060af08856faf4346f72e96430f3622dc1abb366810fe89ef6360c9c09bf457e"
+    },
+    {
+      "path": "github.com/OpenUdon/uws/hcl",
+      "version": "v0.0.0-20261008043726-b099f6803277",
+      "sum": "h1:OJsmDK/RcFpyMAMGy84DjcX6kNalYH/E0Q/C3XwD5Uo=",
+      "go_mod_sum": "h1:0cR/xLzEP8vJ9FAUhsLbaKVkU7UarXPc51nJjEaMP5Q=",
+      "archive_sha256": "0c6c7c9ece74d888a76213b5b0db233ef31fd297c78145ab8d0513d1d994b21f",
+      "go_mod_sha256": "a2a3515570eee58de7fd98edfe40f9bd0f214d540258fb594dd0d2809ef4de4a"
+    },
+    {
+      "path": "github.com/OpenUdon/apitools",
+      "version": "v0.0.0-20261008061439-f2c5693ec39a",
+      "sum": "h1:+UICyuitKDE3g5rnlCA6Sk+QLIEqqVn8MN0PtOX+NKk=",
+      "go_mod_sum": "h1:WmUXlfBBoaI6vtv/wzeZfyO8q/pZMhnHiBckkAthYfk=",
+      "archive_sha256": "0934422193f9bf31b6b98ed917e9c4458ea0d8c4f8ee6de79464b475f8d13cea",
+      "go_mod_sha256": "d961c452a2b5e19630bd54c6884c775f46623b772ea44977d54e1fca652e992f"
+    }
+  ],
+  "consumer_fixture": {
+    "source2_manifest_sha256": "00ca8a0ce30f06f1e85318fd0dd54de5d5b9c2655ce0e2a5211c4c404cc45126",
+    "source2_baseline": "8d318aab9f435fe65e716366208511bcd23e43c3",
+    "source2_files_rechecked": 24,
+    "source2_bytes_rechecked": 199617,
+    "worker_test_sha256": "a44d2119b7cd0e858eb79ff949aac9794ddbef5bd10fbc44bd8abc0804e51dac",
+    "worker_adapter_sha256": "45655159c0641b3e3b00552d10f91897f1ca6ea2345b91d820986b2fb7db9747",
+    "source_fixture_sha256": "56b48d53a4f1e6834bccab3bb4c1027b852b46fdd5b48986642c1791890bed87",
+    "adapted_test": {
+      "path": "packagev3/kinet_browser_adapter_test.go",
+      "sha256": "76c23367e8b79cd06ceb5896b7e2bade486106257e1e3988383f71a742c49f2b"
+    },
+    "proof": "Exact frozen Count JSON and public Build -> Verify -> Assess sequence; no-output and named-output variants compatible; independent M33/C10 shape/binding parity and exact source/workflow bytes retained",
+    "scope": "Adapted producer fixture only. No Kinet source/module-pin edits, directory replacement, published-module worker build or actual invocation is claimed"
+  },
+  "checks": [
+    {
+      "command": "go list -mod=readonly -m -json all",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 0.05,
+      "result": "PASS",
+      "selected_modules": 91,
+      "recursive_errors": 0,
+      "replacements": 0
+    },
+    {
+      "command": "go mod verify",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 5.79,
+      "result": "PASS"
+    },
+    {
+      "command": "go mod tidy -diff",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 0.47,
+      "result": "PASS; empty diff; go.mod/go.sum unchanged"
+    },
+    {
+      "command": "go test -count=1 -timeout=90s ./packagev3 ./internal/publicapi -run 'TestFrozenKinetCountAdapterAgainstP11|TestPublicTrustImportBoundary'",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 73.97,
+      "package_test_seconds": {
+        "packagev3": 0.337,
+        "internal/publicapi": 0.124
+      },
+      "result": "PASS; elapsed time includes compilation"
+    },
+    {
+      "command": "go build -o /home/peter/Workspace/openudon.goal/P11-proof-20261013/p11-check-cli ./cmd/openudon",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 100.61,
+      "result": "PASS; freshly compiled current candidate, no ldflags"
+    },
+    {
+      "command": "go vet ./...",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 89.41,
+      "result": "PASS"
+    },
+    {
+      "command": "/var/tmp/kinet-stage9-p_9plhx7/staticcheck ./packagev3 ./internal/publicapi",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 32.27,
+      "result": "PASS"
+    },
+    {
+      "command": "go list -deps -compiled -export -json ./approval ./authority ./digest ./handoff ./trust ./wire ./udonreport ./runevidence ./packagev3 ./credentialpolicy ./browsercontract ./browsertransaction ./browserverify",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 24.21,
+      "result": "PASS"
+    },
+    {
+      "command": "make GO=/home/peter/Workspace/openudon.goal/P11-proof-20261013/make-go-shim check",
+      "attempt": 1,
+      "outer_cap_seconds": 1200,
+      "elapsed_seconds": 177.85,
+      "result": "PASS; complete owner build/tests, sibling existence and APItools boundary checks; all 1673 inventoried input files unchanged after execution",
+      "timing_scope": "elapsed_seconds is measured Make command runtime; overall_transaction_seconds covers invocation intent through completion-receipt persistence",
+      "overall_transaction_seconds": 322.0612,
+      "actual_make_command_seconds": 177.85
+    },
+    {
+      "command": "python3 /home/peter/Workspace/openudon.goal/P11-proof-20261013/verify-public-closure.py",
+      "outer_cap_seconds": 120,
+      "elapsed_seconds": 6.45,
+      "result": "PASS; actual native H1, archive/extracted/source/export hashes and frozen goldens checked"
+    },
+    {
+      "command": "gofmt -l packagev3/kinet_browser_adapter_test.go",
+      "result": "PASS; empty output"
+    }
+  ],
+  "full_make": {
+    "version": "openudon.p11-offline-make-attempt.v1",
+    "attempt": 1,
+    "state": "completed",
+    "started_at": "2026-10-13T09:22:03.047186+00:00",
+    "cwd": "/home/peter/Workspace/openudon.goal/P11",
+    "command": [
+      "make",
+      "GO=/home/peter/Workspace/openudon.goal/P11-proof-20261013/make-go-shim",
+      "check"
+    ],
+    "outer_cap_seconds": 1200,
+    "candidate_inputs": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/candidate-inputs.json",
+      "sha256": "ed84933f421e0adc29c79dd0af2705118113680abd117211390cb9505cdfb845",
+      "files": 1673
+    },
+    "fresh_candidate_cli": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/p11-check-cli",
+      "sha256": "822f001fcf2b16ccd77f8afa883e4a6fbd20639c15afb266e2acfc69bbf31656",
+      "bytes": 50633571
+    },
+    "reviewed_go_shim": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/make-go-shim",
+      "sha256": "797f158da64f11000bfd896ca39c19cdad25fcfe607e7f80f035d5319bbd1897"
+    },
+    "sibling_check_cwd": "/home/peter/Workspace/kinet.goal/stage12-coordinator/frozen-inputs-restored-20261010/openudon",
+    "repeat_policy": "No unchanged rerun; inspect completion after interruption",
+    "audit_enabled": false,
+    "finished_at": "2026-10-13T09:27:25.108386+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 177.85,
+    "log": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/full-make.log",
+      "sha256": "8ff93d2fac189d51cb7914c21fe66d9b6fa28eb67aca649e6dcc92a0b200062c",
+      "bytes": 5334
+    },
+    "input_files_unchanged": true,
+    "timing_scope": {
+      "elapsed_seconds": "Actual Make process runtime measured by /usr/bin/time; includes its child commands.",
+      "started_at": "Invocation-intent receipt timestamp immediately before starting the admitted Make command. No deferred preparatory check is included before launching Make.",
+      "finished_at": "Completion-receipt persistence timestamp after the completed tool result was observed and post-run input/log/CLI checks were recorded; not the Make process exit timestamp.",
+      "overall_transaction_seconds": "Invocation intent through completion-receipt persistence, including time between Make exit and observing/recording its result while independent proof work continued."
+    },
+    "overall_transaction_seconds": 322.0612,
+    "actual_make_command_seconds": 177.85,
+    "within_outer_cap": true
+  },
+  "public_closure": {
+    "selected_modules": 91,
+    "dependency_archives_verified": 90,
+    "dependency_archive_files_hashed": 17550,
+    "dependency_extracted_files_compared": 16931,
+    "compiled_packages": 373,
+    "compiled_modules": 35,
+    "compiled_exports_verified": 372,
+    "nonstandard_source_fields_verified": 1812,
+    "recursive_metadata_errors": 0,
+    "replacements": [],
+    "retained_internal_openudon_packages": [],
+    "private_genelet_packages": []
+  },
+  "retained_checks": {
+    "P11.2_task_review": 2,
+    "P11.2_task_review_result": "PASS; no P1/P2/P3",
+    "native_race_seconds": 30.08,
+    "heterogeneous_output_race_seconds": 22.897,
+    "scope": "Unchanged P11.2 code/race qualification retained; new adapter fixture has no concurrent behavior",
+    "full_make_guards": "All schema, API-surface, source/shape, wire, immutable HTTP golden, 11 browser-family and v2/v3 historical tests passed",
+    "legacy_golden_hashes_verified": 20,
+    "historical_proof_decision": "Existing P10 named-output package remains read-only history; current Verify refuses its stale assessment; corrected rebuild retains inputs but changes assessment/handoff/package identity and requires fresh approval"
+  },
+  "proofs": {
+    "candidate_inputs": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/candidate-inputs.json",
+      "sha256": "ed84933f421e0adc29c79dd0af2705118113680abd117211390cb9505cdfb845",
+      "files": 1673
+    },
+    "public_closure": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/public-closure-proof.json",
+      "sha256": "ab31e1608cf70e00edb4381f45bc7745df30d155d38c6b95263fb6b12c0d7cdc"
+    },
+    "closure_verifier": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/verify-public-closure.py",
+      "sha256": "b6e352af97a39f7a024a906a1a9d10a82e86933fbacee39a318522538b1043c1"
+    },
+    "full_make_receipt": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/full-make-attempt.json",
+      "sha256": "117db62bb9875c9728c90a0d3d70e1e94f7275a1433684247226af8df3c7902b"
+    },
+    "full_make_log": {
+      "path": "/home/peter/Workspace/openudon.goal/P11-proof-20261013/full-make.log",
+      "sha256": "8ff93d2fac189d51cb7914c21fe66d9b6fa28eb67aca649e6dcc92a0b200062c"
+    }
+  },
+  "diagnostic_correction": "The initial private inventory parser assumed every selected unused module carried Sum/GoModSum. It was corrected to compare current listed sums when present and the exact accepted P10 proof SHA3f3be1822b9c07ca4b4317992f6ccd276309490e7d5733a2cf426e83f6c40e1e cached H1/go.mod bytes otherwise. All 90 actual archives and their available extracted sources then verified. No source, module lock or cache was copied or changed to resolve this parser assumption.",
+  "limits": [
+    "Qualification is source-local and offline; no new self-module ordinary publication proof or actual W20/M52 adoption",
+    "Whole P11 review, acceptance and coordinator publication remain pending",
+    "No physical browser, display, supervisor daemon, source/image/disk snapshot, new cache, network download or private Udon import",
+    "Consumed capture/runtime/deployment grants never transfer; audit remains disabled"
+  ]
+}

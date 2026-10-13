@@ -12,7 +12,7 @@ OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
 P11 is new work; accepted P10 history and all existing row outcomes/review
 counters remain unchanged. This intake starts no closing review. Audit disabled.
 
-**State:** P11.1–.2 complete; P11.3–.4 pending. Whole review0/10.
+**State:** P11.1–.3 complete; P11.4 pending. Whole review0/10.
 **Source baseline:** `78f8609d2e21976fa1311aa914cf2e4170b895ef` before planning.
 **Coordinator:** [Stage12](../../../kinet/docs/stage12.md).
 **Depends on:** accepted/published OpenUdon:P10, Browsertools:M33 and UWS:C10.
@@ -26,7 +26,7 @@ The approved goal request owns effective scopes; this status grants nothing.
 |---|---|---|
 | P11.1 — Freeze named-output regressions | `[+]` | Reproduce exact M33/C10/P10 mismatch with immutable synthetic action bytes; operation and step exports and downstream consumers, missing/escaped/nested references and unchanged HTTP controls. Pure offline readiness first. |
 | P11.2 — Correct native output resolution | `[+]` | Align browser response expressions and assessment references with reproduced named output declarations. Preserve full values, numeric spellings, unknownness and generic HTTP semantics. Do not rename shapes or suppress diagnostics in Kinet. |
-| P11.3 — Qualify compatibility and public closure | `[ ]` | Focused/race/vet/static/full offline checks, immutable historical readability and explicit generated-proof compatibility decision, public-only compiled/module closure and adapted frozen consumer fixture checks. No real browser or private-runtime imports. |
+| P11.3 — Qualify compatibility and public closure | `[+]` | Focused/race/vet/static/full offline checks, immutable historical readability and explicit generated-proof compatibility decision, public-only compiled/module closure and adapted frozen consumer fixture checks. No real browser or private-runtime imports. |
 | P11.4 — Review, publish and hand off | `[ ]` | Persist bounded independent whole review; coordinator publishes reviewed source/closure by at most two fast-forward pushes under the exact scope, verifies ordinary published module revision/files/H1 and exact remote closure, consolidates and retires. W20/M52 adopt only accepted/published proof; no prior grant transfers. |
 
 ## Acceptance and verification
@@ -95,3 +95,19 @@ current verification, and no old approval transfers. Focused/race/vet/static/
 format and exact HTTP golden pass at the recorded bounds. This qualifies row2
 only; P11.3/whole qualification and source publication remain pending.
 Whole review remains0/10; audit disabled.
+
+## P11.3 offline qualification PASS — 2026-10-13
+
+Qualification baseline `22beb2a7b7ff9661b991423a5b54c86d1b4f9f7f`
+includes the new frozen Kinet adapter test; the qualification document was
+written afterward. [Record](../../docs/p11-qualification.json) SHA256
+`e075575a43c1aabd04568d8d748512aa3c264417fc691c09caf66a20b3748d0b`
+records focused/public boundary, vet/static, tidy/verify and compiled closure
+checks. Full owner Make attempt1 passed: actual command177.85s; invocation
+intent to receipt persistence322.0612s, both within1200s. No unchanged rerun.
+All1673 inventoried inputs and24 frozen consumer files remained exact. Native
+H1 checks cover90 dependency archives;373 compiled packages,372 exports and
+1812 source fields verified with no replacements/private Udon imports. Twenty
+legacy goldens stay immutable. Adapted producer fixture proof does not replace
+ordinary published-module adoption by W20/M52. Whole review remains0/10;
+publication and acceptance pending. Audit disabled; no physical browser action.
