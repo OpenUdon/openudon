@@ -347,10 +347,19 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 			a, b := request.Inputs[i], request.Inputs[j]
 			return a.Location+"/"+a.Name < b.Location+"/"+b.Name
 		})
-		for _, output := range op.Outputs {
+		outputNames := make([]string, 0, len(op.Outputs))
+		for name := range op.Outputs {
+			outputNames = append(outputNames, name)
+		}
+		if browserCall != nil && browserCall.Kind == "action" {
+			// Distinct browser output diagnostics must have stable proof order.
+			sort.Strings(outputNames)
+		}
+		for _, name := range outputNames {
+			output := op.Outputs[name]
 			parsed, err := expressions.Parse(output, expressions.Context{Version: doc.UWS, Field: expressions.Value})
 			if err == nil {
-				if reference, ok := responseReference(parsed.Source()); ok {
+				if reference, ok := responseReference(parsed.Source(), resolved.Shape); ok {
 					request.OutputReferences = append(request.OutputReferences, reference)
 				}
 			}

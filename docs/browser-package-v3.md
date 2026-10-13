@@ -40,6 +40,33 @@ Kinet M56/M52 own actual containment/custody and later actual producer
 interoperability qualification. Frozen synthetic M51 vectors are metadata
 conformance inputs and grant no execution authority.
 
+## Browser output references
+
+P11 resolves `$response.body#/result_count` and
+`$response.body.result_count` against M33's body output named `result_count`.
+The first decoded path token selects the native name; any remaining tokens
+project inside that exact output declaration. Source declarations, extraction
+annotations, numeric spellings and independently reproduced shapes remain
+unchanged. Operation, step and workflow exports keep their distinct owners;
+downstream references require an explicit preceding step output and a compatible
+source-backed type. Authentication security uncertainty remains independent.
+
+Whole-body expressions have no individual named declaration and refuse,
+including when an output is literally named `body`. Missing names, malformed
+pointers and nested or array paths into scalar outputs refuse. Unproved schema
+projections remain indeterminate. HTTP body/header/status references retain
+their existing semantics; mixed browser/HTTP packages still permit review only.
+
+This correction changes generated assessments and package/handoff identities
+where P10 incorrectly rejected named outputs. Existing package bytes remain
+readable through `InspectHistory` with `ReadOnly=true` and `SourceProof=false`.
+`Verify` continues to require an exactly matching current assessment; it rejects
+stale generated proof. A corrected rebuild needs its own current package/plan
+approval, and historical approvals never transfer. No schema or wire version
+changes. The separate immutable
+`packagev3/testdata/browser/p11-p10-named-output-package.json` fixture records
+the original P10 package without rewriting the existing corpus.
+
 ## Public verification subset
 
 Public `browsertransaction` supports the unchanged transaction receipt v1–v4

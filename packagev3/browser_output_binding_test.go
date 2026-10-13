@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -126,32 +127,39 @@ func browserOutputOptions(t *testing.T, operation, step, workflow, consumer, con
 	return o
 }
 
-// P11.1 intentionally characterizes the accepted P10 defect. P11.2 must change
-// the valid cases to compatible after correcting native expression resolution;
-// these incompatible expectations are not acceptance of delivered support.
-func TestBrowserNamedOutputP11Characterization(t *testing.T) {
+// P11 resolves source-backed browser names without changing the independently
+// reproduced M33 shape table or borrowing another output owner's declarations.
+func TestBrowserNamedOutputResolutionAndOwnership(t *testing.T) {
 	for _, c := range []struct {
 		name, operation, step, workflow, consumer, consumerType, outcome string
 		codes                                                            []string
 		reversed                                                         bool
 	}{
 		{name: "no output control", outcome: "compatible"},
-		{name: "operation pointer", operation: "count: '$response.body#/result_count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
-		{name: "operation dot", operation: "count: '$response.body.result_count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
-		{name: "other named output", operation: "count: '$response.body#/all_result_count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
-		{name: "step pointer", step: "count: '$response.body#/result_count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible"}},
-		{name: "operation and step", operation: "count: '$response.body#/result_count'", step: "count: '$response.body#/result_count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
-		{name: "step preceding output", step: "a: '$response.body#/result_count', count: '$outputs.a'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible"}},
-		{name: "workflow export", step: "count: '$response.body#/result_count'", workflow: "count: '$steps.leaf.outputs.count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible"}},
-		{name: "integer consumer", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "integer", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.expression_reference_incompatible"}},
-		{name: "string consumer", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "string", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.expression_reference_incompatible"}},
+		{name: "operation pointer", operation: "count: '$response.body#/result_count'", outcome: "compatible"},
+		{name: "operation dot", operation: "count: '$response.body.result_count'", outcome: "compatible"},
+		{name: "percent encoded name", operation: "count: '$response.body#/%72esult_count'", outcome: "compatible"},
+		{name: "other named output", operation: "count: '$response.body#/all_result_count'", outcome: "compatible"},
+		{name: "step pointer", step: "count: '$response.body#/result_count'", outcome: "compatible"},
+		{name: "operation and step", operation: "count: '$response.body#/result_count'", step: "count: '$response.body#/result_count'", outcome: "compatible"},
+		{name: "operation preceding output", operation: "a: '$response.body#/result_count', count: '$outputs.a'", outcome: "compatible"},
+		{name: "step preceding output", step: "a: '$response.body#/result_count', count: '$outputs.a'", outcome: "compatible"},
+		{name: "workflow export", step: "count: '$response.body#/result_count'", workflow: "count: '$steps.leaf.outputs.count'", outcome: "compatible"},
+		{name: "integer consumer", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "integer", outcome: "compatible"},
+		{name: "nested scalar downstream consumer", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count.nested", consumerType: "integer", outcome: "incompatible", codes: []string{"binding.expression_reference_incompatible"}},
+		{name: "nested scalar preceding output", step: "a: '$response.body#/result_count', count: '$outputs.a.nested'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible"}},
+		{name: "narrowed integer consumer remains unproved", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "integer, minimum: 1", outcome: "indeterminate", codes: []string{"binding.expression_type_indeterminate"}},
+		{name: "string consumer", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "string", outcome: "incompatible", codes: []string{"binding.expression_type_mismatch"}},
 		{name: "operation does not populate step", operation: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "integer", outcome: "incompatible", codes: []string{"binding.expression_reference_incompatible"}},
 		{name: "future step", step: "count: '$response.body#/result_count'", consumer: "$steps.leaf.outputs.count", consumerType: "integer", reversed: true, outcome: "incompatible", codes: []string{"binding.expression_reference_incompatible"}},
 		{name: "missing declared name", operation: "count: '$response.body#/missing'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
 		{name: "whole body has no declaration", operation: "count: '$response.body'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
 		{name: "escaped slash names missing", operation: "count: '$response.body#/result~1count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
 		{name: "escaped tilde names missing", operation: "count: '$response.body#/result~0count'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
-		{name: "nested scalar path", operation: "count: '$response.body#/result_count/nested'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
+		{name: "empty pointer has no declaration", operation: "count: '$response.body#'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
+		{name: "missing root array index", operation: "count: '$response.body#/0'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_missing"}},
+		{name: "nested scalar path", operation: "count: '$response.body#/result_count/nested'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_field_missing"}},
+		{name: "nested scalar array index", operation: "count: '$response.body#/result_count/0'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible", "binding.output_field_missing"}},
 		{name: "nested dot scalar path", step: "count: '$response.body.result_count.nested'", outcome: "incompatible", codes: []string{"binding.output_reference_incompatible"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -161,7 +169,7 @@ func TestBrowserNamedOutputP11Characterization(t *testing.T) {
 				t.Fatal("build", err)
 			}
 			if p.Assessment.Outcome != c.outcome {
-				t.Fatalf("current P10 outcome %s, want %s: %+v", p.Assessment.Outcome, c.outcome, p.Assessment.Findings)
+				t.Fatalf("browser output outcome %s, want %s: %+v", p.Assessment.Outcome, c.outcome, p.Assessment.Findings)
 			}
 			for _, code := range c.codes {
 				found := false
@@ -182,6 +190,47 @@ func TestBrowserNamedOutputP11Characterization(t *testing.T) {
 			}
 			if !bytes.Equal(p.Files[o.Sources[0].Path], o.Sources[0].Bytes) || !bytes.Equal(p.Files[packagev3.WorkflowPath], o.WorkflowYAML) {
 				t.Fatal("reviewed source/workflow bytes changed")
+			}
+		})
+	}
+}
+
+func TestBrowserNamedOutputHeterogeneousDiagnosticsAreDeterministic(t *testing.T) {
+	o := browserOutputOptions(t, "a: '$response.body#/missing', b: '$response.body#/result_count/nested'", "", "", "", "", false)
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil || p.Assessment.Outcome != "incompatible" {
+		t.Fatal("mixed invalid browser outputs", p.Assessment, err)
+	}
+	proof, err := p.Assessment.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var outputDiagnostics []string
+	for _, finding := range p.Assessment.Findings {
+		if finding.Code == "binding.output_missing" || finding.Code == "binding.output_field_missing" {
+			outputDiagnostics = append(outputDiagnostics, finding.Code)
+		}
+	}
+	if !reflect.DeepEqual(outputDiagnostics, []string{"binding.output_missing", "binding.output_field_missing"}) {
+		t.Fatal("native heterogeneous diagnostics changed", outputDiagnostics)
+	}
+	for i := 0; i < 32; i++ {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			again, err := packagev3.Build(context.Background(), o)
+			if err != nil || again.SHA256 != p.SHA256 || !reflect.DeepEqual(again.Files, p.Files) {
+				t.Fatal("unchanged inputs produced different package/proof identities", err)
+			}
+			assessment, err := packagev3.Assess(context.Background(), p.Manifest, p.Files)
+			if err != nil {
+				t.Fatal("independent assessment", err)
+			}
+			canonical, err := assessment.Marshal()
+			if err != nil || !bytes.Equal(canonical, proof) {
+				t.Fatal("independent assessment changed canonical proof", err)
+			}
+			v, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files})
+			if err != nil || v.SHA256() != p.SHA256 || !reflect.DeepEqual(v.Assessment(), p.Assessment) {
+				t.Fatal("independent verification changed proof identity", err)
 			}
 		})
 	}
@@ -213,11 +262,109 @@ func TestBrowserNamedOutputMalformedReferencesRefuse(t *testing.T) {
 	}
 }
 
+func TestBrowserNamedOutputNativeActionReference(t *testing.T) {
+	o := browserOutputOptions(t, "count: '$response.body#/result_count'", "count: '$response.body#/result_count'", "", "$steps.leaf.outputs.count", "integer", false)
+	o.WorkflowYAML = []byte(strings.Replace(string(o.WorkflowYAML), "sourceOperationId: inspect_results", "sourceOperationRef: '#/actions/inspect_results'", 1))
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil || p.Assessment.Outcome != "compatible" {
+		t.Fatal("native action selector reference", p.Assessment, err)
+	}
+	v, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files})
+	if err != nil || !reflect.DeepEqual(v.Assessment(), p.Assessment) {
+		t.Fatal("native action selector reproduction", err)
+	}
+}
+
+func TestBrowserNamedOutputBodyNameDoesNotProveWholeResponse(t *testing.T) {
+	for _, c := range []struct{ expression, outcome string }{
+		{"$response.body#/body", "compatible"},
+		{"$response.body", "incompatible"},
+		{"$response.body#", "incompatible"},
+	} {
+		t.Run(c.expression, func(t *testing.T) {
+			o := browserOutputOptions(t, "value: '"+c.expression+"'", "", "", "", "", false)
+			var source map[string]any
+			if err := wire.DecodeStrictNumbers(o.Sources[0].Bytes, &source); err != nil {
+				t.Fatal(err)
+			}
+			outputs := source["actions"].(map[string]any)["inspect_results"].(map[string]any)["outputs"].(map[string]any)
+			outputs["body"] = outputs["result_count"]
+			raw, err := json.Marshal(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Sources[0].Bytes = raw
+			p, err := packagev3.Build(context.Background(), o)
+			if err != nil || p.Assessment.Outcome != c.outcome {
+				t.Fatal("named body/whole response distinction", p.Assessment, err)
+			}
+			v, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files})
+			if err != nil || !reflect.DeepEqual(v.Assessment(), p.Assessment) {
+				t.Fatal("named body independent proof", err)
+			}
+		})
+	}
+}
+
+func TestBrowserNamedOutputRetainsAuthenticatedSecurityUnknown(t *testing.T) {
+	o := browserOutputOptions(t, "count: '$response.body#/result_count'", "count: '$response.body#/result_count'", "", "", "", false)
+	var source map[string]any
+	if err := wire.DecodeStrictNumbers(o.Sources[0].Bytes, &source); err != nil {
+		t.Fatal(err)
+	}
+	info := source["info"].(map[string]any)
+	info["origin"], info["loginStateRequired"] = "https://members.example.test", true
+	raw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.Sources[0].Bytes = raw
+	var authentication packagev3.BuildOptions
+	for _, vector := range browserVectors(t) {
+		if vector.Source == "authentication-1.0.json" {
+			authentication = browserOptions(t, vector)
+		}
+	}
+	if len(authentication.Sources) != 1 {
+		t.Fatal("missing frozen authentication source")
+	}
+	authentication.Sources[0].ID = "authentication"
+	o.Sources = append(o.Sources, authentication.Sources[0])
+	authOperation := strings.Split(string(authentication.WorkflowYAML), "operations:\n")[1]
+	authOperation = strings.Split(authOperation, "workflows:\n")[0]
+	authOperation = strings.Replace(authOperation, "operationId: op", "operationId: login", 1)
+	yaml := strings.Replace(string(o.WorkflowYAML), "operations:\n", "operations:\n"+authOperation, 1)
+	yaml = strings.Replace(yaml, "    sourceOperationId: inspect_results", "    sourceOperationId: inspect_results\n    x-uws-browser-session: {session: member}", 1)
+	yaml = strings.Replace(yaml, "steps: [", "steps: [{stepId: login, operationRef: login}, ", 1)
+	o.WorkflowYAML = []byte(yaml)
+	p, err := packagev3.Build(context.Background(), o)
+	if err != nil || p.Assessment.Outcome != "indeterminate" {
+		t.Fatal("output correction changed authenticated security uncertainty", p.Assessment, err)
+	}
+	uncertain := 0
+	for _, finding := range p.Assessment.Findings {
+		if finding.Outcome != "compatible" {
+			uncertain++
+			if finding.Code != "binding.security_unknown" || finding.Outcome != "indeterminate" {
+				t.Fatal("named output acquired a separate uncertainty", finding)
+			}
+		}
+	}
+	if uncertain != 1 {
+		t.Fatal("authenticated security uncertainty was suppressed", p.Assessment.Findings)
+	}
+	v, err := packagev3.Verify(context.Background(), packagev3.VerifyOptions{Scope: p.Manifest.Scope, ExpectedSHA256: p.SHA256, Files: p.Files})
+	if err != nil || !reflect.DeepEqual(v.Assessment(), p.Assessment) {
+		t.Fatal("authenticated independent proof", err)
+	}
+}
+
 func TestBrowserOutputCorrectionHTTPProjectionControls(t *testing.T) {
 	for _, c := range []struct {
 		name, expression, schema, outcome string
 	}{
 		{"whole body", "$response.body", "{type: object, properties: {ok: {type: boolean}}}", "compatible"},
+		{"HTTP status", "$response.statusCode", "{type: object, properties: {ok: {type: boolean}}}", "compatible"},
 		{"escaped nested pointer", "$response.body#/a~1b/~0key", "{type: object, properties: {'a/b': {type: object, properties: {'~key': {" + finiteInteger + "}}, required: ['~key']}}, required: ['a/b']}", "compatible"},
 		{"missing escaped child", "$response.body#/a~1b/~0missing", "{type: object, properties: {'a/b': {type: object, properties: {'~key': {type: integer}}, required: ['~key'], additionalProperties: false}}, required: ['a/b'], additionalProperties: false}", "incompatible"},
 		{"optional nested pointer", "$response.body#/a~1b/~0key", "{type: object, properties: {'a/b': {type: object, properties: {'~key': {type: integer}}, required: ['~key']}}}", "indeterminate"},

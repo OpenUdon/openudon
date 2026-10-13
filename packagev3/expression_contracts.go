@@ -3,6 +3,7 @@ package packagev3
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func (e *expressionContracts) shape(op *uws1.Operation) *binding.OperationShape 
 	if op == nil || !op.HasSourceBinding() {
 		return nil
 	}
-	b, err := operationBinding(op, e.sources)
+	b, err := browserOperationBinding(op, e.sources)
 	if err != nil {
 		return nil
 	}
@@ -196,6 +197,20 @@ func childContract(schema binding.Schema, parts []string) binding.Schema {
 	}
 	return binding.Schema{Known: true, JSON: data}
 }
+func (e *expressionContracts) childContract(schema binding.Schema, parts []string, op *uws1.Operation) (binding.Schema, bool) {
+	shape := e.shape(op)
+	if len(parts) > 0 && schema.Known && shape != nil && shape.Browser != nil && shape.Browser.CallKind == "action" {
+		var declaration map[string]any
+		if wire.DecodeStrictNumbers(schema.JSON, &declaration) == nil {
+			switch declaration["type"] {
+			case "string", "boolean", "integer", "number", "null":
+				return binding.Schema{Known: true, JSON: json.RawMessage(`false`)}, true
+			}
+		}
+	}
+	return childContract(schema, parts), false
+}
+
 func listValues(value any) []string {
 	items, _ := value.([]any)
 	out := []string{}
@@ -207,22 +222,48 @@ func listValues(value any) []string {
 	return out
 }
 
-func responseReference(source string) (binding.OutputReference, bool) {
+func responseReference(source string, shape *binding.OperationShape) (binding.OutputReference, bool) {
+	var ref binding.OutputReference
 	switch {
 	case source == "$response.body":
-		return binding.OutputReference{Location: "body", Name: "body"}, true
+		ref = binding.OutputReference{Location: "body", Name: "body"}
 	case strings.HasPrefix(source, "$response.body#"):
-		return binding.OutputReference{Location: "body", Name: "body", Pointer: strings.TrimPrefix(source, "$response.body")}, true
+		ref = binding.OutputReference{Location: "body", Name: "body", Pointer: strings.TrimPrefix(source, "$response.body")}
 	case strings.HasPrefix(source, "$response.body."):
 		parts := strings.Split(strings.TrimPrefix(source, "$response.body."), ".")
 		for i := range parts {
 			parts[i] = strings.ReplaceAll(strings.ReplaceAll(parts[i], "~", "~0"), "/", "~1")
 		}
-		return binding.OutputReference{Location: "body", Name: "body", Pointer: "#/" + strings.Join(parts, "/")}, true
+		ref = binding.OutputReference{Location: "body", Name: "body", Pointer: "#/" + strings.Join(parts, "/")}
 	case strings.HasPrefix(source, "$response.headers."):
 		return binding.OutputReference{Location: "header", Name: strings.TrimPrefix(source, "$response.headers.")}, true
+	default:
+		return binding.OutputReference{}, false
 	}
-	return binding.OutputReference{}, false
+	if shape == nil || shape.Browser == nil || shape.Browser.CallKind != "action" {
+		return ref, true
+	}
+	// M33 declares one body output per native name, rather than an HTTP body
+	// wrapper. Select the first decoded path token and project only its suffix.
+	// An empty path has no named declaration and must not borrow an output
+	// literally called body as proof of the entire response object.
+	ref.Name = ""
+	if ref.Pointer == "" {
+		return ref, true
+	}
+	parts, err := expressions.Pointer(ref.Pointer)
+	if err != nil || len(parts) == 0 {
+		return ref, true
+	}
+	ref.Name, ref.Pointer = parts[0], ""
+	if len(parts) > 1 {
+		for i := range parts[1:] {
+			part := strings.ReplaceAll(strings.ReplaceAll(parts[i+1], "~", "~0"), "/", "~1")
+			parts[i+1] = strings.ReplaceAll(url.QueryEscape(part), "+", "%20")
+		}
+		ref.Pointer = "#/" + strings.Join(parts[1:], "/")
+	}
+	return ref, true
 }
 func (e *expressionContracts) contract(text string, scope expressionScope, active map[string]bool, depth int) (binding.Schema, string) {
 	if depth > 64 || e.ctx.Err() != nil {
@@ -298,7 +339,10 @@ func (e *expressionContracts) contract(text string, scope expressionScope, activ
 		if status != "compatible" {
 			return schema, status
 		}
-		schema = childContract(schema, parts[3:])
+		schema, missing := e.childContract(schema, parts[3:], targetScope.operation)
+		if missing {
+			return schema, "incompatible"
+		}
 		if !schema.Known {
 			return schema, "indeterminate"
 		}
@@ -319,7 +363,10 @@ func (e *expressionContracts) contract(text string, scope expressionScope, activ
 		if status != "compatible" {
 			return schema, status
 		}
-		schema = childContract(schema, parts[1:])
+		schema, missing := e.childContract(schema, parts[1:], scope.operation)
+		if missing {
+			return schema, "incompatible"
+		}
 		if !schema.Known {
 			return schema, "indeterminate"
 		}
@@ -331,8 +378,8 @@ func (e *expressionContracts) contract(text string, scope expressionScope, activ
 		}
 		return binding.Schema{Known: true, JSON: json.RawMessage(`{"type":"integer"}`)}, "compatible"
 	}
-	if ref, ok := responseReference(source); ok {
-		shape := e.shape(scope.operation)
+	shape := e.shape(scope.operation)
+	if ref, ok := responseReference(source, shape); ok {
 		if shape == nil {
 			return binding.Schema{}, "indeterminate"
 		}
@@ -344,7 +391,7 @@ func (e *expressionContracts) contract(text string, scope expressionScope, activ
 					if err != nil {
 						return binding.Schema{}, "incompatible"
 					}
-					schema = childContract(schema, parts)
+					schema, _ = e.childContract(schema, parts, scope.operation)
 				}
 				if !schema.Known {
 					return schema, "indeterminate"
