@@ -9,7 +9,7 @@ untimed history. Retiring legacy authoring must not remove or widen the public
 path. Frozen consumer pins, all existing row text/markers and review0 remain
 unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
 
-[Owning P12 specification](milestone.md#p12--browser-authentication-timeout-interoperability).
+[Accepted P12 specification/status](../docs/history/status-P12.md).
 
 **Stage:** Kinet STG-12, Phase B. **Owner:** OpenUdon.
 **State:** Pending. No row has started. Review 0/10.
@@ -66,7 +66,7 @@ disposable stores/caches/browser profiles and unique output directories.
 **Upstream.**
 
 - [OpenUdon:P10](../docs/history/status-P10.md), the public browser subset.
-- [OpenUdon:P12](status-P12.md), the required public authentication correction, after exact accepted/published closure; preserve [P11](../docs/history/status-P11.md).
+- [OpenUdon:P12](../docs/history/status-P12.md), the required public authentication correction, after exact accepted/published closure; preserve [P11](../docs/history/status-P11.md).
 - Accepted [Kinet:M53](../../../kinet/tabilet/memory-bank/status-M53.md), with its
   exact proof that Kinet consumes no OpenUdon CLI, image or internal package.
 
@@ -127,3 +127,5 @@ P10 public subset including [P11](../docs/history/status-P11.md) native output
 resolution, deterministic assessment and read-only historical-proof behavior.
 A32.1 inventories it and A32.5 retains its regressions/history readers.
 Kinet:M53 remains the gate; all A32 rows/review stay pending0/10.
+
+**Accepted P12 handoff.** Four rows and whole review1 pass at published source `54cd50d0b4a688fc1a2a32e679b4e6befc0f5114` with exact ordinary source/H1 proof. Normal closure is independently verified before consumer use. Preserve its public predicates, additive timeout regressions, complete hash/wire semantics and readable untimed history while removing legacy closure. A32 rows and review0 remain pending on accepted Kinet:M53; no implementation begins here. Audit disabled.

@@ -1,0 +1,31 @@
+{
+  "schema": "stage12.p12-published-module-proof.v1",
+  "revision": "54cd50d0b4a688fc1a2a32e679b4e6befc0f5114",
+  "version": "v0.1.1-0.20261013211918-54cd50d0b4a6",
+  "origin": {
+    "VCS": "git",
+    "URL": "https://github.com/OpenUdon/openudon",
+    "Hash": "54cd50d0b4a688fc1a2a32e679b4e6befc0f5114",
+    "TagSum": "t1:Sk2BzM7sIz/naFMAxW7AuR8zLKGEATknK30IwSxlC/I="
+  },
+  "moduleSum": "h1:KkBWHX0AezfyHEpTntiHBo25XrIINj5KSmrSpnJfVas=",
+  "goModSum": "h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g=",
+  "archiveSHA256": "4923b9a7fceafda4bfabeb6d6bc983f4eb3209eff5eeb503e69d5688ecefaf17",
+  "goModSHA256": "687fbc2745c7f93714c9b5a0fd3b2248768006660e54019a006fc6a026130694",
+  "infoSHA256": "6c113c4e88b5fd8127a1202b707b16d7815082256b00af0e8cd28d0fb81c9039",
+  "gitTree": "3a6cb8657729642a94a700683d2d81e5dbef623b",
+  "completeGitSourceFiles": 1692,
+  "archiveAndExtractedFiles": 1692,
+  "signedChecksumDatabaseVerified": false,
+  "verification": "Ordinary direct Go VCS; independent remote revision plus complete Git/ZIP/extracted bytes and native H1 verification; GOSUMDB=off",
+  "wholeReview": 1,
+  "sourcePublication": "Exact remote main and fetched immutable revision independently verified",
+  "publicationPushesUsedBeforeClosure": 1,
+  "publicationPushLimit": 2,
+  "closurePublication": "Coordinator publishes/verifies normal retirement closure afterward; dependents wait for exact closure input",
+  "sourceProof": {
+    "path": "/home/peter/Workspace/kinet.goal/stage12-coordinator/resume-20261013/p12-source-module-proof.json",
+    "sha256": "a6b12df71ed8b891e7e6d7c1eb1e5b5e505da482840802f366244060765adc20"
+  },
+  "auditEnabled": false
+}

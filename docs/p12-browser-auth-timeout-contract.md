@@ -2,9 +2,8 @@
 
 P12.1 freezes the approved P12 producer contract. This document specifies the
 P12.2 implementation and P12.3 compatibility evidence; it does not claim that
-either has passed. The [owning milestone](../tabilet/memory-bank/milestone.md#p12--browser-authentication-timeout-interoperability)
-and [active status](../tabilet/memory-bank/status-P12.md) remain authoritative for
-execution, acceptance and action requirements.
+either has passed. The [retired full specification and status](../tabilet/docs/history/status-P12.md)
+retain the authoritative execution, acceptance and action requirements.
 
 ## Frozen inputs and observed conflict
 
@@ -175,3 +174,12 @@ creating a new cache or copying source trees.
 This is package-resolution readiness only. It establishes neither compiled
 closure qualification nor P12.2/P12.3 acceptance, publication, consumer adoption
 or physical browser proof.
+
+## Retirement link maintenance
+
+Only the opening active-file links were reconciled to the permanent retired
+record after P12 acceptance. The original qualification used SHA256
+`3be7b99ba08415151f9fe6c141f7819e445d5035dbe87459bdc85a62da75295a`;
+its exact bytes remain in reviewed/published Git history and retained coordinator
+evidence. This link-only maintenance changes no authored contract or qualified
+fixture. [Retirement provenance](p12-retirement-links.md) records the distinction.

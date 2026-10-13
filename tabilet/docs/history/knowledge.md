@@ -6224,3 +6224,19 @@ The initial execution dashboard below is superseded by the current P12 status af
 ```markdown
 **State:** P12.1 in progress in a fresh producer worktree; other three rows pending. Whole review0/10.
 ```
+
+## P12 accepted producer and retirement — 2026-10-13
+
+The following current planning summaries and lesson wording are superseded by accepted P12 and its full [retired record](status-P12.md). Normal closure publication remains separately verified before ordinary M52 adoption; the original approved scope, source findings, counters and outcomes are preserved in that record. No evolution version or historical record is rewritten. Source documents/headings: `AGENTS.md` → `Approved P12 authentication timeout reconciliation`; `tabilet/memory-bank/milestone.md` → its opening `Approved P12 corrective planning` summary and remaining-order paragraph; `tabilet/memory-bank/lessons.md` → `Exercise browser profiles through trusted package preparation`. Current replacement wording remains at those document locations, with the accepted P12 record linked above.
+
+`````markdown
+**Approved P12 corrective planning — 2026-10-13.** The user approved the complete P12 proposal and bounded publication/acquisition, then goal resumption with audit disabled. F01 is confirmed local P1; source priority/review baseline not supplied. Required [P12](status-P12.md) adds four pending rows/review0 for authored bounded authentication and public/native compatibility; no repair acceptance is claimed.
+
+Remaining order: OpenUdon:P12 → Kinet:M52 → Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Eleven active milestones / 47 rows: six required / 28 rows and five conditional / 19 rows. Approved total 21/92 (15 required/70, 6 conditional/22); R65 original 19/84 and the P11 total 20/88 remain historical. Public SDK only; exact ordinary adoption stays M52 and physical proof stays M53.4. A32 preserves P12. P11 pushes2/2 and M56 scopes stay ended; current facts/default pins/history/candidates/evolution are preserved.
+
+**Approved P12 corrective planning — 2026-10-13.** The user approved the complete P12 proposal and bounded publication/acquisition, then goal resumption with audit disabled. F01 is confirmed local P1; source priority/review baseline not supplied. Required [P12](tabilet/memory-bank/status-P12.md) adds four pending rows/review0 for authored bounded authentication and public/native compatibility; no repair acceptance is claimed.
+
+Remaining order: OpenUdon:P12 → Kinet:M52 → Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Eleven active milestones / 47 rows: six required / 28 rows and five conditional / 19 rows. Approved total 21/92 (15 required/70, 6 conditional/22); R65 original 19/84 and the P11 total 20/88 remain historical. Public SDK only; exact ordinary adoption stays M52 and physical proof stays M53.4. A32 preserves P12. P11 pushes2/2 and M56 scopes stay ended; current facts/default pins/history/candidates/evolution are preserved.
+
+P12 intake exposed another preparation boundary: the same authentication operation needs an authored finite timeout natively while the frozen public flat predicate refuses every timeout. Qualify the exact public package workflow through both public proof and isolated pure native Compile/CheckSupported with authentication plus read/write leaves and zero effect callbacks. Producer source fixtures and ordinary published consumer adoption remain separate evidence. Preserve old untimed public proof/history and report native unsupported behavior truthfully; never modify already approved bytes. [P12](status-P12.md) owns the planned correction, not a claimed pass.
+`````

@@ -1,13 +1,13 @@
 # Product
 
-## P12 public authentication timing candidate
+## Accepted P12 public authentication timing
 
 The public browser package path accepts an authored finite operation timeout in
 `(0,600]` seconds for independently verified authentication call profiles 1.0
 and 1.1. Untimed public proof/history remains readable; native execution still
 requires timing. A timed successor needs fresh exact approval. Other operation
 and control restrictions remain unchanged. Joint native source compatibility, final offline qualification and whole
-review 1 pass; publication and Kinet adoption remain pending.
+review 1 pass; source publication passes; normal closure is verified before Kinet adoption.
 See [authored timing contract](../../docs/p12-browser-auth-timeout-contract.md).
 
 ## Accepted P11 named browser outputs — 2026-10-13
