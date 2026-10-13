@@ -1,5 +1,24 @@
 # AGENTS.md
 
+## Approved P11 correction
+
+**Approved P11 correction — 2026-10-13.** The user approved the proposed
+OpenUdon:P11 browser output binding correction and its planning, local execution,
+bounded publication and ordinary published-module acquisition scopes. Source:
+W20 browser-binding review F01; source priority not supplied, local P2, confirmed.
+Published M33/C10/P10 tests show named `result_count` output binding compatible
+in UWS but P10 assessment incompatible (`binding.output_reference_incompatible`
+and `binding.output_missing`). Revalidation: Kinet
+`8d318aab9f435fe65e716366208511bcd23e43c3` with uncommitted W20.4 source2,
+OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
+P11 is new work; accepted P10 history and all existing row outcomes/review
+counters remain unchanged. This intake starts no closing review. Audit disabled.
+P11 is the current required producer correction before W20/M52 adoption.
+[Specification](tabilet/memory-bank/milestone.md#p11--browser-output-binding-correction)
+and [status](tabilet/memory-bank/status-P11.md) own four pending rows and review0/10.
+A32 remains gated by Kinet:M53; native standalone GOAL and history are unchanged.
+
+
 ## Accepted Stage12 P10 public browser supplement
 
 P10 is accepted/retired: five rows, whole review4, zero remaining findings,
