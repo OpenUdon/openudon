@@ -12,7 +12,7 @@ OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
 P11 is new work; accepted P10 history and all existing row outcomes/review
 counters remain unchanged. This intake starts no closing review. Audit disabled.
 
-**State:** P11.1–.3 complete; P11.4 pending. Whole review0/10.
+**State:** P11.1–.3 complete; P11.4 in progress. Whole review1/10 PASS.
 **Source baseline:** `78f8609d2e21976fa1311aa914cf2e4170b895ef` before planning.
 **Coordinator:** [Stage12](../../../kinet/docs/stage12.md).
 **Depends on:** accepted/published OpenUdon:P10, Browsertools:M33 and UWS:C10.
@@ -27,7 +27,7 @@ The approved goal request owns effective scopes; this status grants nothing.
 | P11.1 — Freeze named-output regressions | `[+]` | Reproduce exact M33/C10/P10 mismatch with immutable synthetic action bytes; operation and step exports and downstream consumers, missing/escaped/nested references and unchanged HTTP controls. Pure offline readiness first. |
 | P11.2 — Correct native output resolution | `[+]` | Align browser response expressions and assessment references with reproduced named output declarations. Preserve full values, numeric spellings, unknownness and generic HTTP semantics. Do not rename shapes or suppress diagnostics in Kinet. |
 | P11.3 — Qualify compatibility and public closure | `[+]` | Focused/race/vet/static/full offline checks, immutable historical readability and explicit generated-proof compatibility decision, public-only compiled/module closure and adapted frozen consumer fixture checks. No real browser or private-runtime imports. |
-| P11.4 — Review, publish and hand off | `[ ]` | Persist bounded independent whole review; coordinator publishes reviewed source/closure by at most two fast-forward pushes under the exact scope, verifies ordinary published module revision/files/H1 and exact remote closure, consolidates and retires. W20/M52 adopt only accepted/published proof; no prior grant transfers. |
+| P11.4 — Review, publish and hand off | `[~]` | Persist bounded independent whole review; coordinator publishes reviewed source/closure by at most two fast-forward pushes under the exact scope, verifies ordinary published module revision/files/H1 and exact remote closure, consolidates and retires. W20/M52 adopt only accepted/published proof; no prior grant transfers. |
 
 ## Acceptance and verification
 
@@ -39,7 +39,7 @@ Audit disabled; no browser/live/deployment/general sudo/SSH authority.
 
 ## Review
 
-Whole-milestone review:0/10,not started. Intake is not review1.
+Whole-milestone review:1/10, PASS; no P1/P2/P3. Intake is not review1.
 
 ## P11.1 verified characterization — 2026-10-13
 
@@ -111,3 +111,27 @@ H1 checks cover90 dependency archives;373 compiled packages,372 exports and
 legacy goldens stay immutable. Adapted producer fixture proof does not replace
 ordinary published-module adoption by W20/M52. Whole review remains0/10;
 publication and acceptance pending. Audit disabled; no physical browser action.
+
+## Whole P11 review1 started — 2026-10-13
+
+Root starts the independent deep review of the complete milestone diff from
+lease base `ff841e9c5d01a783205a58a699adcc4fafefa472` through
+`634a882e670cfb8c0877f45a5e2b012b17b4809e`, with this row/review selection
+included uncommitted. All implementation writes are stopped. Review covers
+native semantics, authority/history compatibility, deterministic proof,
+regression coverage and qualification/compiled closure evidence. Prior task
+reviews are retained; this is whole iteration1, not their continuation.
+Publication remains unused0/2. Audit disabled.
+
+## Whole P11 review1 PASS — 2026-10-13
+
+Independent semantics/security/compatibility and tests/documentation/evidence
+lenses reviewed the complete milestone; both pass with no P1/P2/P3 findings.
+All9 frozen files/104361bytes matched before/after. Native named outputs,
+ownership, malformed/scalar refusal, unknownness, deterministic diagnostics,
+HTTP/auth controls and immutable historical readability remain qualified.
+Actual dependency ZIP/H1/extracted bytes, compiled source/exports,20goldens and
+24 frozen consumer inputs match. Make process/receipt timing is honest and
+its shim invokes the freshly built candidate. No unchanged full rerun.
+This passes whole iteration1; row4 remains in progress for required exact
+publication/module proof and consolidation/retirement. Audit disabled.
