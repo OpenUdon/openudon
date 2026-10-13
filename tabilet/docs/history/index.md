@@ -12,6 +12,7 @@ subsequently closed under the normal reviewed procedure.
 
 | Milestone | Outcome | Retired | Record | Summary |
 |---|---|---|---|---|
+| P11 | completed | 2026-10-13 | [status-P11.md](status-P11.md) | Four rows/whole review1; exact named outputs/deterministic assessment; immutable history and ordinary published source/module proof. |
 | P10 | completed | 2026-10-10 | [status-P10.md](status-P10.md) | Versioned browser supplement/public verification/approval/evidence; five rows, whole review4; exact Git source261563d, old nonbrowser identities preserved. |
 | P09 | completed | 2026-10-07 | [status-P09.md](status-P09.md) | Exact v3 source/shape/plan/authority SDK; ordinary published closure/consumers, read-only history; review 4. |
 | M98 | completed | 2026-10-07 | [status-M98.md](status-M98.md) | Public neutral trust/evidence SDK; exact ordinary publication/consumer proof; review 3. |

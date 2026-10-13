@@ -1,5 +1,16 @@
 # Lessons
 
+## Resolve native output ownership before projection
+
+A named browser output is not an aggregate HTTP response body. Resolve its
+namespace and owner before projecting the schema; retain complete declarations,
+numeric lexemes, escaped paths and unknownness. Use actual producer/schema/export
+controls and unchanged HTTP fixtures. Sort unordered declaration keys before
+emitting diagnostics participating in canonical assessment/package identity.
+P11 task review1 found nondeterminism; task review2 and repeated heterogeneous
+Build/Assess/Verify controls qualify its repair. See
+[P11](../docs/history/status-P11.md) and [contract](../../docs/browser-package-v3.md).
+
 ## Verify actual browser access and terminal stop evidence
 
 A requested Config cannot attest an actual launch or session. Validate every

@@ -6112,3 +6112,52 @@ The host supplies immutable snapshots, format-specific required paths, independe
 
 Replacement: current architecture P10 boundary; the original dated M98 text
 remains historical in place. No retained authoring/runtime import is added.
+
+## 2026-10-13 — P11 planning dashboard superseded by accepted correction
+
+Original current pointer: milestone.md/AGENTS.md at b5fba07aae9b50338ae44345be13eb0b99b5387b.
+Replacement: [P11 record](status-P11.md) and current milestone/AGENTS summary.
+Original provenance and row/review lineage remain complete in the status below.
+
+`````markdown
+**Approved P11 correction — 2026-10-13.** The user approved the proposed
+OpenUdon:P11 browser output binding correction and its planning, local execution,
+bounded publication and ordinary published-module acquisition scopes. Source:
+W20 browser-binding review F01; source priority not supplied, local P2, confirmed.
+Published M33/C10/P10 tests show named `result_count` output binding compatible
+in UWS but P10 assessment incompatible (`binding.output_reference_incompatible`
+and `binding.output_missing`). Revalidation: Kinet
+`8d318aab9f435fe65e716366208511bcd23e43c3` with uncommitted W20.4 source2,
+OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
+P11 is new work; accepted P10 history and all existing row outcomes/review
+counters remain unchanged. This intake starts no closing review. Audit disabled.
+Remaining dependency priority: OpenUdon:P11 → Kinet:W20 → Kinet:M52 →
+Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then the five unchanged
+conditional Phase C milestones. Twelve active milestones /53 task rows remain:
+seven required /34 rows and five conditional /19 rows. The original R65
+19/84 plan is historical; including P11 the approved Stage12 total is20/88
+(14required/66rows,6conditional/22rows). Physical qualification stays M53.4;
+Phase C deployment/inventory triggers remain absent. No evolution version is
+added for this correction of the existing supported contract.
+
+
+## Approved P11 correction
+
+**Approved P11 correction — 2026-10-13.** The user approved the proposed
+OpenUdon:P11 browser output binding correction and its planning, local execution,
+bounded publication and ordinary published-module acquisition scopes. Source:
+W20 browser-binding review F01; source priority not supplied, local P2, confirmed.
+Published M33/C10/P10 tests show named `result_count` output binding compatible
+in UWS but P10 assessment incompatible (`binding.output_reference_incompatible`
+and `binding.output_missing`). Revalidation: Kinet
+`8d318aab9f435fe65e716366208511bcd23e43c3` with uncommitted W20.4 source2,
+OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
+P11 is new work; accepted P10 history and all existing row outcomes/review
+counters remain unchanged. This intake starts no closing review. Audit disabled.
+P11 is the current required producer correction before W20/M52 adoption.
+[Specification](tabilet/memory-bank/milestone.md#p11--browser-output-binding-correction)
+and [status](tabilet/memory-bank/status-P11.md) own four pending rows and review0/10.
+A32 remains gated by Kinet:M53; native standalone GOAL and history are unchanged.
+
+
+`````

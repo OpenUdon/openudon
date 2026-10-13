@@ -1,3 +1,70 @@
+# Retired milestone P11 - Browser output binding correction
+
+**Milestone.** P11
+**Outcome.** completed
+**Retired.** 2026-10-13
+**Source status.** tabilet/memory-bank/status-P11.md
+**Source specification.** tabilet/memory-bank/milestone.md#p11--browser-output-binding-correction
+**Evidence.** b5fba07aae9b50338ae44345be13eb0b99b5387b
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Focused/race/vet/static/tidy/verify/full Make PASS; public compiled/dependency closure; exact published Git/ZIP/extracted files/native H1; docs/p11-qualification.json and docs/p11-publication.json. Normal closure publication checked afterward before dependents.
+**Consolidated into.** tabilet/memory-bank/product.md, architecture.md, tech-stack.md, lessons.md; pending A32 preservation and Kinet W20/M52 handoff.
+
+## Milestone specification
+
+`````markdown
+### P11 — Browser output binding correction
+
+**Stage/owner.** STG-12 corrective public-package work; OpenUdon.
+**Lineage.** Accepted/retired P10; W20 browser-binding review F01.
+**Goal.** Make native browser named-output expression resolution consistent
+with exact M33 output shapes and C10 binding, without consumer schema rewriting.
+**Depends on.** Accepted/published OpenUdon:P10, Browsertools:M33 and UWS:C10.
+**Downstream impacts.** Kinet:W20, Kinet:M52 and their dependent release chain.
+**Scope.** Native `packagev3` expression/assessment output-reference resolution;
+focused regression/compatibility tests, ordinary publication proof and handoff.
+Preserve complete native declarations, numeric lexemes, escaped pointers,
+unknownness, HTTP behavior, authentication security diagnostics and native
+formats. No private Udon import, new browser runtime or consumer-authority claim.
+**Acceptance.** Actual M33/C10/P10 operation exports, step exports and downstream
+references resolve consistently; missing or malformed outputs refuse. HTTP
+fixtures remain unchanged. Historical package bytes remain readable and no
+historical approval migrates; document any generated-proof compatibility
+change explicitly rather than rewriting immutable fixtures.
+**Verification.** Cheap offline fixture/readiness checks first; focused pure Go
+regressions target30s/cap2m, affected race cap5m, scoped vet/static cap2m.
+Run the existing full offline regression/closure checks once per unchanged
+closing candidate, with20m outer cap and honest timing. Adapted immutable
+consumer fixture/build checks precede source publication; W20/M52 separately
+prove actual adoption of the accepted published revision. No browser, display,
+supervisor daemon, snapshot, new copied cache or automatic dependency download.
+**Write set.** OpenUdon implementation/tests/ordinary docs and required manifests
+within this correction; coordinator alone owns ledgers/shared memory/closure.
+**Contracts read.** Exact published M33/C10/P10, immutable Kinet source2 manifest
+and synthetic fixture hashes. No live changing consumer checkout as evidence.
+**Parallel-safe.** no. Serialize against the dependent W20 recovery lease.
+**Tasks/review.** [status-P11.md](status-P11.md),4rows,whole review1/10 passed; all task rows qualified.
+
+AUTHORIZATION_REQUIREMENTS:
+  git.commit:
+    via: goal-policy
+    executor: coordinator
+  git.push:
+    via: explicit
+    executor: coordinator
+    scope:
+      repository: /home/peter/Workspace/openudon
+      remote: git@github.com-tabilet:OpenUdon/openudon.git
+      ref: refs/heads/main
+      mode: fast-forward
+      invocation_limit: 2
+`````
+
+## Status record
+
+`````markdown
 # P11 — Browser output binding correction
 
 **Approved P11 correction — 2026-10-13.** The user approved the proposed
@@ -12,7 +79,7 @@ OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
 P11 is new work; accepted P10 history and all existing row outcomes/review
 counters remain unchanged. This intake starts no closing review. Audit disabled.
 
-**State:** P11.1–.3 complete; P11.4 in progress. Whole review1/10 PASS.
+**State:** P11.1–.3 complete; P11.4 complete; normal closure publication follows. Whole review1/10 PASS.
 **Source baseline:** `78f8609d2e21976fa1311aa914cf2e4170b895ef` before planning.
 **Coordinator:** [Stage12](../../../kinet/docs/stage12.md).
 **Depends on:** accepted/published OpenUdon:P10, Browsertools:M33 and UWS:C10.
@@ -27,7 +94,7 @@ The approved goal request owns effective scopes; this status grants nothing.
 | P11.1 — Freeze named-output regressions | `[+]` | Reproduce exact M33/C10/P10 mismatch with immutable synthetic action bytes; operation and step exports and downstream consumers, missing/escaped/nested references and unchanged HTTP controls. Pure offline readiness first. |
 | P11.2 — Correct native output resolution | `[+]` | Align browser response expressions and assessment references with reproduced named output declarations. Preserve full values, numeric spellings, unknownness and generic HTTP semantics. Do not rename shapes or suppress diagnostics in Kinet. |
 | P11.3 — Qualify compatibility and public closure | `[+]` | Focused/race/vet/static/full offline checks, immutable historical readability and explicit generated-proof compatibility decision, public-only compiled/module closure and adapted frozen consumer fixture checks. No real browser or private-runtime imports. |
-| P11.4 — Review, publish and hand off | `[~]` | Persist bounded independent whole review; coordinator publishes reviewed source/closure by at most two fast-forward pushes under the exact scope, verifies ordinary published module revision/files/H1 and exact remote closure, consolidates and retires. W20/M52 adopt only accepted/published proof; no prior grant transfers. |
+| P11.4 — Review, publish and hand off | `[+]` | Persist bounded independent whole review; coordinator publishes reviewed source/closure by at most two fast-forward pushes under the exact scope, verifies ordinary published module revision/files/H1 and exact remote closure, consolidates and retires. W20/M52 adopt only accepted/published proof; no prior grant transfers. |
 
 ## Acceptance and verification
 
@@ -135,3 +202,23 @@ Actual dependency ZIP/H1/extracted bytes, compiled source/exports,20goldens and
 its shim invokes the freshly built candidate. No unchanged full rerun.
 This passes whole iteration1; row4 remains in progress for required exact
 publication/module proof and consolidation/retirement. Audit disabled.
+
+## Reviewed source publication and ordinary module proof PASS
+
+Coordinator source push1/2 settled successfully and independently observed
+remote refs/heads/main equals `b5fba07aae9b50338ae44345be13eb0b99b5387b`. Ordinary direct Go VCS resolves
+`v0.1.1-0.20261013095009-b5fba07aae9b`; all1684 regular Git/ZIP/extracted
+files are equal, full Origin.Hash is exact, and native module H1
+`h1:HmshTq+aGymIejVT/8csvA8ZSu3wLpH4HFnJusYP4uY=` / go.mod H1
+`h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g=` reproduce. ZIP SHA256
+`2dd4eb4a12e0ae34e4dcb403376682ae49a6490b93319e7e59c91572c6c58340`.
+GOSUMDB was off; no signed checksum-database proof is claimed.
+[Publication proof](../../docs/p11-publication.json) binds exact source and
+private complete-file proof. Independent operational review corrected extra
+extracted-file admission before acquisition; symlinks/nonregular files refuse.
+All four task outcomes and whole review1 pass. Root consolidates current
+contracts/lesson, preserves full specification/status and pending A32 support,
+then publishes normal retirement closure using the remaining second invocation.
+Dependents wait for independently verified closure and exact ordinary successor
+module proof; actual W20/M52 adoption remains separate. Audit disabled.
+`````

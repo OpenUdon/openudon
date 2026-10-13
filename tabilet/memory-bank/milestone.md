@@ -1,25 +1,15 @@
 # Milestone
 
-**Approved P11 correction — 2026-10-13.** The user approved the proposed
-OpenUdon:P11 browser output binding correction and its planning, local execution,
-bounded publication and ordinary published-module acquisition scopes. Source:
-W20 browser-binding review F01; source priority not supplied, local P2, confirmed.
-Published M33/C10/P10 tests show named `result_count` output binding compatible
-in UWS but P10 assessment incompatible (`binding.output_reference_incompatible`
-and `binding.output_missing`). Revalidation: Kinet
-`8d318aab9f435fe65e716366208511bcd23e43c3` with uncommitted W20.4 source2,
-OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
-P11 is new work; accepted P10 history and all existing row outcomes/review
-counters remain unchanged. This intake starts no closing review. Audit disabled.
-Remaining dependency priority: OpenUdon:P11 → Kinet:W20 → Kinet:M52 →
-Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then the five unchanged
-conditional Phase C milestones. Twelve active milestones /53 task rows remain:
-seven required /34 rows and five conditional /19 rows. The original R65
-19/84 plan is historical; including P11 the approved Stage12 total is20/88
-(14required/66rows,6conditional/22rows). Physical qualification stays M53.4;
-Phase C deployment/inventory triggers remain absent. No evolution version is
-added for this correction of the existing supported contract.
-
+**Accepted P11 correction — 2026-10-13.** Four tasks and whole review1
+pass; reviewed source `b5fba07aae9b50338ae44345be13eb0b99b5387b` is independently published and
+ordinary module bytes/H1 verified. [Retired record](../docs/history/status-P11.md)
+and [publication](../../docs/p11-publication.json) preserve exact proof. Normal
+closure publication is verified before consumer dispatch. Remaining Stage12:
+Kinet:W20 → M52 → W21 → U15 → M53 → OpenUdon:A32, then unchanged five
+conditionals. Eleven active milestones/49rows:6required/30,5conditional/19.
+Approved total20/88 includes P11; original R65 history and P10 records stay frozen.
+Actual W20/M52 adoption and physical M53.4 qualification remain separate.
+Audit disabled; no evolution version for this implementation correction.
 
 ## Stage 12 approved planning — 2026-10-09
 
@@ -367,7 +357,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P11 | Browser output binding correction | [status-P11.md](status-P11.md) | Pending (STG-12 correction) |
 | A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12) |
 
 ## Requested Changes After Initialization
@@ -650,7 +639,7 @@ independently published sibling prerequisites before adoption.
 
 **Scope.** Refresh the A31 inventory. Then delete:
 
-- the browser authoring and harness packages, except the P10 public subset;
+- the browser authoring and harness packages, except the P10 public subset including accepted P11 output resolution and historical-proof refusal;
 - the retained set: synthesize, workflowintent, elicitor, projectwizard,
   udonrunner, trustedrunner;
 - packagepipeline, the legacy authoring packages and the eval packages;
@@ -731,49 +720,3 @@ ExactpublicM33 archive1859 andnativechecksums arequalified, all351files match
 acceptedsource, offline tests/vet pass. Owning P10 status links completeproof.
 Independent P10/M53 leases are dependency-ready under the approvedexistinggoal.
 No task/reviewcounter or browser/audit setting changes at this input checkpoint.
-
-### P11 — Browser output binding correction
-
-**Stage/owner.** STG-12 corrective public-package work; OpenUdon.
-**Lineage.** Accepted/retired P10; W20 browser-binding review F01.
-**Goal.** Make native browser named-output expression resolution consistent
-with exact M33 output shapes and C10 binding, without consumer schema rewriting.
-**Depends on.** Accepted/published OpenUdon:P10, Browsertools:M33 and UWS:C10.
-**Downstream impacts.** Kinet:W20, Kinet:M52 and their dependent release chain.
-**Scope.** Native `packagev3` expression/assessment output-reference resolution;
-focused regression/compatibility tests, ordinary publication proof and handoff.
-Preserve complete native declarations, numeric lexemes, escaped pointers,
-unknownness, HTTP behavior, authentication security diagnostics and native
-formats. No private Udon import, new browser runtime or consumer-authority claim.
-**Acceptance.** Actual M33/C10/P10 operation exports, step exports and downstream
-references resolve consistently; missing or malformed outputs refuse. HTTP
-fixtures remain unchanged. Historical package bytes remain readable and no
-historical approval migrates; document any generated-proof compatibility
-change explicitly rather than rewriting immutable fixtures.
-**Verification.** Cheap offline fixture/readiness checks first; focused pure Go
-regressions target30s/cap2m, affected race cap5m, scoped vet/static cap2m.
-Run the existing full offline regression/closure checks once per unchanged
-closing candidate, with20m outer cap and honest timing. Adapted immutable
-consumer fixture/build checks precede source publication; W20/M52 separately
-prove actual adoption of the accepted published revision. No browser, display,
-supervisor daemon, snapshot, new copied cache or automatic dependency download.
-**Write set.** OpenUdon implementation/tests/ordinary docs and required manifests
-within this correction; coordinator alone owns ledgers/shared memory/closure.
-**Contracts read.** Exact published M33/C10/P10, immutable Kinet source2 manifest
-and synthetic fixture hashes. No live changing consumer checkout as evidence.
-**Parallel-safe.** no. Serialize against the dependent W20 recovery lease.
-**Tasks/review.** [status-P11.md](status-P11.md),4rows,whole review0/10.
-
-AUTHORIZATION_REQUIREMENTS:
-  git.commit:
-    via: goal-policy
-    executor: coordinator
-  git.push:
-    via: explicit
-    executor: coordinator
-    scope:
-      repository: /home/peter/Workspace/openudon
-      remote: git@github.com-tabilet:OpenUdon/openudon.git
-      ref: refs/heads/main
-      mode: fast-forward
-      invocation_limit: 2

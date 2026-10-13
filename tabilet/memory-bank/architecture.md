@@ -1,5 +1,19 @@
 # Architecture
 
+## Accepted P11 named browser outputs — 2026-10-13
+
+Browser response expressions select the native output by the first decoded
+path token and project remaining tokens inside that declaration. Operation, step
+and workflow exports retain distinct owners; downstream references require an
+explicit preceding step output. Missing/malformed references and scalar traversal
+refuse; unproved projections remain indeterminate. Browser output keys are sorted
+before collecting assessment references, making diagnostic/proof order stable.
+HTTP semantics remain independently qualified and unchanged.
+
+See [P11 record](../docs/history/status-P11.md),
+[browser contract](../../docs/browser-package-v3.md) and
+[qualification](../../docs/p11-qualification.json)/[publication](../../docs/p11-publication.json).
+
 ## P10 accepted browser public boundary — 2026-10-10
 
 Optional v3 browser supplement reproduces native shapes through exact published

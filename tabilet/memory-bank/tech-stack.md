@@ -1,5 +1,22 @@
 # Tech Stack
 
+## Accepted P11 named browser outputs — 2026-10-13
+
+P11 retains exact C10/M33/codec/APItools dependencies and the public-only
+compiled closure. Qualification preserves20 immutable goldens, a separate original
+P10 named-output package and the frozen24-file W20 source2 fixture. Reviewed source
+b5fba07aae9b50338ae44345be13eb0b99b5387b resolves as
+`v0.1.1-0.20261013095009-b5fba07aae9b`, native H1
+`h1:HmshTq+aGymIejVT/8csvA8ZSu3wLpH4HFnJusYP4uY=`; go.mod H1
+`h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g=`. Direct Git/ZIP/extracted
+verification is unsigned (GOSUMDB off). Adapted producer fixtures and real W20/M52
+adoption are distinct gates. Final normal closure publication is checked by the
+coordinator before consumer dispatch.
+
+See [P11 record](../docs/history/status-P11.md),
+[browser contract](../../docs/browser-package-v3.md) and
+[qualification](../../docs/p11-qualification.json)/[publication](../../docs/p11-publication.json).
+
 ## P10 accepted browser producer tooling — 2026-10-10
 
 Cached Go1.26.6/GOWORKoff, exact C10 f01a2542/M33 1859f5e3 ordinary ZIP/sums and

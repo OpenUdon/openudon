@@ -1,5 +1,17 @@
 # Product
 
+## Accepted P11 named browser outputs — 2026-10-13
+
+Accepted P11 corrects named browser output assessment against exact M33
+declarations and C10 binding. Rebuilt affected packages have current assessment,
+handoff and package identities and require fresh exact approval. Old bytes
+remain readable through history; current Verify refuses stale assessment proof.
+Kinet separately qualifies actual published-worker adoption.
+
+See [P11 record](../docs/history/status-P11.md),
+[browser contract](../../docs/browser-package-v3.md) and
+[qualification](../../docs/p11-qualification.json)/[publication](../../docs/p11-publication.json).
+
 ## P10 accepted public browser supplement — 2026-10-10
 
 Versioned v3 browser source/shape construction, pure public browser verification

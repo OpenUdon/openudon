@@ -1,23 +1,15 @@
 # AGENTS.md
 
-## Approved P11 correction
+## Accepted P11 correction
 
-**Approved P11 correction — 2026-10-13.** The user approved the proposed
-OpenUdon:P11 browser output binding correction and its planning, local execution,
-bounded publication and ordinary published-module acquisition scopes. Source:
-W20 browser-binding review F01; source priority not supplied, local P2, confirmed.
-Published M33/C10/P10 tests show named `result_count` output binding compatible
-in UWS but P10 assessment incompatible (`binding.output_reference_incompatible`
-and `binding.output_missing`). Revalidation: Kinet
-`8d318aab9f435fe65e716366208511bcd23e43c3` with uncommitted W20.4 source2,
-OpenUdon `78f8609d2e21976fa1311aa914cf2e4170b895ef` and exact published modules.
-P11 is new work; accepted P10 history and all existing row outcomes/review
-counters remain unchanged. This intake starts no closing review. Audit disabled.
-P11 is the current required producer correction before W20/M52 adoption.
-[Specification](tabilet/memory-bank/milestone.md#p11--browser-output-binding-correction)
-and [status](tabilet/memory-bank/status-P11.md) own four pending rows and review0/10.
-A32 remains gated by Kinet:M53; native standalone GOAL and history are unchanged.
-
+P11's four rows and whole review1 qualify native browser named-output binding
+and deterministic proof while preserving historical inspection/fresh approval.
+[Retired record](tabilet/docs/history/status-P11.md),
+[qualification](docs/p11-qualification.json) and [publication](docs/p11-publication.json)
+bind independently published source `b5fba07aae9b50338ae44345be13eb0b99b5387b` and ordinary module
+proof. Coordinator verifies normal closure publication before consumer handoff.
+W20/M52 own actual adoption; A32 preserves P11 and remains gated by Kinet:M53.
+Native standalone GOAL and frozen P10 history remain unchanged. Audit disabled.
 
 ## Accepted Stage12 P10 public browser supplement
 

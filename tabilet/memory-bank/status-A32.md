@@ -71,10 +71,10 @@ must stay fetchable. No tag deletion or history rewrite.
 | Item | State | Notes |
 |---|---|---|
 | A32.1 — Refresh the consumer inventory | `[ ]` | Regenerate the A31 inventory at HEAD. Confirm the Kinet:M53 retirement proof, P10's public subset and that frozen consumer pins resolve. Record every remaining production, test and command edge. |
-| A32.2 — Remove browser authoring and harness packages | `[ ]` | Delete `browserauthor`, `browserauthoring`, `browsercandidate`, `browsercapture`, `browserpackage`, `browserscenario`, `browsersystem`, `browserintegrationeval`, `browsertransactioneval`, `capturequalification`, `browserworkflow` and `browsercheck`, and the browser CLI commands. Exclude whatever P10 made public. |
+| A32.2 — Remove browser authoring and harness packages | `[ ]` | Delete `browserauthor`, `browserauthoring`, `browsercandidate`, `browsercapture`, `browserpackage`, `browserscenario`, `browsersystem`, `browserintegrationeval`, `browsertransactioneval`, `capturequalification`, `browserworkflow` and `browsercheck`, and the browser CLI commands. Preserve the P10 public subset including accepted P11 named-output resolution and historical-proof refusal. |
 | A32.3 — Remove the retained set and legacy CLI | `[ ]` | Delete synthesize, workflowintent, elicitor, projectwizard, udonrunner, trustedrunner and packagepipeline. Delete authoringcli/authoringengine/artifactwriter/stepauthoring and eval/smokematrix/releaseevidence. Delete `cmd/udon-runner`, the legacy `openudon` commands, and image/runner publication. Any CLI that remains is backed only by public packages. |
 | A32.4 — Remove legacy HCL adapters | `[ ]` | Delete the intent.hcl/workflow.hcl adapters. Prove no UWS HCL-input API (`convert.HCLToJSON`, `UnmarshalHCL`, `hcl.Import`) remains in any OpenUdon package. |
-| A32.5 — Qualify and publish | `[ ]` | Public API and wire fixtures unchanged; v2/v3 history readers intact; Kinet worker and Udon consumer builds pass; docs and memory bank consolidated; publication handoff under named authority. |
+| A32.5 — Qualify and publish | `[ ]` | Public API and wire fixtures unchanged; P11 output/proof regressions and v2/v3 history readers intact; Kinet worker and Udon consumer builds pass; docs and memory bank consolidated; publication handoff under named authority. |
 
 ## Acceptance and verification
 
@@ -109,3 +109,9 @@ status markers grant none; audit stays disabled.
 Whole-milestone review: 0/10, not started.
 
 **Accepted P10 reconciliation.** Public browser supplement is accepted/retired at whole review4, exact published source261563d (qualifieda7185841). Public packages browsercontract/browserverify/browsertransaction and additive approval/Authority/evidence remain supported; preserve them in eventual removal. This supplies only P10 prerequisite: accepted Kinet:M53 no-consumer proof is still absent, so every A32 row/review remains pending. No source/pin/audit/live authority changes.
+
+**Accepted P11 preservation handoff — 2026-10-13.** Preserve the current
+P10 public subset including [P11](../docs/history/status-P11.md) native output
+resolution, deterministic assessment and read-only historical-proof behavior.
+A32.1 inventories it and A32.5 retains its regressions/history readers.
+Kinet:M53 remains the gate; all A32 rows/review stay pending0/10.
