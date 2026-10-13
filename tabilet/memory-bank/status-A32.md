@@ -1,5 +1,16 @@
 # A32 — Legacy closure removal
 
+**P12 public preservation gate — 2026-10-13.** Depend on accepted/published
+OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories
+P12's public browser authentication predicate/plan path; A32.2/A32.5 preserve
+the authored bounded-auth correction and additive public/native compatibility
+regressions, existing complete hash/wire semantics, P11 outputs and readable
+untimed history. Retiring legacy authoring must not remove or widen the public
+path. Frozen consumer pins, all existing row text/markers and review0 remain
+unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
+
+[Owning P12 specification](milestone.md#p12--browser-authentication-timeout-interoperability).
+
 **Stage:** Kinet STG-12, Phase B. **Owner:** OpenUdon.
 **State:** Pending. No row has started. Review 0/10.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
@@ -23,7 +34,7 @@ OpenUdon code. This approved intake changes no row state or review counter.
 
 ## Dispatch and lease boundaries
 
-**Depends on.** OpenUdon:P10, Kinet:M53. All required prerequisites must have
+**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, Kinet:M53. All required prerequisites must have
 accepted closure at exact revisions; sibling producer adoption also needs
 independently verified publication. A priority position never supplies authority.
 
@@ -55,6 +66,7 @@ disposable stores/caches/browser profiles and unique output directories.
 **Upstream.**
 
 - [OpenUdon:P10](../docs/history/status-P10.md), the public browser subset.
+- [OpenUdon:P12](status-P12.md), the required public authentication correction, after exact accepted/published closure; preserve [P11](../docs/history/status-P11.md).
 - Accepted [Kinet:M53](../../../kinet/tabilet/memory-bank/status-M53.md), with its
   exact proof that Kinet consumes no OpenUdon CLI, image or internal package.
 

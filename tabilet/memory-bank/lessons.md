@@ -103,6 +103,8 @@ extraction. Test the exact prepared run-config's profile/protocol pairing
 through the external executor handoff as well. P08 selects v11 and rejects
 incompatible active mixes; see [P08](../docs/history/status-P08.md).
 
+P12 intake exposed another preparation boundary: the same authentication operation needs an authored finite timeout natively while the frozen public flat predicate refuses every timeout. Qualify the exact public package workflow through both public proof and isolated pure native Compile/CheckSupported with authentication plus read/write leaves and zero effect callbacks. Producer source fixtures and ordinary published consumer adoption remain separate evidence. Preserve old untimed public proof/history and report native unsupported behavior truthfully; never modify already approved bytes. [P12](status-P12.md) owns the planned correction, not a claimed pass.
+
 ## Validate task tables with the installed runner
 
 When repairing or adding a status ledger, use outer `|` table delimiters and

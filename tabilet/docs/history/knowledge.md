@@ -6161,3 +6161,58 @@ A32 remains gated by Kinet:M53; native standalone GOAL and history are unchanged
 
 
 `````
+
+
+## 2026-10-13 — P12 required producer correction supersedes the P11-only current pointer
+
+Reason: approved P12 reconciliation supersedes the current P11/W20-only producer pointer; accepted history remains frozen. Evidence: Stage 12 browser authentication timeout reconciliation, 2026-10-13 F01, source priority/review baseline not supplied, confirmed local P1; Kinet `5bbf67dd56d30b41c05ff26319986a7b3179267d` including unfinished M52.2 source `b63df5e1bf5a4c1f432a80b0b7f4aa386957c3c184e30d14bccf2006a3c7337e`, OpenUdon `ec2fa2666dad604a4512f8fff4155d269c8597b3`, native Udon `5bbf2924d85b9f13b89bb8c000cb1b12e6c56491`. Replacement: [current P12 specification](../../memory-bank/milestone.md#p12--browser-authentication-timeout-interoperability) and [status-P12.md](../../memory-bank/status-P12.md); current A32 preservation gate. No fix acceptance is claimed.
+
+Original source/heading: `AGENTS.md / Accepted P11 correction`. Literal previous wording:
+
+`````markdown
+## Accepted P11 correction
+
+P11's four rows and whole review1 qualify native browser named-output binding
+and deterministic proof while preserving historical inspection/fresh approval.
+[Retired record](tabilet/docs/history/status-P11.md),
+[qualification](docs/p11-qualification.json) and [publication](docs/p11-publication.json)
+bind independently published source `b5fba07aae9b50338ae44345be13eb0b99b5387b` and ordinary module
+proof. Coordinator verifies normal closure publication before consumer handoff.
+W20/M52 own actual adoption; A32 preserves P11 and remains gated by Kinet:M53.
+Native standalone GOAL and frozen P10 history remain unchanged. Audit disabled.
+`````
+
+Original source/heading: `tabilet/memory-bank/milestone.md / Accepted P11 correction current dashboard`. Literal previous wording:
+
+`````markdown
+**Accepted P11 correction — 2026-10-13.** Four tasks and whole review1
+pass; reviewed source `b5fba07aae9b50338ae44345be13eb0b99b5387b` is independently published and
+ordinary module bytes/H1 verified. [Retired record](../docs/history/status-P11.md)
+and [publication](../../docs/p11-publication.json) preserve exact proof. Normal
+closure publication is verified before consumer dispatch. Remaining Stage12:
+Kinet:W20 → M52 → W21 → U15 → M53 → OpenUdon:A32, then unchanged five
+conditionals. Eleven active milestones/49rows:6required/30,5conditional/19.
+Approved total20/88 includes P11; original R65 history and P10 records stay frozen.
+Actual W20/M52 adoption and physical M53.4 qualification remain separate.
+Audit disabled; no evolution version for this implementation correction.
+`````
+
+Original source/heading: `tabilet/memory-bank/lessons.md / Exercise browser profiles through trusted package preparation`. Literal previous wording:
+
+`````markdown
+## Exercise browser profiles through trusted package preparation
+
+When adding a browser profile version, test the package lifecycle and trusted
+dry-run that consume it, not only its producer, schema, and browser journey.
+E22's v4 count qualification passed while the trusted-runner rank-10 dispatcher
+still rejected `uws.browser.1.10` during W8M package preparation. Preserve
+existing profile-version mappings and verify the restricted dry-run without
+invoking an executor or browser. See [P07](../docs/history/status-P07.md) and the W8M W22.5
+package-preflight record in that repository (`tabilet/memory-bank/status-W22.md`).
+
+Preparation alone missed a second boundary: P07 selected v10 for Browser 1.10,
+so W8M W24.5 authenticated but Udon rejected the count action before DOM
+extraction. Test the exact prepared run-config's profile/protocol pairing
+through the external executor handoff as well. P08 selects v11 and rejects
+incompatible active mixes; see [P08](../docs/history/status-P08.md).
+`````

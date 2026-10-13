@@ -1,15 +1,10 @@
 # Milestone
 
-**Accepted P11 correction — 2026-10-13.** Four tasks and whole review1
-pass; reviewed source `b5fba07aae9b50338ae44345be13eb0b99b5387b` is independently published and
-ordinary module bytes/H1 verified. [Retired record](../docs/history/status-P11.md)
-and [publication](../../docs/p11-publication.json) preserve exact proof. Normal
-closure publication is verified before consumer dispatch. Remaining Stage12:
-Kinet:W20 → M52 → W21 → U15 → M53 → OpenUdon:A32, then unchanged five
-conditionals. Eleven active milestones/49rows:6required/30,5conditional/19.
-Approved total20/88 includes P11; original R65 history and P10 records stay frozen.
-Actual W20/M52 adoption and physical M53.4 qualification remain separate.
-Audit disabled; no evolution version for this implementation correction.
+**Approved P12 corrective planning — 2026-10-13.** The user approved the complete P12 proposal and bounded publication/acquisition, then goal resumption with audit disabled. F01 is confirmed local P1; source priority/review baseline not supplied. Required [P12](status-P12.md) adds four pending rows/review0 for authored bounded authentication and public/native compatibility; no repair acceptance is claimed.
+
+Remaining order: OpenUdon:P12 → Kinet:M52 → Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Eleven active milestones / 47 rows: six required / 28 rows and five conditional / 19 rows. Approved total 21/92 (15 required/70, 6 conditional/22); R65 original 19/84 and the P11 total 20/88 remain historical. Public SDK only; exact ordinary adoption stays M52 and physical proof stays M53.4. A32 preserves P12. P11 pushes2/2 and M56 scopes stay ended; current facts/default pins/history/candidates/evolution are preserved.
+
+**Accepted P11 correction.** Four rows and whole review1 pass; exact closure `ec2fa2666dad604a4512f8fff4155d269c8597b3` is independently published and adopted by accepted W20. [Retired P11](../docs/history/status-P11.md) retains its complete proof and consumed publication2/2. Authentication timing is new P12 work.
 
 ## Stage 12 approved planning — 2026-10-09
 
@@ -357,7 +352,8 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12) |
+| P12 | Browser authentication timeout interoperability | [status-P12.md](status-P12.md) | Pending (STG-12 required; four rows) |
+| A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12; follows P12 and Kinet:M53) |
 
 ## Requested Changes After Initialization
 
@@ -631,11 +627,151 @@ from the later confirmed goal. Source publication requires separately named
 authority. Consumers record exact accepted local Kinet prerequisites and accepted,
 independently published sibling prerequisites before adoption.
 
+### P12 — Browser authentication timeout interoperability
+
+**Stage/owner.** STG-12 Phase A; OpenUdon. Required correction within approved R65 lineage, latest P12 approval 2026-10-13.
+
+**Approved reconciliation.** Stage 12 browser authentication timeout reconciliation, 2026-10-13; F01.
+Source priority and review baseline: not supplied. Local severity: P1;
+disposition: confirmed. Revalidated at Kinet `5bbf67dd56d30b41c05ff26319986a7b3179267d`, including
+the unfinished 33-file M52.2 source (sorted manifest
+`b63df5e1bf5a4c1f432a80b0b7f4aa386957c3c184e30d14bccf2006a3c7337e`), OpenUdon `ec2fa2666dad604a4512f8fff4155d269c8597b3` and native Udon
+`5bbf2924d85b9f13b89bb8c000cb1b12e6c56491`. Public `packagev3/execution_plan.go:96–98,169–174`
+and `packagev3/browser.go:255–262` reject every operation timeout;
+native `pkg/uwsprofile/execution_profile.go:245` requires an authentication
+operation timeout in `(0,600]` seconds, and `pkg/execute/browser_preflight.go:136`
+requires prior authentication for actions. No authenticated byte inventory
+satisfies both frozen producer and native profiles. Accepted P10/P11 and M52.1
+remain history/foundation; OpenUdon:P12 owns the public producer repair and
+Kinet:M52 owns actual consumer adoption. This is approved intake, not a closing
+review iteration or a claim that the repair passed. Audit disabled.
+
+**Goal.** Make freshly authored, bounded authentication bytes pass the public
+browser package lifecycle and the unchanged native authenticated preflight.
+
+**Scope and compatibility.** Freeze the existing optional UWS operation
+`Timeout` field: only exact browser authentication call profiles
+`uws.browser-authentication-call.1.0` and `.1.1` may carry an authored, finite
+value in `(0,600]` seconds. Untimed historical packages retain their previous
+public Build/Assess/Verify and readable-history semantics; missing authentication
+timeouts remain genuinely unsupported by native Compile/CheckSupported. Never
+inject a timeout or rewrite approved bytes. Add a browser-specific bounded-auth
+predicate for supplement and execution-plan construction; keep the generic
+flatOperation predicate and non-browser, browser action, registration, step,
+workflow, control-flow and extension restrictions unchanged. Bind authored
+timeouts through the complete existing source/shape/workflow/package/assessment/
+plan/approval/Authority hash chain. Add no wire/schema version or private import.
+Preserve existing numeric lexemes, extensions, output bindings, goldens and
+qualified default/frozen consumer pins; use separate additive regression fixtures.
+
+**Acceptance.** Public Build/Assess/Verify, execution-plan derivation, approval
+and Authority accept exact timed auth1.0/1.1 fixtures and reject missing, invalid,
+nonfinite, zero, negative, oversized, inappropriate-profile and tampered timing
+where the relevant contract requires refusal. Historical untimed public proof
+stays readable/unchanged and native unsupported. Positive and negative tests
+cover complete hash bindings, numeric preservation, extensions, output resolution
+and all unrelated flat restrictions. A separate isolated external fixture feeds
+the exact freshly built public workflow bytes to pure native Compile and
+CheckSupported at accepted Udon5bbf292, with authentication plus read and write
+leaves. Assert zero effect callbacks; do not invoke Run or any browser. Record
+exact bytes/digests and native source/module identities. Label a pre-publication
+source fixture explicitly: it is producer compatibility evidence, never ordinary
+published-module adoption or Kinet consumer acceptance. M52 separately adopts the
+exact accepted/published successor; M53.4 alone owns physical browser proof.
+
+**Verification.** Use retained exact Go/C10/M33/Udon inputs, GOWORK=off and
+offline credential/model-free fixtures. Focused Go tests target 30 seconds,
+cap two minutes; affected races cap five minutes. Run owner `go test ./...`,
+`go vet ./...`, `make check`, public-closure/no-private-import guard and
+`git diff --check` once at closure within existing budgets. Check additive
+goldens/history/output/numeric/extension regressions and isolated pure native
+Compile/CheckSupported. No Chromium/Playwright, Xvfb, external supervisor daemon,
+disk snapshot, new cache, dependency/tool download, sudo or live action.
+
+**Dependencies.** Accepted/published OpenUdon:P11 at ec2fa2666dad604a4512f8fff4155d269c8597b3,
+UWS:C10 and Browsertools:M33; accepted native Udon5bbf2924d85b9f13b89bb8c000cb1b12e6c56491
+is an immutable read-only fixture input, not a new producer dependency change.
+
+**Downstream impacts.** Kinet:M52 (actual adoption), Kinet:W21 (fresh
+re-capture/conversion), Kinet:U15 (complete bound display/history), Kinet:M53
+(exact final consumer/native pair before physical proof), OpenUdon:A32
+(preserve the public correction). The existing five conditionals are unchanged.
+
+**Parallel-safe.** no. This required producer correction precedes M52.2 resumption.
+Use one external OpenUdon P12 lease under the governing Kinet goal; coordinator
+owns all ledgers/shared memory/Git. Freeze producer/native/consumer inputs;
+never use another agent's changing checkout. Declared implementation write set:
+packagev3 browser predicates, execution-plan construction, additive public
+tests/ordinary contract and qualification docs, and an isolated external pure
+native compatibility fixture. Children return status/shared-memory proposals;
+coordinator alone applies them. Exclude generic profile semantics, private native
+implementation, old goldens, shared files, other statuses and default manifests.
+
+**Review/closure.** Persist the whole-milestone review counter, maximum 10;
+initial count 0/10. Required offline verification and independent full review
+precede coordinator source publication; acceptance/retirement and independently
+verified exact closure publication precede consumer dispatch. Publication is
+bounded by the separate explicit human scope below. Preserve P11's consumed
+2/2 pushes and M56's ended scopes; stop on uncertain effects/targets/cleanup.
+No deployment, live, browser or general SSH authority follows.
+
+**AUTHORIZATION_REQUIREMENTS** (conditions only; the resolved request supplies authority):
+
+```yaml
+AUTHORIZATION_REQUIREMENTS:
+  cli.local:
+    via: goal-policy
+    executor: assigned-agent
+    scope: declared-offline-P12-implementation-and-verification
+  git.commit:
+    via: goal-policy
+    executor: coordinator
+    scope: P12-task-and-substantive-closure-commits-under-task-policy
+  git.push:
+    via: explicit
+    executor: coordinator
+    scope:
+      repository: /home/peter/Workspace/openudon
+      remote_name: origin
+      remote: git@github.com-tabilet:OpenUdon/openudon.git
+      ref: refs/heads/main
+      mode: fast-forward
+      invocation_limit: 2
+      count_failed_and_cancelled: true
+      changes: reviewed-P12-source-and-closure-only
+      prerequisites: offline-checks-and-independent-review; exact-closure-before-adoption
+```
+
+**Published-input acquisition requirement.** Action `cli.local`, via `explicit`,
+executor `coordinator`: read-only Git/ordinary Go VCS acquisition of exact
+reviewed published P12 source and closure revisions, only via
+`git@github.com-tabilet:OpenUdon/openudon.git` or
+`https://github.com/OpenUdon/openudon.git`, in existing caches. Independently
+verify exact refs/ancestry/source and ordinary Go ZIP/H1 before adoption.
+No SSH shell or other dependency/tool download. This supplemental protected
+transport condition narrows ordinary local verification; the resolved human
+request supplies its explicit acquisition authority.
+
+No unrelated dependency/tool download, Kinet remote action, force/history
+rewrite, browser, sudo, deployment or live authority. Requirements are declared
+only here; status and launch input do not duplicate them.
+
+**Tasks/review.** [status-P12.md](status-P12.md), four pending rows; whole review0/10.
+
 ### A32 — Legacy closure removal
+
+**P12 public preservation gate — 2026-10-13.** Depend on accepted/published
+OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories
+P12's public browser authentication predicate/plan path; A32.2/A32.5 preserve
+the authored bounded-auth correction and additive public/native compatibility
+regressions, existing complete hash/wire semantics, P11 outputs and readable
+untimed history. Retiring legacy authoring must not remove or widen the public
+path. Frozen consumer pins, all existing row text/markers and review0 remain
+unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
 
 **Stage/owner.** STG-12 Phase B; OpenUdon. Dispatch priority position 14/19.
 
-**Dependencies.** P10, and the accepted Kinet:M53 no-consumer proof.
+**Dependencies.** Accepted/published P10/P11/P12, and the accepted Kinet:M53 no-consumer proof.
 
 **Scope.** Refresh the A31 inventory. Then delete:
 
@@ -664,7 +800,7 @@ independently published sibling prerequisites before adoption.
   evidence, execution-plan assertion hardening and the frozen Ramen/Authoring
   catch-up.
 
-**Depends on.** OpenUdon:P10, Kinet:M53. All required prerequisites must have
+**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, Kinet:M53. All required prerequisites must have
 accepted closure at exact revisions; sibling producer adoption also needs
 independently verified publication. A priority position never supplies authority.
 

@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Approved P12 authentication timeout reconciliation
+
+**Approved P12 corrective planning — 2026-10-13.** The user approved the complete P12 proposal and bounded publication/acquisition, then goal resumption with audit disabled. F01 is confirmed local P1; source priority/review baseline not supplied. Required [P12](tabilet/memory-bank/status-P12.md) adds four pending rows/review0 for authored bounded authentication and public/native compatibility; no repair acceptance is claimed.
+
+Remaining order: OpenUdon:P12 → Kinet:M52 → Kinet:W21 → Kinet:U15 → Kinet:M53 → OpenUdon:A32, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Eleven active milestones / 47 rows: six required / 28 rows and five conditional / 19 rows. Approved total 21/92 (15 required/70, 6 conditional/22); R65 original 19/84 and the P11 total 20/88 remain historical. Public SDK only; exact ordinary adoption stays M52 and physical proof stays M53.4. A32 preserves P12. P11 pushes2/2 and M56 scopes stay ended; current facts/default pins/history/candidates/evolution are preserved.
+
 ## Accepted P11 correction
 
 P11's four rows and whole review1 qualify native browser named-output binding
