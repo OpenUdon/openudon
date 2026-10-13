@@ -6216,3 +6216,11 @@ extraction. Test the exact prepared run-config's profile/protocol pairing
 through the external executor handoff as well. P08 selects v11 and rejects
 incompatible active mixes; see [P08](../docs/history/status-P08.md).
 `````
+
+## P12 reviewed candidate dashboard refresh — 2026-10-13
+
+The initial execution dashboard below is superseded by the current P12 status after rows 1–3 and whole review 1 pass. All row/attempt/review evidence remains in the full status; publication and consumer adoption still require their separate checks.
+
+```markdown
+**State:** P12.1 in progress in a fresh producer worktree; other three rows pending. Whole review0/10.
+```

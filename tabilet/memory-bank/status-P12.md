@@ -1,7 +1,7 @@
 # P12 — Browser authentication timeout interoperability
 
 **Stage/owner:** STG-12 Phase A; OpenUdon. Required.
-**State:** P12.1 in progress in a fresh producer worktree; other three rows pending. Whole review0/10.
+**State:** P12.1–P12.3 complete; P12.4 in progress for reviewed source publication. Whole review 1/10 PASS; no unresolved findings.
 **Source baseline:** `ec2fa2666dad604a4512f8fff4155d269c8597b3`; coordinator captures actual integration ref/primary/original leasebase before dispatch.
 **Approval:** Latest explicit human P12 approval on 2026-10-13: “I Approve this P12 plan and bounded publication/acquisition scope, then resume the existing goal with audit disabled”. Planning application and later execution/publication remain separate operations under the resolved request.
 
@@ -39,7 +39,7 @@ review iteration or a claim that the repair passed. Audit disabled.
 | P12.1 — Freeze the authored authentication timeout contract | `[+]` | Specify existing optional UWS operation Timeout, finite (0,600] seconds for exact auth call1.0/1.1 only; retain untimed public proof/history semantics and genuine native unsupported behavior. |
 | P12.2 — Admit bounded browser authentication in public proof | `[+]` | Add the browser-specific bounded-auth predicate to supplement and execution-plan construction with complete existing hash bindings; preserve generic/non-browser/action/registration/step/workflow restrictions and prohibit timeout injection, new wires and private imports. |
 | P12.3 — Prove public and pure native exact-byte compatibility | `[+]` | Positive/negative Build/Assess/Verify/plan/approval/Authority fixtures plus isolated exact-byte native Compile/CheckSupported for authentication/read/write, zero effect callbacks; cover timeout tampering, numbers/extensions, old untimed history/output goldens. Label source fixtures separately from ordinary adoption. |
-| P12.4 — Qualify, review and hand off the published producer | `[ ]` | Offline owner gates, affected races, public closure/no-private-import guard, persisted whole review (maximum10), bounded coordinator publication and independently verified exact source/module handoff; actual Kinet adoption stays M52 and physical qualification stays M53.4. |
+| P12.4 — Qualify, review and hand off the published producer | `[~]` | Offline owner gates, affected races, public closure/no-private-import guard, persisted whole review (maximum10), bounded coordinator publication and independently verified exact source/module handoff; actual Kinet adoption stays M52 and physical qualification stays M53.4. |
 
 ## Acceptance and verification
 
@@ -74,7 +74,7 @@ Use the unchanged governing Kinet GOAL and complete resolved approved request. T
 
 ## Review
 
-Whole-milestone review: 0/10, not started.
+Whole-milestone review: 1/10 PASS; no unresolved P1/P2/P3 findings.
 
 ## P12 fresh execution dispatch
 
@@ -111,3 +111,23 @@ P12.2 is committed and integrated locally at `9352d394bfd2dabc4a627ccf4ca827d065
 ### P12.3 completed after task review 1
 
 Two independent read-only lenses pass task review 1 with no P1/P2/P3 findings. All seven embedded sources, ten workflows and the canonical filename/hash aggregate match retained bytes. Native/C10/M33 ZIP H1, go.mod H1 and extracted source provenance are independently checked (685/396/351 files). The coordinator retained a separately inspectable cheap confirmation: all ten cases pass, zero effects, 6.648-second wall time, unchanged fixture. Earlier failed fixture diagnoses remain retained; no native semantics or historical source changed. This completes source compatibility only. Whole review remains 0/10; P12.4 owner qualification/publication and M52 ordinary adoption remain pending. Audit disabled.
+
+### P12.4 closing verification selected
+
+Rows 1–3 are committed and integrated locally; frozen candidate `8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc` includes the complete source compatibility record. Root now owns final offline owner/race/vet/static/compiled-public checks, whole review and the separately approved two-invocation source/closure publication envelope. The independently reviewed one-use check runner binds candidate/source/tool/artifact identities before and after each phase. Full Make will run once for this unchanged candidate and includes the complete owner test suite. Audit disabled; whole review remains 0/10 until verification passes. No push or browser action has run.
+
+### P12.4 closing checks: readiness passed
+
+Frozen candidate `8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc` resolves 91 owner modules and 373 public packages with zero replacements, recursive errors or forbidden imports. Module verification passes in 5.600 seconds; tidy diff is empty. The reviewed one-use fresh CLI build is attempt 1, runtime cap 120 seconds plus 5 seconds cleanup. Subsequent race/vet/compiled-public/full-Make phases retain their own one-use intent/outcome records; no unchanged failed retry is allowed. Source, refs and tool hashes are checked before/after each phase. Whole review remains 0/10 and publication 0/2; audit disabled.
+
+### P12.4 scoped gates passed; full Make attempt 1
+
+Fresh candidate CLI build passes in 18.290 seconds, vet in 13.061 seconds, scoped staticcheck in 12.900 seconds and affected race checks in 259.542 seconds (five-minute cap). The transient checker cache is removed. Compiled/dependency proof passes: 91 selected modules, 90 archives, 17,550 archive files, 16,931 extracted comparisons, 373 packages/35 reached modules/372 exports, 20 immutable goldens and unchanged public declarations; no replacements/private runtime/retained internals. All candidate/ref/tool/input integrity checks pass. Full Make attempt 1 now starts against the same candidate, runtime cap 1,200 seconds plus 5 seconds cleanup, using the reviewed shim and matching freshly built CLI. It includes full owner tests; no duplicate unchanged full-suite invocation is planned. Whole review 0/10, publication 0/2 and audit disabled remain.
+
+### Whole-milestone review 1 started
+
+All required offline gates pass against candidate `8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc`; full owner Make attempt 1 passes in 178.354 seconds with all 1,691 frozen files and ref/tool identities unchanged. [Qualification](../../docs/p12-qualification.json) records the complete checks, immutable fixture/compiled/module boundaries and zero-effect native compatibility. Coordinator starts independent whole review 1 before source publication. Prior row reviews/outcomes remain preserved; P12.4 remains in progress. Publication 0/2 and audit disabled remain.
+
+### Whole review 1 passed; reviewed source publication next
+
+Both independent full-milestone lenses pass with no P1/P2 or higher findings. Current status and private receipt summaries are refreshed; the Lower dashboard observations are resolved before publication, with no behavior change or replay. Full code, fixture, ordinary dependency/compiled closure and every retained check support the qualification record. Source publication invocation 1/2 is the next coordinator action under the explicit approved OpenUdon origin/main fast-forward scope. Row P12.4 remains in progress until exact ordinary source/module proof and handoff; normal retirement closure publication follows under invocation 2. M52 waits for independently verified accepted closure and ordinary input. Audit disabled.

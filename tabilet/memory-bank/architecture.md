@@ -8,8 +8,8 @@ construction applies the same predicate to the verified supplement. The generic
 flat predicate and all other restrictions remain unchanged; no workflow bytes
 are rewritten. Existing workflow, raw constraints, package, plan and receipt
 hashes bind timing without another wire field. The public graph imports no
-private runtime. Joint native source compatibility passes with zero effect callbacks; final
-closure qualification remains pending.
+private runtime. Joint native source compatibility passes with zero effect callbacks. Offline
+owner/compiled closure and whole review 1 pass; publication/adoption are pending.
 See [authored timing contract](../../docs/p12-browser-auth-timeout-contract.md).
 
 ## Accepted P11 named browser outputs — 2026-10-13
