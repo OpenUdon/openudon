@@ -57,6 +57,31 @@ func findBrowserCall(s *BrowserSupplementV1, operation string) *BrowserCallV1 {
 	}
 	return nil
 }
+
+// flatBrowserOperation preserves the generic flat profile, with an authored
+// timeout exception only for an independently reproduced authentication call.
+func flatBrowserOperation(op *uws1.Operation, call *BrowserCallV1) bool {
+	if flatOperation(op) {
+		return true
+	}
+	if op == nil || op.Timeout == nil || call == nil || call.Kind != "authentication" || call.OperationID != op.OperationID {
+		return false
+	}
+	profile := op.ExtensionProfile()
+	if profile != browserauthentication.CallProfileName && profile != browserauthentication.ContextCallProfileName {
+		return false
+	}
+	if profile != strings.Replace(call.ProfileVersion, "browser-authentication.", "browser-authentication-call.", 1) {
+		return false
+	}
+	if !(*op.Timeout > 0 && *op.Timeout <= 600) {
+		return false
+	}
+	untimed := *op
+	untimed.Timeout = nil
+	return flatOperation(&untimed)
+}
+
 func browserOperationBinding(op *uws1.Operation, sources []Source) (binding.Binding, error) {
 	b, err := operationBinding(op, sources)
 	if err != nil {
@@ -257,13 +282,16 @@ func deriveBrowserSupplement(ctx context.Context, m Manifest, files map[string][
 			return nil, ErrPackage
 		}
 		op := operations[step.OperationRef]
-		if !flatOperation(op) {
+		if op == nil {
 			return nil, ErrPackage
 		}
 		used[step.OperationRef] = true
 		call, err := browserCall(ctx, step, op, m.Sources, resolver, sessions)
 		if err != nil {
 			return nil, err
+		}
+		if !flatBrowserOperation(op, call) {
+			return nil, ErrPackage
 		}
 		if call == nil {
 			continue

@@ -37,7 +37,7 @@ review iteration or a claim that the repair passed. Audit disabled.
 | Item | State | Notes |
 |---|---|---|
 | P12.1 — Freeze the authored authentication timeout contract | `[+]` | Specify existing optional UWS operation Timeout, finite (0,600] seconds for exact auth call1.0/1.1 only; retain untimed public proof/history semantics and genuine native unsupported behavior. |
-| P12.2 — Admit bounded browser authentication in public proof | `[ ]` | Add the browser-specific bounded-auth predicate to supplement and execution-plan construction with complete existing hash bindings; preserve generic/non-browser/action/registration/step/workflow restrictions and prohibit timeout injection, new wires and private imports. |
+| P12.2 — Admit bounded browser authentication in public proof | `[+]` | Add the browser-specific bounded-auth predicate to supplement and execution-plan construction with complete existing hash bindings; preserve generic/non-browser/action/registration/step/workflow restrictions and prohibit timeout injection, new wires and private imports. |
 | P12.3 — Prove public and pure native exact-byte compatibility | `[ ]` | Positive/negative Build/Assess/Verify/plan/approval/Authority fixtures plus isolated exact-byte native Compile/CheckSupported for authentication/read/write, zero effect callbacks; cover timeout tampering, numbers/extensions, old untimed history/output goldens. Label source fixtures separately from ordinary adoption. |
 | P12.4 — Qualify, review and hand off the published producer | `[ ]` | Offline owner gates, affected races, public closure/no-private-import guard, persisted whole review (maximum10), bounded coordinator publication and independently verified exact source/module handoff; actual Kinet adoption stays M52 and physical qualification stays M53.4. |
 
@@ -87,3 +87,15 @@ Coordinator captures originalleasebase9fa3bfc2d7cc77b8c621001025fb32d714dd45b5, 
 ### P12.1 completed after task review 1
 
 Independent read-only task review 1 passes with no P1/P2/P3 findings against the frozen contract SHA256 `3be7b99ba08415151f9fe6c141f7819e445d5035dbe87459bdc85a62da75295a`. The retained offline readiness output independently confirms 373 packages, 35 reached modules and zero private/retained imports; a coordinator repeat to retain that output passes in 0.139 seconds. This completes the contract/readiness row only. P12.2/P12.3 implementation and compatibility, final verification, publication and consumer adoption remain pending. Whole-milestone review remains 0/10; audit stays disabled.
+
+### P12.2 implementation dispatch
+
+Row P12.1 is committed and integrated locally at `4877ce1bde4f4cfe55480738af039f56f6069ed9`. P12.2 now owns the two scoped predicate sites and additive public regressions under the frozen contract. The original lease baseline remains `9fa3bfc2d7cc77b8c621001025fb32d714dd45b5`; whole review remains 0/10. Coordinator alone writes all ledgers/shared memory/Git. No browser, publication or acquisition has run. Audit disabled.
+
+### P12.2 frozen; task review 1 started
+
+The four-file public predicate/regression change is frozen for independent review. New timeout tests pass offline in 2.715 seconds; affected browser, numeric, extension, output and golden controls pass in 15.968 seconds. The initial supplemental test compile error (a nonexistent VerifiedPackage accessor) was corrected in the test; it never ran effects. Formatting and whitespace checks pass. Row P12.2 remains in progress; task review 1 starts now, whole review stays 0/10. Native exact-byte compatibility, final owner checks, publication and consumer adoption remain pending. Audit disabled.
+
+### P12.2 completed after task review 1
+
+Independent read-only task review 1 passes with no P1/P2/P3 findings. The shared predicate requires exact independently reproduced authentication call provenance, finite `(0,600]` timing and every other existing flat restriction. The four-file source manifest is unchanged; focused tests and affected historical/browser/output/numeric/extension controls pass. Current public API documentation and product/architecture/tooling pointers describe the implementation while keeping P12.3 native/approval/Authority evidence, P12.4 closure/publication and M52 ordinary adoption pending. Whole review stays 0/10; audit disabled.

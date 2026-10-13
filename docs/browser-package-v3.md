@@ -67,6 +67,24 @@ changes. The separate immutable
 `packagev3/testdata/browser/p11-p10-named-output-package.json` fixture records
 the original P10 package without rewriting the existing corpus.
 
+## Authored authentication timing
+
+Authentication call profiles `uws.browser-authentication-call.1.0` and `.1.1`
+may carry the existing operation-level `timeout` number in seconds. A supplied
+value must be finite, greater than zero and at most 600. Both supplement and
+execution-plan construction require independently verified authentication
+provenance and preserve every other flat restriction. Action, registration,
+HTTP, function, step and workflow timing restrictions remain unchanged.
+
+Omitted timing preserves public proof/history and existing metadata behavior;
+actual native admission still refuses an untimed authentication. These APIs
+never insert timing or rewrite approved bytes. A freshly authored timed
+successor changes the existing workflow/package/constraints/plan bindings and
+needs its own exact approval and Authority. No wire or schema version changes.
+[The authored contract](p12-browser-auth-timeout-contract.md) separates these
+public rules from pending joint native qualification, publication and Kinet
+consumer adoption. Physical qualification remains Kinet M53.4.
+
 ## Public verification subset
 
 Public `browsertransaction` supports the unchanged transaction receipt v1–v4

@@ -1,5 +1,15 @@
 # Tech Stack
 
+## P12 offline timing regression candidate
+
+P12 adds public timeout and provenance regressions using the retained exact
+Go 1.26.6, C10/M33/APItools owner inputs and existing caches. Focused timeout
+checks and affected browser/history/numeric/output/golden controls pass offline.
+No dependencies, default pins, existing fixtures or wire declarations change.
+Separate pure native compatibility and final owner/compiled closure checks are
+pending; physical browser qualification remains Kinet M53.4.
+See [authored timing contract](../../docs/p12-browser-auth-timeout-contract.md).
+
 ## Accepted P11 named browser outputs — 2026-10-13
 
 P11 retains exact C10/M33/codec/APItools dependencies and the public-only

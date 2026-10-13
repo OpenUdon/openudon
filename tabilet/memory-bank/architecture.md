@@ -1,5 +1,16 @@
 # Architecture
 
+## P12 bounded authentication predicate candidate
+
+Supplement construction resolves the independently reproduced browser call
+before applying the bounded authentication timeout predicate. Execution-plan
+construction applies the same predicate to the verified supplement. The generic
+flat predicate and all other restrictions remain unchanged; no workflow bytes
+are rewritten. Existing workflow, raw constraints, package, plan and receipt
+hashes bind timing without another wire field. The public graph imports no
+private runtime. Joint native and final closure qualification remain pending.
+See [authored timing contract](../../docs/p12-browser-auth-timeout-contract.md).
+
 ## Accepted P11 named browser outputs — 2026-10-13
 
 Browser response expressions select the native output by the first decoded

@@ -169,7 +169,7 @@ func DeriveExecutionPlan(ctx context.Context, verified VerifiedPackage, options 
 	operations := map[string]*uws1.Operation{}
 	rawOperations := map[string]any{}
 	for _, op := range doc.Operations {
-		if !flatOperation(op) || !authority.Identifier(op.OperationID) {
+		if op == nil || !flatBrowserOperation(op, findBrowserCall(supplement, op.OperationID)) || !authority.Identifier(op.OperationID) {
 			return ExecutionPlan{}, ErrPackage
 		}
 		operations[op.OperationID] = op
