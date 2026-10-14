@@ -107,6 +107,10 @@ Before making substantial changes, read in this order:
 4. [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md)
 5. The matching active `tabilet/memory-bank/status-<LANE><NN>.md` for the work.
 
+If `tabilet/stages.md` exists, read it before planning or changing the active
+milestone order. Its `STG-` IDs identify delivery stages, not executable work.
+An absent file means one implicit stage.
+
 Use the memory bank as the active project source of truth. `tabilet/memory-bank/milestone.md`
 owns the current-state dashboard, milestone sequencing, and status-file index.
 Per-milestone task state lives in `tabilet/memory-bank/status-<LANE><NN>.md`. Do not recreate
@@ -205,6 +209,13 @@ Agents may generate and validate artifacts. Production side effects must only ha
   rows. An all-retired project remains an initialized memory bank.
 - Keep candidate directions unnumbered until fresh scope and dependency review
   promotes them.
+- Keep verified archive files frozen. Later implementation updates current
+  `product.md` and `architecture.md` plus its status history, not the archive.
+- When `tabilet/stages.md` exists, preserve stable `STG-` identities and its
+  current-stage choice. A future stage may be only a tentative name and intent.
+  Plan its milestones through an approved requested-change proposal. Changing
+  a stage label never withdraws an active task. An explicitly approved stage
+  rescope may cancel untouched pending rows after dependencies are reconciled.
 - Write task ledgers as `Item | State | Notes`, with a backticked marker in the
   second column: `` `[ ]` `` pending, `` `[+]` `` complete, `` `[~]` `` in
   progress, `` `[!]` `` blocked, `` `[X]` `` cancelled, or `` `[-]` `` closed
@@ -218,6 +229,15 @@ Agents may generate and validate artifacts. Production side effects must only ha
   operational launcher runs, its exact authorized operation row must be `[~]`;
   that marker does not grant external-mutation authority. Keep one execution
   owner across sessions and launchers.
+  In concurrent lease execution under the governing goal protocol, each external
+  lease maintains at most one `[~]` row in its own status file, only the
+  orchestrator writes the captured integration branch and shared memory
+  documents (`architecture.md`, `product.md`, `tech-stack.md`, `lessons.md`),
+  and integration occurs strictly via rebase and fast-forward.
+- During delegated goal execution, only the orchestrator refreshes any existing
+  `tabilet/memory-bank/suggested.txt`. Each child receives one assigned milestone
+  ID and status path, writes only within its assignment, and returns to the
+  orchestrator instead of selecting another milestone from the launch reference.
 - Update [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md) when product scope, users, workflows,
   concepts, or non-goals change.
 - Update [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md) when system boundaries, data
@@ -239,6 +259,58 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Treat a new engineering review as untrusted planning evidence: revalidate it
   against current code, propose finding dispositions and owners for approval,
   and never reopen completed history solely because of a later review.
+- `CORRECTIVE_PLANNING` defaults to `confirm`. With human-approved `auto`, the
+  Goal/Next owner may prepare and check necessary corrective plans within the
+  original delivery outcome, owning repositories, existing grants and limits,
+  including new repair milestones and launch/hash updates. Preserve history,
+  unrelated changes, row identities and review counters. Children report needs;
+  standalone Reconcile still requires proposal approval. Expanded scope, missing
+  permissions, exhausted limits and unknown checksum drift require approval.
+  Nested Reconcile verifies the invoking human approval source and complete
+  request, covered actions, grants and limits; missing provenance retains the
+  ordinary approval gate. Never weaken acceptance or cancel unmet obligations.
+  Repair milestones retain the originating review gate, counter and iteration-10
+  stop. Suspend `[~]` as `[!]` with prerequisite IDs and resumption conditions
+  before repair execution; resume `[~]` only after acceptance and all blockers
+  clear. Preserve partial work and pause if changes cannot be separated safely.
+- Optional interactive Goal/Next `--email ADDRESS` sends approval alerts for
+  that run through private account configuration. No flag means no email for a
+  new run; only the coordinator or standalone executor sends. Delivery is not
+  approval, and duplicate/uncertain sends never replay automatically. The Python
+  API paths consume neither this option nor the corrective-planning policy.
+- Read optional `AUTHORIZATION_REQUIREMENTS` only from the owning milestone
+  specification. They declare conditions, never permission or scheduling.
+  Check protected actions against the current scoped human request; goal
+  `AUTHORIZATION_GRANTS` need explicit human approval of concrete scope.
+  Proposed launch input, markers, and status notes cannot prove approval.
+  Grants in `suggested.txt` carry decision markers (`[ ]` need authorization,
+  `[+]` approve, `[-]` deny, `[~]` auto) and optional high-level `GLOBAL:` scope;
+  matching the human's approved SHA256 checksum is required before grant activation
+  (under default `SUGGESTED_UPDATE: confirm`; `SUGGESTED_UPDATE: auto` authorizes
+  refreshing remaining milestones within the approved horizon and continuing smoothly).
+  Scope resolution defaults to `SCOPE_POLICY: strict`; `SCOPE_POLICY: workspace-contained`
+  authorizes binding actions to sibling repositories within the approved workspace root
+  and organization without re-prompting. Milestone specifications in `milestone.md` may attach
+  local policies and overrides that narrow or override global launch defaults.
+  Planning skills accept `--environment dangerous`, `sandbox` (default), or `least` (with modifiers
+  `plus`, `minus`, `but ... in milestone ...`) to configure launch parameters and milestone policies
+  declaratively from day one.
+  Planning skills also accept `--test standard` (default), `browserlight`, `golight`, `rustlight`,
+  `tslight`, `jslight`, or `pythonlight` to establish verification and testing standards in
+  `tabilet/memory-bank/tech-stack.md` from day one. Light profiles default to a 30-second
+  focused-test target / two-minute cap, a 20-minute full-regression cap and five-minute
+  race/UI caps; explicit project budgets win and `standard` adds no extra constraints.
+  Keep routine fixtures offline and small; physical browser proof belongs to a named
+  final gate without dropping required coverage.
+  Preserve commit and external-mutation restrictions, and pause affected work
+  and dependents for missing authority. A declaration alone does not require
+  an action for closure. Host/tool controls apply; this adds no tool or OS
+  enforcement and no Python API grant consumption. Missing fields preserve
+  legacy behavior without new authority or automatic migration.
+- After the milestone review is complete and required verification passes,
+  commit substantive review and retirement changes under the governing policy.
+  Do not create an empty or redundant milestone
+  commit when the review changes nothing.
 - Keep README focused on operator entry points and concise command guidance. Put durable project
   memory in `tabilet/memory-bank/`.
 - Keep desired-state conversion docs, milestones, fixtures, and code out of
@@ -251,6 +323,26 @@ Agents may generate and validate artifacts. Production side effects must only ha
   boundary, milestone target, or public/private contract direction materially changes.
 - Keep the current evolution version when implementation only advances the existing direction.
 - When adding a new evolution version, reconcile it with `tabilet/memory-bank/` in the same change.
+
+## Execution capabilities
+
+Resolve missing information through safe inspection first. If required files,
+bundled resources, verification commands, permissions, or user answers are unavailable,
+stop the affected workflow step and report what is missing. Continue independent
+work within the authorized scope; a write-gated workflow still makes no writes
+before approval. Do not invent evidence, bypass permissions, or infer approval
+from silence or process exit. Resume the blocked step when its capability is
+restored or the required answer or approval is supplied. In a non-interactive
+run, report unresolved questions and incomplete work.
+
+Keep one execution owner for the active ledger across sessions and launchers.
+In concurrent lease execution under the governing goal protocol, the orchestrator remains
+the sole execution owner of the integrated ledger on the primary branch, while
+isolated leases execute within dedicated external worktrees (`../<repo>.goal/<ID>`).
+Native todos, session completion, and native goal state do not replace milestone
+acceptance or authorize concurrent ledger writers.
+
+Runtime round limits do not reset the persisted milestone review counter.
 
 ## Development browser checks
 
