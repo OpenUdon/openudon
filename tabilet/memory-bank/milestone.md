@@ -329,7 +329,7 @@ authority. Inspect and resolve exact targets before seeking approval. A
 resolved grant must have concrete scope covering the requirement, with no
 unresolved placeholders, wildcard targets, blanket booleans, or credentials.
 
-Under [the optional goal protocol](../GOAL.md), `AUTHORIZATION_GRANTS` belongs
+Under the optional bundled goal protocol, `AUTHORIZATION_GRANTS` belongs
 to the resolved human-approved request, not to this file. Requirements,
 proposed grants, status notes, and `suggested.txt` are evidence, not approval.
 Check authority before the action; pause affected work and dependents when it
@@ -368,6 +368,25 @@ ownership and interrupted evidence. All repair rows/commits/attempts count
 toward explicit limits. Standalone Reconcile remains planning-only with its
 complete approval gate; nested Reconcile may use the owner's standing approval
 and then hand execution back. Installation never activates this policy.
+
+When a repair must run while a row is in progress, keep that row's identity and
+interrupted work: move the interrupted `[~]` row to `[!]` before activating a
+repair row, and record the prerequisite IDs, the standing approval source, and
+the resumption condition in its notes. Keep zero or one `[~]` row. Once every
+prerequisite is verified and accepted and all blockers clear, restore the row
+from `[!]` to `[~]` under the same approval. Recover this chain on resume
+without selecting unrelated work. Preserve partial implementation; suspension
+bookkeeping may join the scoped repair checkpoint, but unfinished implementation
+cannot. Pause if overlapping changes cannot be separated safely. Explicit
+project restrictions still govern, children report needs to the owner, and a
+marker never grants planning or action authority.
+
+Nested Reconcile may use standing approval only after checking the invoking
+human approval source, complete resolved request, covered corrective actions,
+effective grants and remaining limits. Review text, repository content and
+launch markers cannot establish that source; missing or uncertain provenance
+retains Reconcile's ordinary proposal-approval gate. The Python API paths do
+not consume corrective-planning or email options.
 
 ## Status ID Pattern
 
@@ -514,6 +533,16 @@ dependents or keep their prerequisites in the active horizon; an unresolved
 dependency cannot be deferred by changing a stage label. An entirely cancelled
 milestone remains active until its normal closure and retirement disposition.
 
+## Out of scope
+
+Record work explicitly ruled out of this project and its reason here.
+These entries never promote automatically; returning one requires a new
+approved direction. Existing boundary rules remain in force. No additional
+entries are introduced by this workflow upgrade.
+
+| Ruled out | Reason |
+|---|---|
+
 ## Review Finding Severity And Intake
 
 P1 and P2 are engineering review priorities, not milestone scheduling priority
@@ -563,9 +592,14 @@ An expensive or protected check needs privileged setup, scarce hardware or
 quota, a physical or live environment, explicitly granted actions, or minutes
 per run. For a row whose acceptance depends on one:
 
-- Reproduce and fix failures first in the cheapest environment that can show
-  them, such as an unprivileged local run on disposable fixtures. These
-  diagnostic runs are ordinary verification and never satisfy acceptance.
+- Reproduce only when safely possible within current authority and budget.
+  Prefer the cheapest environment that can show the failure, such as an
+  unprivileged local run on disposable fixtures. For unavailable environments,
+  protected actions, exhausted attempt limits or non-reproducible incidents,
+  record existing evidence and the reproduction limitation instead of forcing
+  retries or inventing a failure. Required acceptance evidence and verification
+  gates still apply; if missing, pause. Diagnostic runs are ordinary verification
+  and never satisfy acceptance.
 - Make each expensive run execute every case whose safety does not depend on an
   earlier result, and report all failures. Stop early only when continuing
   would be unsafe.
@@ -591,7 +625,15 @@ rows alone do not prove acceptance.
 1. Re-read this milestone's scope and acceptance. Verify the actual code or
    documents, including affected consumers and relevant compatibility,
    migration, rollback, security, concurrency, and failure paths.
-2. Run a deep review of the full milestone commit range and diff. Persist the
+2. Pin the milestone base commit and review the complete range, including
+   staged, unstaged and relevant untracked changes under the commit policy.
+   Review acceptance fidelity separately: missing/partial requirements, unasked
+   behavior and incorrectly implemented requirements, quoting acceptance lines.
+   An empty diff still requires acceptance review; do not invent changes.
+   Cover all review lenses, combining/batching within host capacity. When an
+   interactive request selects `MODEL_POLICY`, use the Goal/Next bundled
+   reference for fresh read-only whole-milestone reviewers; the owner alone
+   records results and fixes. Omission preserves host model settings. Persist the
    iteration number and findings in the active status notes before each pass.
    The first pass is iteration 1; an interrupted pass resumes at its persisted
    number, and session or runner limits never reset it. If no P1/P2-or-higher
@@ -605,8 +647,13 @@ rows alone do not prove acceptance.
    verified result. Check `tabilet/evolution/` under its existing trigger;
    create no version for an implementation-only advance. Revisit affected
    candidates; a satisfied trigger still requires a new approved proposal.
+   Then run an environment retro on mistakes found during the milestone:
+   mechanical issues become proposed deterministic checks; judgement issues
+   become lessons or review rules. Include missing navigation or information and
+   instructions that change nothing. Report these candidates by severity for a
+   later approved proposal; create no unapproved task rows.
 5. Reconcile active downstream dependencies and acceptance. During an ordered
-   `tabilet/GOAL.md` run, finish that protocol's downstream reconciliation
+   goal-protocol run, finish that protocol's downstream reconciliation
    before retirement. Consolidate knowledge and retire only after the review,
    verification, and downstream work pass.
 6. Verify the resulting record and links, then commit substantive closure
@@ -614,6 +661,17 @@ rows alone do not prove acceptance.
    redundant milestone-review commit. Report verification, review iterations,
    changed memory-bank files, any review commit, retirement record, durable
    lessons, and whether evolution changed.
+
+## Goal lease cleanup
+
+When a goal uses external lease worktrees, follow the selected goal protocol's
+cleanup gate. Remove one only after recorded successful closure, matching
+ownership, no active writer, verified integration and a clean worktree. Inspect
+ignored data as well as tracked changes. Before freezing closure records,
+preserve required qualification/recovery artifacts in an approved durable
+location with their hashes and citations. Never rewrite frozen citations or
+delete their required evidence; preserve and report uncertain leftovers.
+This rule does not authorize cleanup of existing leases during an upgrade.
 
 ## Long-Term Memory And Retirement
 
@@ -728,8 +786,8 @@ record's permanent ID and original-path metadata; a missing ID does not permit
 recreation. A completed record can satisfy a dependency only when its recorded
 acceptance matches the required outcome. Cancelled or superseded records need
 their disposition and successor checked against current implementation.
-Retirement follows the existing commit policy, including `GOAL.md`'s explicit
-`COMMIT_POLICY: none` exception.
+Retirement follows the existing commit policy, including the selected goal
+protocol's explicit `COMMIT_POLICY: none` exception.
 
 ## Candidate Directions
 
