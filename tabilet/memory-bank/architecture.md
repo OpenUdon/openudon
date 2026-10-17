@@ -1,5 +1,16 @@
 # Architecture
 
+**P13 reviewed source contract — 2026-10-17.** Public browser authority binds
+the current exact execution receipt/deadline and immutable saved-session
+metadata. Saved-state expiry does not renew or invalidate that review metadata;
+the host/native acquisition still checks actual eligibility, binding/generation
+and revocation. Missing/expired-to-fresh access has both effective reuse/save
+rights false and occurs before any send; independent public evidence rejects
+retained rights, fabricated save and broken settlement. Requested configuration,
+wire schemas and hashes remain unchanged. Source/compatibility task reviews
+pass; exact source publication and ordinary module handoff are verified. P13
+whole acceptance and actual Kinet M53.22 adoption remain separate. See docs/browser-package-v3.md and docs/p13-qualification.json.
+
 ## Accepted P12 bounded authentication predicate
 
 Supplement construction resolves the independently reproduced browser call

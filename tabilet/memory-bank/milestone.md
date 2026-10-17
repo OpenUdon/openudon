@@ -69,7 +69,7 @@ from counted expensive checks; preserve failed attempts and stop gates.
 0/10; no substitution for M53 review0. Exact ordinary published producer proof
 is a consumer prerequisite, performed only under independently matching existing
 grants or a separately prepared/approved scope. No exhausted P12 grant transfer.
-**Tasks:** [status-P13.md](status-P13.md), three pending rows.
+**Tasks:** [status-P13.md](status-P13.md), three rows; all three rows pass fresh task review1; whole review0/10 pending.
 
 When `tabilet/stages.md` exists, it records stable `STG-` IDs, the current
 stage, and provisional later ideas. Give each active milestone specification
@@ -544,7 +544,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P13 | Public saved-session authority and fallback evidence | [status-P13.md](status-P13.md) | Pending (STG-12; prerequisite to Kinet:M53.22) |
+| P13 | Public saved-session authority and fallback evidence | [status-P13.md](status-P13.md) | All three rows qualified; whole review pending (STG-12; prerequisite to Kinet:M53.22) |
 | A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12; follows P12 and Kinet:M53) |
 
 ## Requested Changes After Initialization

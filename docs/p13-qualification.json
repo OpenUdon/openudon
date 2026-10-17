@@ -1,6 +1,6 @@
 {
   "version": "openudon.p13.qualification.v1",
-  "state": "P13.1/.2 accepted local units; P13.3 full owner/closure/publication pending",
+  "state": "All three P13 rows pass fresh task review1; P3 current-wording corrections applied; whole review0/10 not yet started",
   "review": "M53 contract/final-qualification recovery review, 2026-10-17",
   "baseline": "7a7e24973b016a4772634313e2ce8b743371f7aa",
   "upstream_intake_baseline": "53191bc0d9fb6bfdae130e3af41f28beaa3e39b2",
@@ -43,6 +43,27 @@
         "acceptance/scope"
       ],
       "findings": []
+    },
+    "P13.3": {
+      "iteration": 1,
+      "state": "PASS",
+      "reviewer": "/root/p13_row3_review",
+      "lenses": [
+        "correctness/reliability",
+        "security/privacy",
+        "compatibility/contracts",
+        "tests/documentation",
+        "acceptance/scope"
+      ],
+      "findings": [
+        {
+          "id": "P13.3-R1-DOC",
+          "severity": "P3",
+          "state": "fixed before whole review",
+          "summary": "Reconcile stale current publication/acquisition/verification wording; preserve historical attempts."
+        }
+      ],
+      "independent_checks": "All1697Git/ZIP/extracted bytes/nativeH1, source/log/metadata hashes and both closure inventory hashes verified read-only"
     }
   },
   "whole_review": 0,
@@ -138,6 +159,84 @@
       ],
       "state": "PASS_NO_DIAGNOSTICS",
       "seconds": 1.87
+    },
+    {
+      "ordinal": 10,
+      "owner_expensive_ordinal": 1,
+      "argv": [
+        "make",
+        "check"
+      ],
+      "cwd": "/home/peter/Workspace/openudon",
+      "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+      "state": "FAIL_LEGACY_PERMISSION_FIXTURE_UNDER_WRAPPER_UMASK077",
+      "exit_code": 2,
+      "seconds": 123.27,
+      "original_process_waited": true,
+      "log": "/tmp/p13-owner-make1.log",
+      "log_sha256": "148a8fb34bc7e1e1117977e0a512fcf7a1e0d9893a454fe40db12b1f0d3f2875",
+      "timing": "/tmp/p13-owner-make1.time",
+      "failed_test": "internal/authoringengine.TestPrivateRootMustBeExactModeAndDisjoint",
+      "assertion": "acquisition_test.go:108: mode private root error = <nil>",
+      "diagnosis": "Owner wrapper umask077 changed deliberately unsafe directory permissions; focused normal-umask proof pending; no production edit or unchanged retry."
+    },
+    {
+      "ordinal": 11,
+      "argv": [
+        "go",
+        "test",
+        "./internal/authoringengine",
+        "-run",
+        "^TestPrivateRootMustBeExactModeAndDisjoint$",
+        "-count=1",
+        "-timeout=110s",
+        "-v"
+      ],
+      "state": "PASS_NORMAL_UMASK_ENVIRONMENT_CORRECTION",
+      "seconds": 1.79,
+      "package_seconds": 0.079,
+      "exit_code": 0,
+      "umask": "022",
+      "source_changed": false
+    },
+    {
+      "ordinal": 12,
+      "owner_expensive_ordinal": 2,
+      "argv": [
+        "make",
+        "check"
+      ],
+      "cwd": "/home/peter/Workspace/openudon",
+      "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+      "state": "PASS_FULL_OWNER_CHECK",
+      "exit_code": 0,
+      "seconds": 59.1,
+      "umask": "022",
+      "original_process_waited": true,
+      "log": "/tmp/p13-owner-make2.log",
+      "log_sha256": "47320aefa2e24776749d3490d5ed29c8182aedd981c23cb690705cd0743bd7ef",
+      "reused_cache_valid_passes": true
+    },
+    {
+      "ordinal": 13,
+      "argv": [
+        "go list -m -json all",
+        "go list -deps -export -compiled -json ./packagev3 ./runevidence ./approval ./browsercontract ./browserverify ./browsertransaction ./handoff",
+        "go mod verify"
+      ],
+      "state": "PASS_PUBLIC_COMPILED_CLOSURE_AND_MODULE_INTEGRITY",
+      "seconds": 5.82,
+      "exit_code": 0,
+      "original_process_waited": true
+    },
+    {
+      "ordinal": 14,
+      "state": "PASS_APPROVED_ORDINARY_MODULE_ACQUISITION",
+      "seconds": 6.43,
+      "exit_code": 0,
+      "original_process_waited": true,
+      "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+      "version": "v0.1.1-0.20261017191049-5f2104652a7e"
     }
   ],
   "four_regression_functions": [
@@ -171,14 +270,101 @@
     "physical_browser": "not run; M53.4 retains failure3 stop",
     "actual_Kinet_worker_native_composition": "deferred to M53.22 published adoption",
     "race": "not required; no concurrency change",
-    "full_make_check": "deferred to closure candidate in normal primary sibling layout"
+    "full_make_check": "Owner successor12 PASS59.10s; first wrapper-umask failure10 and focused correction11 retained"
   },
-  "evidence_limits": "Invocation results come from assigned implementer tool observations in this session; no independent per-invocation raw log files were saved. Red input files were not frozen separately; green six-file hashes above are current frozen inputs. No claim of physical behavior, runtime revocation, host custody or ordinary published adoption.",
+  "evidence_limits": "Executed public producer library/compatibility/owner/compiled-closure and independently published ordinary module source proof. No claim of actual Kinet worker/native composition, host custody, runtime revocation or physical browser behavior; M53.22/M53.4 retain those gates. Red inputs were not independently frozen; initial fixture equality assertion correction is retained. No signed checksum database claim.",
   "audit_enabled": false,
   "compatibility_classification": {
     "newly_executed": "approval/browserverify/browsertransaction/handoff/publicapi frozen surfaces and import boundary; scoped vet",
     "reused": "P13.1 complete public fixture receipt/authority/report/evidence and schema/golden/history/default/rawreuse/save controls",
     "worker_facing_only": "actual Kinet public handler/native/currentness not executed; named M53.22 gate",
     "physical": "none; M53.4 remains failure3 stop"
+  },
+  "owner_check_correction": {
+    "cause": "fixture requests0750;077changed itto0700;022preserves0750",
+    "independent_readiness": {
+      "state": "READY",
+      "reviewer": "/root/p13_row2_review",
+      "findings": []
+    },
+    "successor": "same source/check/tool/cache/deadline; logs precreated0600 then test umask022",
+    "all_six_frozen_inputs_unchanged": true
+  },
+  "public_closure": {
+    "state": "PASS",
+    "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+    "selected_modules": 91,
+    "compiled_packages": 373,
+    "compiled_modules": 35,
+    "exports_hashed": 372,
+    "nonstandard_source_files_hashed": 923,
+    "source_file_inventory_sha256": "845a6a25d25f3b264d9f051228923605d675a5818ddc647550cbb3dda863a7ff",
+    "compiled_exports_inventory_sha256": "39a2bdf83a5e48328777ebfb91194a0c65a3c856eff437d3c33400bbc35b6e28",
+    "private_runtime_or_owner_internal_packages": [],
+    "module_replacements": [],
+    "cached_module_integrity": "native go mod verify: all modules verified",
+    "dependency_locks": "go.mod and go.sum byte-identical to accepted P12 closure a4baf505; prior ordinary producer archive/source provenance retained, no new dependency",
+    "ordinary_P13_module": "Exact independently published5f210465 module acquired and fully1697file/nativeH1 verified; actual Kinet adoption remains M53.22",
+    "metadata": {
+      "/tmp/p13-owner-modules.json": "4802aa1905c13237a7f20ced42c0ed061c7bb852e7cab75a2a65553e60ac92e7",
+      "/tmp/p13-public-packages.json": "b08978d563fb249175d37c3b0930a4e784140edeef8eff4a40c8409ffff0d118",
+      "/tmp/p13-mod-verify.log": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd"
+    },
+    "compiled_exports_inventory_encoding": "SHA256 of compact sort_keys JSON ordered list [{package: ImportPath, sha256: export-file SHA256}] in original go-list stream order; includes standard and nonstandard packages with Export"
+  },
+  "publication": {
+    "state": "SOURCE_PUBLISHED_AND_INDEPENDENTLY_VERIFIED",
+    "grant_id": "global-push-openudon",
+    "executor": "coordinator",
+    "repository": "/home/peter/Workspace/openudon",
+    "remote": "git@github.com-tabilet:OpenUdon/openudon.git",
+    "ref": "refs/heads/main",
+    "mode": "fast-forward",
+    "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+    "version": "v0.1.1-0.20261017191049-5f2104652a7e",
+    "remote_before": "53191bc0d9fb6bfdae130e3af41f28beaa3e39b2",
+    "source_push_invocations": 1,
+    "readiness_reviewer": "/root/p13_row1_review",
+    "milestone_accepted": false,
+    "module_acquisition": "PASS6.43s plus complete source/ZIP/extracted/nativeH1 verification; firstsuccess end1used1unusedterminated0remaining",
+    "push_exit_code": 0,
+    "original_process_waited": true,
+    "remote_after": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+    "verification": "Separate post-push Git ls-remote returned exact source refs/heads/main; no force/history rewrite"
+  },
+  "ordinary_module": {
+    "state": "PASS_COMPLETE_ORDINARY_GIT_ZIP_EXTRACTED_NATIVE_H1",
+    "revision": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+    "version": "v0.1.1-0.20261017191049-5f2104652a7e",
+    "native_go_origin": {
+      "VCS": "git",
+      "Hash": "5f2104652a7ef40e60cc04ce70e4b63206864f87"
+    },
+    "independent_vcs_cache_origin": "https://github.com/OpenUdon/openudon",
+    "publication": "Exact remote main independently verified after successful source push",
+    "git_tree": "3b0fee9fe5ad7116867aca3233f5e395857931ff",
+    "git_files": 1697,
+    "zip_files": 1697,
+    "extracted_files": 1697,
+    "module_sum": "h1:Mi/BsTPiQpATvzT+bhtWn0jv2E0MrRyUJC44ICMNsx8=",
+    "go_mod_sum": "h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g=",
+    "artifact_sha256": {
+      "Info": "001c126cf000fdc3955b3b0596848969c05fdd0ae68c489e7109be9c54c379c6",
+      "GoMod": "687fbc2745c7f93714c9b5a0fd3b2248768006660e54019a006fc6a026130694",
+      "Zip": "7cd760d8f3a00dd11cc58ea76f1e055f5fd06d584c223047c5adefde5e33626c"
+    },
+    "archive_bytes": 5194184,
+    "native_output_sha256": "24058e3976b97c4ba022838b34759996278b1814fc414b981ab45178f2002032",
+    "signed_checksum_database_verified": false,
+    "scope_sha256": "2504d1f3384a7e02b18ec9cf58f225aca25b0ed024993abdaa3b02d40c0a741e",
+    "acquisition_seconds": 6.43,
+    "acquisition_exit_code": 0,
+    "original_process_waited": true,
+    "attempts_consumed": 1,
+    "unused_attempts_terminated": 1,
+    "remaining_attempts": 0,
+    "termination": "first verified success",
+    "actual_Kinet_adoption": "M53.22 pending; no directory/workspace replacement",
+    "audit_enabled": false
   }
 }
