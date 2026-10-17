@@ -1,6 +1,6 @@
 # P13 — Public saved-session authority and fallback evidence
 
-**State:** P13.1 complete at fresh task review1; P13.2/.3 pending. Whole review0/10.
+**State:** P13.1 accepted at `7356d428a406100105d843bbf526ae1b5867d47d`/task review1; P13.2 complete at fresh task review1; P13.3 pending. Whole review0/10.
 **Baseline:** `53191bc0d9fb6bfdae130e3af41f28beaa3e39b2`, clean primary at intake.
 **Coordinator:** Kinet Stage12; one coordinator writes all ledgers. Audit disabled.
 Read the owning [specification](milestone.md#p13--public-saved-session-authority-and-fallback-evidence)
@@ -21,13 +21,14 @@ whole-milestone review iteration.
 | Item | State | Notes |
 |---|---|---|
 | P13.1 — Repair authority and observed fallback rights with deterministic regressions | `[+]` | Reproduce fixed-clock expiry rejection, then preserve immutable configuration and current execution approval while permitting native pre-dispatch missing/expired-to-fresh attenuation. Verify complete report/evidence rights, no saved access or save on fallback, post-send refusal and all exact binding/hash/clock negatives. Implementation and focused regression coverage form one coherent unit; no browser/private import/schema widening. |
-| P13.2 — Qualify public worker and consumer contract compatibility | `[ ]` | Exercise finalized receipt/Derive/Check and Observe/Verify transitions in disposable offline consumer fixtures. Preserve existing public golden bytes/history/defaults and expose exact compatibility expectations for Kinet currentness/native adoption; fixtures do not substitute for M53.22 actual published adoption. |
+| P13.2 — Qualify public worker and consumer contract compatibility | `[+]` | Exercise finalized receipt/Derive/Check and Observe/Verify transitions in disposable offline consumer fixtures. Preserve existing public golden bytes/history/defaults and expose exact compatibility expectations for Kinet currentness/native adoption; fixtures do not substitute for M53.22 actual published adoption. |
 | P13.3 — Qualify exact closure and hand off the producer | `[ ]` | Required full owner checks, public/private closure, immutable source compatibility evidence and exact publication/ordinary-module handoff under matching authority. Reconcile M53.22 and A32; preserve every M53.4 obligation. Fresh whole review remains mandatory before acceptance/retirement. |
 
 ## Verification and review
 
-No implementation or test has run for this new milestone. Expensive attempts0;
-task reviews0; whole review0/10. Reuse valid immutable prerequisite evidence.
+Nine local verification invocations are recorded below and in the qualification.
+P13.1 task review1 passes; P13.2 task review1 passes; whole review0/10.
+The full expensive owner check has not run. Reuse valid immutable evidence.
 Do not reset originating M53.4 counts or infer physical acceptance. Requirements,
 status and planning approval do not grant new external actions. The original
 goal's model/integration/commit policies and mandatory fresh reviews apply.
@@ -43,3 +44,7 @@ Original M53.4 remains blocked at physical failure3. Audit disabled.
 ## P13.1 verification checkpoint
 
 Seven local verification invocations are recorded in [qualification](../../docs/p13-qualification.json): two environment setup failures (no tests), one compile-only pass, two deterministic red checks (including a corrected positive-fixture equality assertion), four-regression green3.65s and all affected package tests PASS20.15s. Exact six-file green inputs are frozen; fresh task review1 PASS, no findings across all five lenses; whole review0/10. No concurrency change requires race. This is public-library behavior, not Kinet worker/native adoption or physical proof. Audit disabled.
+
+## P13.2 compatibility checkpoint
+
+Public compatibility batch invocation8 PASS1.76s and scoped vet9 PASS1.87s/no diagnostics; exact source/test/contract inputs remain frozen. Existing strict schema, wire/golden/history/default and public boundary fixtures pass. P13.1 behavioral evidence is reused without repeating it. These are worker-facing public API fixtures, not an actual Kinet worker/native admission: M53.22 owns that after published adoption. Fresh task review1 PASS across all five lenses/no findings; no new implementation or physical evidence is claimed.
