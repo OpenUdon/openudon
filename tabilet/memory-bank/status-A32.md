@@ -4,7 +4,7 @@
 accepted/published OpenUdon:P13 and accepted Kinet:M53. Preserve the public
 requested-authority/observed-fallback-rights contract and its deterministic
 expiry/evidence regressions through A32.1 inventory and A32.5 verification.
-No A32 row or review state changes. P13 is pending, not an acceptance claim.
+P13 is now accepted/retired at whole review1 with exact source5f210465 and complete ordinary-module proof. Preserve its public regression contracts; A32 rows/review remain pending on accepted Kinet:M53. Normal P13 closure publication is verified before consumer adoption.
 
 **P12 public preservation gate — 2026-10-13.** Depend on accepted/published
 OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories

@@ -1,16 +1,19 @@
 # AGENTS.md
 
-**Current P13 public contract recovery — 2026-10-17.**
-P13.1 fixes immutable saved-session authority/current-run semantics and strict
-observed fallback rights; P13.2 preserves public compatibility. Both source
-units pass fresh task review1 and are locally integrated at
-`5f2104652a7ef40e60cc04ce70e4b63206864f87`. Full owner check2 and public
-compiled closure pass; owner check1's environment failure is retained.
-P13.3 exact publication/ordinary-module handoff passes1697file/nativeH1 proof
-and fresh task review1. Whole review remains open, so P13 is not accepted/retired. Kinet:M53.22 waits for that exact producer;
-M53.4 stays blocked at physical failure3. A32 waits for P13 and accepted M53.
-Eight active milestones/49 rows (required3/30, conditional5/19); no new protected
-authority or audit activation. Earlier checkpoints below are historical.
+**Accepted P13 public producer — 2026-10-17.** Three rows pass task reviews1/1/1
+and fresh Sol xhigh whole review1, no unresolved findings. Exact source
+`5f2104652a7ef40e60cc04ce70e4b63206864f87` and ordinary module
+`v0.1.1-0.20261017191049-5f2104652a7e` are independently published/verified;
+complete1697Git/ZIP/extracted/nativeH1 and public compiled closure pass. Retired
+P13 preserves all15 checks, including setup/red/umask failures. Normal closure
+publication is pending before Kinet:M53.22 dispatch. M53.4 remains blocked at
+physical failure3; its counters, unknowns and ended grants stay unchanged.
+Remaining order: Kinet:M53 (adoption22, then original4/5) → OpenUdon:A32,
+then the five unchanged conditionals. Seven active milestones/46 rows
+(required2/27, conditional5/19); cumulative26/123 unchanged. Audit disabled.
+Earlier dated checkpoints below are historical.
+
+[Retired P13](tabilet/docs/history/status-P13.md) and [qualification](docs/p13-qualification.json) retain the exact accepted source and proof.
 
 ## Approved P12 authentication timeout reconciliation
 

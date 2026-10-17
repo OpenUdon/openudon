@@ -1,6 +1,6 @@
 {
   "version": "openudon.p13.qualification.v1",
-  "state": "All three P13 rows pass fresh task review1; P3 current-wording corrections applied; whole review0/10 not yet started",
+  "state": "Accepted locally after all3taskreviews1/1/1 and whole1; source and ordinary module independently published/verified; normal retirement closure publication pending",
   "review": "M53 contract/final-qualification recovery review, 2026-10-17",
   "baseline": "7a7e24973b016a4772634313e2ce8b743371f7aa",
   "upstream_intake_baseline": "53191bc0d9fb6bfdae130e3af41f28beaa3e39b2",
@@ -66,7 +66,7 @@
       "independent_checks": "All1697Git/ZIP/extracted bytes/nativeH1, source/log/metadata hashes and both closure inventory hashes verified read-only"
     }
   },
-  "whole_review": 0,
+  "whole_review": 1,
   "attempts": [
     {
       "ordinal": 1,
@@ -237,6 +237,25 @@
       "original_process_waited": true,
       "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
       "version": "v0.1.1-0.20261017191049-5f2104652a7e"
+    },
+    {
+      "ordinal": 15,
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon",
+      "source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+      "state": "PASS_FULL_OWNER_VET_ZERO_DIAGNOSTICS",
+      "exit_code": 0,
+      "seconds": 10.01,
+      "original_process_waited": true,
+      "log": "/tmp/p13-owner-vet1.log",
+      "log_bytes": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cap_seconds": 120,
+      "reason": "Complete missing required full-owner gate within whole review1; source/tests unchanged"
     }
   ],
   "four_regression_functions": [
@@ -270,7 +289,8 @@
     "physical_browser": "not run; M53.4 retains failure3 stop",
     "actual_Kinet_worker_native_composition": "deferred to M53.22 published adoption",
     "race": "not required; no concurrency change",
-    "full_make_check": "Owner successor12 PASS59.10s; first wrapper-umask failure10 and focused correction11 retained"
+    "full_make_check": "Owner successor12 PASS59.10s; first wrapper-umask failure10 and focused correction11 retained",
+    "full_owner_vet": "Invocation15 PASS10.01s/exit0/zero diagnostics; required missing gate completed within whole review1"
   },
   "evidence_limits": "Executed public producer library/compatibility/owner/compiled-closure and independently published ordinary module source proof. No claim of actual Kinet worker/native composition, host custody, runtime revocation or physical browser behavior; M53.22/M53.4 retain those gates. Red inputs were not independently frozen; initial fixture equality assertion correction is retained. No signed checksum database claim.",
   "audit_enabled": false,
@@ -365,6 +385,34 @@
     "remaining_attempts": 0,
     "termination": "first verified success",
     "actual_Kinet_adoption": "M53.22 pending; no directory/workspace replacement",
-    "audit_enabled": false
+    "audit_enabled": false,
+    "accepted_producer_source": true
+  },
+  "whole_review_state": "PASS",
+  "whole_review_input": "95e066ea526d91c9bdd60faa78bab1763c149294",
+  "whole_review_report": {
+    "iteration": 1,
+    "reviewer": "/root/p13_whole_review1",
+    "model": "gpt-6.1-sol xhigh",
+    "state": "PASS",
+    "unresolved_findings": [],
+    "lenses": {
+      "correctness/reliability": "PASS",
+      "security/privacy": "PASS",
+      "compatibility/contracts": "PASS",
+      "tests/documentation": "PASS",
+      "acceptance/scope": "PASS"
+    },
+    "independent_proof": "All1697Git/ZIP/extracted/nativeH1; six source hashes; complete source/export inventories; no private/internal/replacement; full-owner vet15 and current documentation corrected during same iteration."
+  },
+  "accepted_source": "5f2104652a7ef40e60cc04ce70e4b63206864f87",
+  "retirement": {
+    "state": "LOCAL_COMPLETE_NORMAL_CLOSURE_PUBLICATION_PENDING",
+    "observed_head": "95e066ea526d91c9bdd60faa78bab1763c149294",
+    "status_sha256": "1b4324aa0ca56265d88eeb66ed7129eed04df11d66389c81e14caa7355a43b94",
+    "specification_sha256": "d7e55cc301f123c09d77f0924cb466e7910fecade6fe92f5546584e751e30400",
+    "retired_record_sha256": "601ade8bf85430e35a5e09a55767e4250c4fa1e6c0fb1b457651480736a45988",
+    "retained_documents_compared_before_removal": true,
+    "review_iterations": 1
   }
 }

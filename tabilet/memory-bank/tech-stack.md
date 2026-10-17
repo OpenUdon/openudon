@@ -1,5 +1,9 @@
 # Tech Stack
 
+## Accepted P13 public session authority regression
+
+Existing Go1.26.6/tools/modules qualify the public authority/evidence repair without dependency, wire or schema changes. Fixed-clock regressions, strict Observe/Verify controls, existing public compatibility/goldens/history, full owner Make and `go vet ./...`, native module integrity and compiled public closure pass. Exact published source5f210465/ordinary module proof compares1697Git/ZIP/extracted files and nativeH1; no signed checksum-database claim. All15 invocations and the failed umask check remain recorded. Actual Kinet worker/native composition stays M53.22 and physical proof stays M53.4. See [qualification](../../docs/p13-qualification.json) and [retired P13](../docs/history/status-P13.md).
+
 ## Accepted P12 offline timing regression
 
 P12 adds public timeout and provenance regressions using the retained exact

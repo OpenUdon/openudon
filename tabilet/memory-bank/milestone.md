@@ -1,75 +1,17 @@
 # Milestone
 
-**Current approved contract recovery — 2026-10-17.**
-OpenUdon:P13 → Kinet:M53.22 → the existing M53.4 release gate → M53.5 →
-M53 whole review → OpenUdon:A32. P13 repairs public saved-session authority
-and fallback evidence; M53.22 adopts the exact published producer and proves
-the complete approval/currentness/native-fallback path offline. Neither is
-accepted yet. M53.4 stays `[!]` at three consecutive physical failures; its
-standing pool remains 2 consumed / 1 blocked, with no browser continuation.
-Row4 checks101 / goal release checks109 / physical17, scope changes15 consumed /
-15 remaining, named exceptions10 consumed, task4 review0 / whole review0 are
-preserved. P17's actual save/raw reuse and first backup remain evidence at
-their exact inputs; its third-call admission/Wait gaps remain gaps.
-Eight active milestones / 49 rows (required3/30, conditional5/19), cumulative
-26/123 (required20/101, conditional6/22), including closed-withdrawn M53.20.
-Conditional triggers, registration-execution denial and all prior outcomes
-remain unchanged. Audit disabled. Earlier dated checkpoints below are historical;
-the owning statuses and current qualification record determine readiness.
-
-### P13 — Public saved-session authority and fallback evidence
-
-**Stage/owner:** Kinet STG-12 Phase B; OpenUdon. Required corrective producer.
-**Depends on:** accepted P10/P11/P12 contracts; immutable Kinet M53.21 and
-adopted native Udon source `46e526a44d3cadcbcd8eccff9aae8d8bb0aa9f07` as
-read-only compatibility inputs. No dependency on completed Kinet:M53.
-**Downstream impacts:** Kinet:M53.22 and original M53.4; OpenUdon:A32.
-**Parallel-safe:** no; serialize its source/contract adoption. Coordinator-only
-ledger writes; implementation in an isolated `goal/P13` worktree under the
-resolved Stage 12 goal. Capture actual primary/ref/full baseline before dispatch.
-**Write set:** public packagev3/browsercontract/runevidence implementation and
-focused tests, ordinary public contract docs/qualification, and coordinator-owned
-P13/shared-memory planning records. No private-runtime import, legacy removal,
-browser harness, consumer pin change or sibling implementation.
-**Contracts read:** existing public config/receipt/authority/report schemas,
-immutable P12 and native fallback source, Kinet approval/session consumer snapshot.
-
-M53 contract/final-qualification recovery review, 2026-10-17.
-Source priorities were not supplied. Revalidated at Kinet
-`68c3c08a03b063789e70f1e37039c09c3fe7f598` with existing unfinished M53.4
-fixtures/records, and OpenUdon `53191bc0d9fb6bfdae130e3af41f28beaa3e39b2`
-(clean primary). Its `packagev3/browser_authority.go` matches the adopted P12
-module. Human approval: “I approve this contract-repair and
-qualification-replanning work first.” This is review intake, not a task or
-whole-milestone review iteration.
-
-F01 (confirmed P2) repairs `packagev3/browser_authority.go`'s unconditional
-saved-session expiry refusal while preserving complete immutable config/hash,
-receipt, current execution clock and calls. The authority is review metadata,
-not saved-state access. Missing/expired payload may select fresh only before
-dispatch, with both observed reuse/save rights false and unchanged binding.
-Validate independent report/evidence attenuation in `runevidence/browser.go`,
-including forged retained rights, fallback-after-send and save-on-fallback
-negative cases. Do not add a new schema or delete a guard without the full
-contract proof. Kinet retains custody/revocation and native runtime access.
-
-**Acceptance:** fixed-time before/at/after-expiry authority and receipt tests;
-current execution deadline/approval, creation time, exact hash/calls and unchanged
-generation checks; missing/expired fresh result/evidence validation; forged
-rights/save/post-send rejection; unchanged valid fresh/live reuse and existing
-public golden/wire/history/default behavior. Actual Kinet adoption is M53.22,
-physical proof M53.4. Public owner tests never import private Udon.
-**Expensive checks:** cheapest offline deterministic reproduction first, then
-focused affected packages (30-second target/2-minute cap); race only for changed
-concurrency (5-minute cap); one full owner `make check`/required closure candidate
-within 20 minutes after focused proof. Use cached tools/modules with network off,
-no browser/display/snapshots/new caches. Cheap local diagnostics are separate
-from counted expensive checks; preserve failed attempts and stop gates.
-**Review/publication:** normal task reviews plus fresh whole review, initially
-0/10; no substitution for M53 review0. Exact ordinary published producer proof
-is a consumer prerequisite, performed only under independently matching existing
-grants or a separately prepared/approved scope. No exhausted P12 grant transfer.
-**Tasks:** [status-P13.md](status-P13.md), three rows; all three rows pass fresh task review1; whole review0/10 pending.
+**Accepted P13 public producer — 2026-10-17.** Three rows pass task reviews1/1/1
+and fresh Sol xhigh whole review1, no unresolved findings. Exact source
+`5f2104652a7ef40e60cc04ce70e4b63206864f87` and ordinary module
+`v0.1.1-0.20261017191049-5f2104652a7e` are independently published/verified;
+complete1697Git/ZIP/extracted/nativeH1 and public compiled closure pass. Retired
+P13 preserves all15 checks, including setup/red/umask failures. Normal closure
+publication is pending before Kinet:M53.22 dispatch. M53.4 remains blocked at
+physical failure3; its counters, unknowns and ended grants stay unchanged.
+Remaining order: Kinet:M53 (adoption22, then original4/5) → OpenUdon:A32,
+then the five unchanged conditionals. Seven active milestones/46 rows
+(required2/27, conditional5/19); cumulative26/123 unchanged. Audit disabled.
+Earlier dated checkpoints below are historical.
 
 When `tabilet/stages.md` exists, it records stable `STG-` IDs, the current
 stage, and provisional later ideas. Give each active milestone specification
@@ -544,7 +486,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P13 | Public saved-session authority and fallback evidence | [status-P13.md](status-P13.md) | All three rows qualified; whole review pending (STG-12; prerequisite to Kinet:M53.22) |
 | A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12; follows P12 and Kinet:M53) |
 
 ## Requested Changes After Initialization

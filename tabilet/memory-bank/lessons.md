@@ -22,6 +22,14 @@ without erasing earlier completed evidence or banning independent save on other
 failure paths. Evidence: [P10](../docs/history/status-P10.md),
 runevidence/browser_review3_test.go and exact frozen M51 controls.
 
+P13 additionally distinguishes the saved payload's lifetime from a freshly
+approved execution. Keep the original binding/expiry and requested permission
+ceilings; missing/expired-to-fresh access narrows effective reuse/save tofalse
+before any send. Verify the complete authority/report/evidence path and reject
+forged retained rights or saves. Current generation/revocation and raw-state
+eligibility stay with the native host. [P13](../docs/history/status-P13.md)
+qualifies these public contracts; consumer execution is a separate gate.
+
 ## Preserve qualification lineage after interrupted work
 
 Do not convert partial logs or missing old artifacts into successful receipts.
@@ -358,3 +366,5 @@ pins does not prove their selection. M99 ordinary private proof explicitly keeps
 all four accepted Udon alignment pins and verifies its actual 34,974 files.
 Retain preliminary local graphs and failed test contexts under their original
 identities, then qualify the corrected context without relabeling old results.
+
+P13 owner qualification also demonstrates an environment pitfall: process-wide umask077 turned an intentionally0750 negative fixture into0700. Protect logs by their0600 file modes and preserve the test baseline umask; diagnose actual mode before changing production validation. The focused correction and subsequent full check are preserved in [P13 qualification](../../docs/p13-qualification.json).
