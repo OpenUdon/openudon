@@ -6240,3 +6240,46 @@ Remaining order: OpenUdon:P12 → Kinet:M52 → Kinet:W21 → Kinet:U15 → Kine
 
 P12 intake exposed another preparation boundary: the same authentication operation needs an authored finite timeout natively while the frozen public flat predicate refuses every timeout. Qualify the exact public package workflow through both public proof and isolated pure native Compile/CheckSupported with authentication plus read/write leaves and zero effect callbacks. Producer source fixtures and ordinary published consumer adoption remain separate evidence. Preserve old untimed public proof/history and report native unsupported behavior truthfully; never modify already approved bytes. [P12](status-P12.md) owns the planned correction, not a claimed pass.
 `````
+
+
+## P13 public saved-session authority contract correction — 2026-10-17
+
+The former public contract incorrectly required live saved-state expiry at authority derivation. The reviewed replacement distinguishes immutable requested permissions from observed native access and requires missing/expired-to-fresh rights attenuation. Full superseded wording and replacement are preserved in this source diff; current contract remains docs/browser-package-v3.md. Producer acceptance, publication and Kinet adoption are separate.
+
+```diff
+diff --git a/docs/browser-package-v3.md b/docs/browser-package-v3.md
+index 19ada82..2206de8 100644
+--- a/docs/browser-package-v3.md
++++ b/docs/browser-package-v3.md
+@@ -126,8 +126,13 @@ receipt byte hash, then compute its complete lossless canonical hash and
+ Authority. `DeriveBrowserAuthority` requires a verified package, native runtime
+ admission, independently expected current Config, exact finalized receipt,
+ separately confirmed plan hash and explicit host time. It reproduces every
+-browser call and refuses changed bytes/identities, expired deadlines, stale
+-sessions and widened origins/credentials/reuse/save permissions. Existing
++browser call and refuses changed bytes/identities, expired execution deadlines,
++future session creation and widened origins/credentials/reuse/save permissions.
++The original saved-session expiry remains immutable metadata: authority may be
++derived before, at or after that expiry under a current finalized execution
++receipt and deadline. Native acquisition and host custody/revocation checks
++decide actual saved-state eligibility; authority never renews its lifetime or
++clears approved configuration permissions. Existing
+ `CheckExecutionApproval` refuses any browser leaf; old approvals never transfer.
+
+ Config contains names/revisions and opaque independent host references only.
+@@ -182,9 +187,11 @@ Independent launch witnesses must carry the observed native containment's nonce,
+ worker identity/closure and driver closure. Expected Config and opaque fact
+ references cannot stand in for these actual facts. Reuse/save additionally need
+ an observed exact durable access lease and binding identity/generation/timestamps.
+-Observed permissions may narrow approved rights on missing/expired-to-fresh
+-fallback; that fallback stays before launch and all dispatch, on the same access
+-binding. A narrowed save permission cannot produce a candidate or durable save.
++Missing/expired-to-fresh fallback requires both observed reuse and save
++permissions to be false; that fallback stays before launch and all dispatch,
++on the same access binding with unchanged generation and timestamps. It cannot
++produce a candidate or durable save. The approved Config retains its exact
++original permissions and hash separately from observed actual access rights.
+ Fresh-only work may omit acquisition and requires no invented durable lease.
+ Actual M56/M52 adapters project native observed facts; the immutable test vectors
+ use explicitly labeled fixture-only projections and establish no containment.
+```

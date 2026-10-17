@@ -1,0 +1,129 @@
+{
+  "version": "openudon.p13.qualification.v1",
+  "state": "P13.1 source/regression unit accepted at fresh task review1; P13.2/.3 pending",
+  "review": "M53 contract/final-qualification recovery review, 2026-10-17",
+  "baseline": "7a7e24973b016a4772634313e2ce8b743371f7aa",
+  "upstream_intake_baseline": "53191bc0d9fb6bfdae130e3af41f28beaa3e39b2",
+  "human_approval": "I approve this contract-repair and qualification-replanning work first; continue after Sol high switch",
+  "source_files": {
+    "packagev3/browser_authority.go": "aba16749b28b0b5acb38e38c56a4597ddf6ce037ce39a8283eae9a0dde3e1854",
+    "packagev3/browser_authority_test.go": "7cfb0c0c4c75250fbf52f96933fcfe74fe1bdccda2486dfee9a244e4fb313f77",
+    "packagev3/browser_authority_expiry_test.go": "a6237711311cfdd365ff6de39cb076d1124b3c39e22b03e831b08b98641da0ed",
+    "runevidence/browser.go": "d3bb917a394362b363f48005859321b3160a2e8868c970f9003fe6eb4a631ce4",
+    "runevidence/browser_fallback_test.go": "93a5d7fadb840192d948631ad2665150436b42263256d6b5b30734823d60ae62",
+    "docs/browser-package-v3.md": "27662209b5ed4e6eecdccfb83fd392f7132249a7c1008da002c474591aecbe4a"
+  },
+  "diff_sha256": "7f04aa0b58ca37379ca64d06eaeff2225297c857ec649a489ebd70b29f6428f5",
+  "implementer": "/root/p13_contract_repair",
+  "model": "gpt-6.1-sol high",
+  "task_reviews": {
+    "P13.1": {
+      "iteration": 1,
+      "state": "PASS",
+      "reviewer": "/root/p13_row1_review",
+      "lenses": [
+        "correctness/reliability",
+        "security/privacy",
+        "compatibility/contracts",
+        "tests/documentation",
+        "acceptance/scope"
+      ],
+      "findings": [],
+      "evidence": "Complete six-file base diff including untracked tests verified independently; tests supplied from implementer observations, no independent rerun."
+    }
+  },
+  "whole_review": 0,
+  "attempts": [
+    {
+      "ordinal": 1,
+      "command": "go test -run ^$ ./packagev3 ./runevidence",
+      "cache": "default",
+      "state": "SETUP_FAILURE_BUILD_CACHE_READ_ONLY",
+      "seconds": 0.02,
+      "tests_executed": false
+    },
+    {
+      "ordinal": 2,
+      "command": "go test -run ^$ ./packagev3 ./runevidence",
+      "cache": "default with tool escalation",
+      "state": "SETUP_FAILURE_EXACT_MODULES_MISSING",
+      "seconds": 0.08,
+      "tests_executed": false
+    },
+    {
+      "ordinal": 3,
+      "command": "go test -run ^$ ./packagev3 ./runevidence",
+      "state": "PASS_COMPILE_ONLY",
+      "seconds": 4.02,
+      "tests_executed": false
+    },
+    {
+      "ordinal": 4,
+      "command": "go test ./packagev3 ./runevidence -run <four new regression functions> -count=1 -timeout=110s",
+      "state": "RED_AUTHORITY_EXPECTED_AT_AFTER_EXPIRY_AND_FIXTURE_EQUALITY_ASSERTION",
+      "seconds": 2.79,
+      "notes": "Production baseline unchanged; before expiry passed. Positive fallback comparison initially needed canonical digest instead of decoded nil/empty equality; corrected before the next test."
+    },
+    {
+      "ordinal": 5,
+      "command": "go test ./runevidence -run ^TestBrowserSavedFallbackRequiresZeroObservedRights$ -count=1 -timeout=110s",
+      "state": "RED_SIX_RETAINED_RIGHTS_CASES_WRONGLY_ACCEPTED_BY_OBSERVE_AND_VERIFY",
+      "seconds": 0.88
+    },
+    {
+      "ordinal": 6,
+      "command": "go test ./packagev3 ./runevidence -run <four new regression functions> -count=1 -timeout=110s",
+      "state": "GREEN_FOUR_REGRESSIONS",
+      "seconds": 3.65,
+      "package_seconds": {
+        "packagev3": 1.84,
+        "runevidence": 0.216
+      }
+    },
+    {
+      "ordinal": 7,
+      "command": "go test ./packagev3 ./runevidence -count=1 -timeout=110s",
+      "state": "PASS_ALL_AFFECTED_PACKAGE_TESTS",
+      "seconds": 20.15,
+      "package_seconds": {
+        "packagev3": 19.257,
+        "runevidence": 0.859
+      }
+    }
+  ],
+  "four_regression_functions": [
+    "TestBrowserAuthoritySavedExpiryDoesNotExpireCurrentExecution",
+    "TestBrowserAuthorityExpiredSavedMetadataRetainsAllRefusals",
+    "TestBrowserSavedFallbackRequiresZeroObservedRights",
+    "TestBrowserSavedFallbackRejectsBrokenLifecycleAndBinding"
+  ],
+  "environment": {
+    "go": "1.26.6 cached pinned toolchain",
+    "GOMODCACHE": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache",
+    "GOCACHE": "/home/peter/.cache/go-build",
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GONOPROXY": "none",
+    "GOSUMDB": "off",
+    "GOAUTH": "off",
+    "GOVCS": "*:off",
+    "GOENV": "off",
+    "GOFLAGS": "-mod=readonly",
+    "GOTOOLCHAIN": "local",
+    "outer_timeout_seconds": 120
+  },
+  "coverage": {
+    "authority_saved_expiry_boundaries": 3,
+    "authority_negatives": 17,
+    "valid_fallback_paths": 2,
+    "retained_rights_negatives": 6,
+    "lifecycle_binding_negatives": 20,
+    "existing_affected_package_tests": "executed, passing",
+    "physical_browser": "not run; M53.4 retains failure3 stop",
+    "actual_Kinet_worker_native_composition": "deferred to M53.22 published adoption",
+    "race": "not required; no concurrency change",
+    "full_make_check": "deferred to closure candidate in normal primary sibling layout"
+  },
+  "evidence_limits": "Invocation results come from assigned implementer tool observations in this session; no independent per-invocation raw log files were saved. Red input files were not frozen separately; green six-file hashes above are current frozen inputs. No claim of physical behavior, runtime revocation, host custody or ordinary published adoption.",
+  "audit_enabled": false
+}

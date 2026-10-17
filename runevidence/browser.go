@@ -277,6 +277,12 @@ func ObserveBrowserReport(expected BrowserConfigV1, inventory udonreport.Invento
 			if expected.Session == nil || launchDone || anySent || joinDone || acquired != "" && !((acquired == "missing" || acquired == "expired") && e.Outcome == "fresh") {
 				return fail()
 			}
+			// Missing/expired saved state can only become fresh before dispatch,
+			// with neither actual reuse nor save permission. Requested Config
+			// and all immutable binding metadata remain unchanged.
+			if (acquired == "missing" || acquired == "expired") && host.SessionAccess != nil && (host.SessionAccess.Session.ReuseAllowed || host.SessionAccess.Session.SaveAllowed) {
+				return fail()
+			}
 			if access := host.SessionAccess; access != nil && (access.Session.ReuseAllowed && !call.ReuseAllowed || access.Session.SaveAllowed && !call.SaveAllowed || call.SessionName != access.Session.Name || call.Kind == "authentication" && call.SourceSHA256 != access.Binding.AuthenticationSHA256 || call.Kind == "action" && call.SourceSHA256 != access.Binding.ProfileSHA256) {
 				return fail()
 			}

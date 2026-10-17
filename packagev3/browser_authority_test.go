@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,12 @@ import (
 
 func browserAuthorityFixture(t *testing.T) (packagev3.VerifiedPackage, packagev3.ExecutionOptions, packagev3.BrowserAuthorityOptions) {
 	t.Helper()
-	p, err := packagev3.Build(context.Background(), browserOptions(t, browserVectors(t)[4]))
+	return browserAuthorityBuildFixture(t, browserOptions(t, browserVectors(t)[4]), nil)
+}
+
+func browserAuthorityBuildFixture(t *testing.T, options packagev3.BuildOptions, session *browsercontract.BrowserSessionV1) (packagev3.VerifiedPackage, packagev3.ExecutionOptions, packagev3.BrowserAuthorityOptions) {
+	t.Helper()
+	p, err := packagev3.Build(context.Background(), options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +40,17 @@ func browserAuthorityFixture(t *testing.T) (packagev3.VerifiedPackage, packagev3
 		t.Fatal(err)
 	}
 	c := browsercontract.BrowserConfigV1{Version: browsercontract.ConfigVersion, OwnerID: "owner", AgentID: "agent", RunID: "run", PackageSHA256: p.SHA256, HandoffSHA256: plan.HandoffSHA256, InputsSHA256: plan.InputsSHA256, ApprovalSHA256: strings.Repeat("d", 64), PlanSHA256: plan.PlanSHA256, WorkflowSHA256: p.Manifest.Workflow.SHA256, SupplementSHA256: p.Manifest.Browser.SHA256, Worker: browsercontract.BrowserWorkerV1{Profile: "fixture.exec.browser.v1", BinarySHA256: execution.Worker.BinarySHA256, ClosureSHA256: execution.Worker.ClosureSHA256, RuntimeRevision: execution.Worker.RuntimeRevision}, DriverClosureSHA256: strings.Repeat("e", 64), LaunchNonce: "launch", ContainmentLeaseID: "contained", AdmittedDeadline: "2026-10-10T00:05:00Z", Origins: append([]string{}, supplement.Calls[0].Origins...), ApprovedCalls: supplement.Calls, CredentialRevisions: []browsercontract.CredentialRevision{}, HostFactRefs: []string{"host:current-attempt"}}
+	c.Session = session
+	credentials := map[string]bool{}
+	for _, call := range c.ApprovedCalls {
+		for _, slot := range call.CredentialSlots {
+			credentials[slot.Name] = true
+		}
+	}
+	for name := range credentials {
+		c.CredentialRevisions = append(c.CredentialRevisions, browsercontract.CredentialRevision{Name: name, Revision: "fixture-revision"})
+	}
+	sort.Slice(c.CredentialRevisions, func(i, j int) bool { return c.CredentialRevisions[i].Name < c.CredentialRevisions[j].Name })
 	receipt, err := approval.ReviewBrowserConfig(c, "2026-10-10T00:00:00Z")
 	if err != nil {
 		t.Fatal(err)

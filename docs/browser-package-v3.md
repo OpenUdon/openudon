@@ -126,8 +126,13 @@ receipt byte hash, then compute its complete lossless canonical hash and
 Authority. `DeriveBrowserAuthority` requires a verified package, native runtime
 admission, independently expected current Config, exact finalized receipt,
 separately confirmed plan hash and explicit host time. It reproduces every
-browser call and refuses changed bytes/identities, expired deadlines, stale
-sessions and widened origins/credentials/reuse/save permissions. Existing
+browser call and refuses changed bytes/identities, expired execution deadlines,
+future session creation and widened origins/credentials/reuse/save permissions.
+The original saved-session expiry remains immutable metadata: authority may be
+derived before, at or after that expiry under a current finalized execution
+receipt and deadline. Native acquisition and host custody/revocation checks
+decide actual saved-state eligibility; authority never renews its lifetime or
+clears approved configuration permissions. Existing
 `CheckExecutionApproval` refuses any browser leaf; old approvals never transfer.
 
 Config contains names/revisions and opaque independent host references only.
@@ -182,9 +187,11 @@ Independent launch witnesses must carry the observed native containment's nonce,
 worker identity/closure and driver closure. Expected Config and opaque fact
 references cannot stand in for these actual facts. Reuse/save additionally need
 an observed exact durable access lease and binding identity/generation/timestamps.
-Observed permissions may narrow approved rights on missing/expired-to-fresh
-fallback; that fallback stays before launch and all dispatch, on the same access
-binding. A narrowed save permission cannot produce a candidate or durable save.
+Missing/expired-to-fresh fallback requires both observed reuse and save
+permissions to be false; that fallback stays before launch and all dispatch,
+on the same access binding with unchanged generation and timestamps. It cannot
+produce a candidate or durable save. The approved Config retains its exact
+original permissions and hash separately from observed actual access rights.
 Fresh-only work may omit acquisition and requires no invented durable lease.
 Actual M56/M52 adapters project native observed facts; the immutable test vectors
 use explicitly labeled fixture-only projections and establish no containment.

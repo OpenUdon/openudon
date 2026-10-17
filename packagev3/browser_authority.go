@@ -34,8 +34,11 @@ func DeriveBrowserAuthority(ctx context.Context, v VerifiedPackage, execution Ex
 	}
 	if c.Session != nil {
 		created, creationErr := time.Parse(time.RFC3339Nano, c.Session.CreatedAt)
-		expires, err := time.Parse(time.RFC3339Nano, c.Session.ExpiresAt)
-		if creationErr != nil || o.Now.Before(created) || err != nil || !o.Now.Before(expires) {
+		// Authority attests this execution's current receipt and unchanged
+		// metadata. Native acquisition decides whether saved state is usable
+		// or must fall back to fresh with no reuse/save rights. Validate below
+		// still checks the binding's original structural lifetime.
+		if creationErr != nil || o.Now.Before(created) {
 			return browsercontract.BrowserAuthorityV1{}, ErrPackage
 		}
 	}
