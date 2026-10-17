@@ -1,5 +1,11 @@
 # A32 — Legacy closure removal
 
+**P13 preservation prerequisite — 2026-10-17.** A32 additionally depends on
+accepted/published OpenUdon:P13 and accepted Kinet:M53. Preserve the public
+requested-authority/observed-fallback-rights contract and its deterministic
+expiry/evidence regressions through A32.1 inventory and A32.5 verification.
+No A32 row or review state changes. P13 is pending, not an acceptance claim.
+
 **P12 public preservation gate — 2026-10-13.** Depend on accepted/published
 OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories
 P12's public browser authentication predicate/plan path; A32.2/A32.5 preserve

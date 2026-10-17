@@ -1,5 +1,14 @@
 # AGENTS.md
 
+**Current approved P13 recovery — 2026-10-17.**
+The public saved-session authority/fallback repair is planned in P13 (three rows,
+review0); Kinet:M53.22 adopts the exact accepted/published producer before the
+existing M53.4 gate. A32 waits for accepted P13 and Kinet:M53 and preserves the
+repaired public contracts. No implementation/acceptance or new protected grant
+is claimed. Current coordinated horizon: eight active milestones/49 rows,
+required3/30 and conditional5/19. Audit disabled. Earlier checkpoints below are
+historical; current owner status/specifications govern readiness.
+
 ## Approved P12 authentication timeout reconciliation
 
 All four P12 rows and whole review1 pass; [retired P12](tabilet/docs/history/status-P12.md), [qualification](docs/p12-qualification.json), [source compatibility](docs/p12-compatibility.md) and [publication](docs/p12-publication.json) bind exact bounded authentication/public-native interoperability. Reviewed source `54cd50d0b4a688fc1a2a32e679b4e6befc0f5114` is independently published; normal closure publication is verified before Kinet M52 adopts the exact ordinary successor. Historical untimed public proof/native refusal, wires/defaults/goldens and private-runtime separation remain intact. Audit disabled.
