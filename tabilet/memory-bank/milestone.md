@@ -865,6 +865,9 @@ independently published sibling prerequisites before adoption.
 
 ### A32 — Legacy closure removal
 
+**Accepted Kinet:M53 early-use handoff — 2026-10-24.** Kinet completed all39 rows, task4/task5 reviews1/1 and fresh whole review1 under the owner-approved early local evaluation standard. [Exact dependency/artifact/limitation handoff](../../../kinet/docs/m53-stage12-handoff.md) and [retired M53](../../../kinet/tabilet/docs/history/status-M53.md) supply the dependency evidence. Selected native and retained default/Phase A/media paths use Kinet-owned workers/images, not the legacy OpenUdon CLI/image/internal producer. Public libraries (including live default801b), private Udon/HCL and P11/P12/P13 contracts remain. Additional physical/observer/forced-crash methods are deferred/unqualified, not A32 prerequisites or passed tests. Preserve unknowns/no replay/registration denial/disabled private input. A32 rows remain pending/review0; no publication, deployment or Phase C authority is added.
+
+
 Additional prerequisite: accepted/published OpenUdon:P13; preserve its public
 saved-session authority and observed fallback-rights regressions in A32.1/.5.
 Kinet:M53 still must pass its full release/no-consumer gate before A32 starts.

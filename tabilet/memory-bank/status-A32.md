@@ -1,5 +1,8 @@
 # A32 — Legacy closure removal
 
+**Accepted Kinet:M53 early-use handoff — 2026-10-24.** Kinet completed all39 rows, task4/task5 reviews1/1 and fresh whole review1 under the owner-approved early local evaluation standard. [Exact dependency/artifact/limitation handoff](../../../kinet/docs/m53-stage12-handoff.md) and [retired M53](../../../kinet/tabilet/docs/history/status-M53.md) supply the dependency evidence. Selected native and retained default/Phase A/media paths use Kinet-owned workers/images, not the legacy OpenUdon CLI/image/internal producer. Public libraries (including live default801b), private Udon/HCL and P11/P12/P13 contracts remain. Additional physical/observer/forced-crash methods are deferred/unqualified, not A32 prerequisites or passed tests. Preserve unknowns/no replay/registration denial/disabled private input. A32 rows remain pending/review0; no publication, deployment or Phase C authority is added.
+
+
 **P13 preservation prerequisite — 2026-10-17.** A32 additionally depends on
 accepted/published OpenUdon:P13 and accepted Kinet:M53. Preserve the public
 requested-authority/observed-fallback-rights contract and its deterministic
@@ -140,7 +143,7 @@ disposable stores/caches/browser profiles and unique output directories.
 
 - [OpenUdon:P10](../docs/history/status-P10.md), the public browser subset.
 - [OpenUdon:P12](../docs/history/status-P12.md), the required public authentication correction, after exact accepted/published closure; preserve [P11](../docs/history/status-P11.md).
-- Accepted [Kinet:M53](../../../kinet/tabilet/memory-bank/status-M53.md), with its
+- Accepted [Kinet:M53](../../../kinet/tabilet/docs/history/status-M53.md), with its
   exact proof that Kinet consumes no OpenUdon CLI, image or internal package.
 
 **Downstream.**
