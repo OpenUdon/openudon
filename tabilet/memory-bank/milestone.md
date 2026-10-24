@@ -6,21 +6,21 @@ API refused a request lacking genuine browser reviews, so publication and native
 execution/session/UI checks were skipped. Fresh hand-authored intake is a
 source-inferred missing capability; no product defect or A32 removal/public-
 contract blocker is demonstrated. No new A32 dependency is added. See
-[Kinet M58 findings](../../../kinet/tabilet/memory-bank/status-M58.md#findings).
+[Kinet M58 findings](../../../kinet/tabilet/docs/history/status-M58.md#findings).
 Owner acceptance after M58 closure is required before creating any implementation
 successor; registration remains intentionally excluded and audit stays disabled.
 
-Kinet:M53 is accepted/retired for early local evaluation. The owner-approved
-Kinet:M58 test-only findings milestone runs first by priority, then OpenUdon:A32,
-then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Current
-horizon: seven milestones / 29 rows (required two / ten, conditional five / 19).
+Kinet:M53 and Kinet:M58 are accepted/retired. M58 completed its test-only
+findings deliverable with no positive browser chain. OpenUdon:A32 is next
+required, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?.
+Current horizon: six milestones / 24 rows (required one / five, conditional five / 19).
 Use the single [Kinet launch reference](../../../kinet/tabilet/memory-bank/suggested.txt).
-M58 adds no blanket A32 acceptance dependency. Hold A32 only when findings show
+M58 added no A32 acceptance dependency; no removal-safety blocker was demonstrated. Hold A32 only when findings show
 that removal would break retained behavior or a required public contract; an
 owner-approved repair dependency must resolve that blocker first. Other gaps do
 not automatically hold A32. A32 rows and review counters are unchanged.
-M58's implementation successor remains unnumbered until its findings are
-accepted after closure. No new publication, deployment or Phase C authority.
+M58's implementation successor remains unnumbered until the owner accepts
+its findings. All M58 action grants ended; no new authority transfers to A32. No new publication, deployment or Phase C authority.
 Registration stays denied; audit stays disabled. Earlier dated checkpoints are
 historical; this paragraph and the A32 specification define current readiness.
 
@@ -908,8 +908,8 @@ untimed history. Retiring legacy authoring must not remove or widen the public
 path. Frozen consumer pins, all existing row text/markers and review0 remain
 unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
 
-**Stage/owner.** STG-12 Phase B; OpenUdon. Second in the current remaining
-priority, after test-only Kinet:M58; priority adds no acceptance dependency.
+**Stage/owner.** STG-12 Phase B; OpenUdon. First in the current remaining
+priority after completed Kinet:M58; no new acceptance dependency was added.
 
 **Dependencies.** Accepted/published P10/P11/P12/P13, and the accepted
 Kinet:M53 no-consumer proof. M58 may identify a concrete removal-safety blocker;
