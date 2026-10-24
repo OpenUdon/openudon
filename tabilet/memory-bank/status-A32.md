@@ -1,5 +1,22 @@
 # A32 — Legacy closure removal
 
+## Current Stage 12 follow-up order
+
+Kinet:M53 is accepted/retired for early local evaluation. The owner-approved
+Kinet:M58 test-only findings milestone runs first by priority, then OpenUdon:A32,
+then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Current
+horizon: seven milestones / 29 rows (required two / ten, conditional five / 19).
+Use the single [Kinet launch reference](../../../kinet/tabilet/memory-bank/suggested.txt).
+M58 adds no blanket A32 acceptance dependency. Hold A32 only when findings show
+that removal would break retained behavior or a required public contract; an
+owner-approved repair dependency must resolve that blocker first. Other gaps do
+not automatically hold A32. A32 rows and review counters are unchanged.
+M58's implementation successor remains unnumbered until its findings are
+accepted after closure. No new publication, deployment or Phase C authority.
+Registration stays denied; audit stays disabled. Earlier dated checkpoints are
+historical; this paragraph and the A32 specification define current readiness.
+
+
 **Accepted Kinet:M53 early-use handoff — 2026-10-24.** Kinet completed all39 rows, task4/task5 reviews1/1 and fresh whole review1 under the owner-approved early local evaluation standard. [Exact dependency/artifact/limitation handoff](../../../kinet/docs/m53-stage12-handoff.md) and [retired M53](../../../kinet/tabilet/docs/history/status-M53.md) supply the dependency evidence. Selected native and retained default/Phase A/media paths use Kinet-owned workers/images, not the legacy OpenUdon CLI/image/internal producer. Public libraries (including live default801b), private Udon/HCL and P11/P12/P13 contracts remain. Additional physical/observer/forced-crash methods are deferred/unqualified, not A32 prerequisites or passed tests. Preserve unknowns/no replay/registration denial/disabled private input. A32 rows remain pending/review0; no publication, deployment or Phase C authority is added.
 
 
@@ -110,7 +127,7 @@ markers or permits reuse of this milestone ID.
 
 ## Dispatch and lease boundaries
 
-**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, Kinet:M53. All required prerequisites must have
+**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, OpenUdon:P13, Kinet:M53. All required prerequisites must have
 accepted closure at exact revisions; sibling producer adoption also needs
 independently verified publication. A priority position never supplies authority.
 

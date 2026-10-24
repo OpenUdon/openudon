@@ -1,3 +1,19 @@
+## Current Stage 12 follow-up order
+
+Kinet:M53 is accepted/retired for early local evaluation. The owner-approved
+Kinet:M58 test-only findings milestone runs first by priority, then OpenUdon:A32,
+then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?. Current
+horizon: seven milestones / 29 rows (required two / ten, conditional five / 19).
+Use the single [Kinet launch reference](../../../kinet/tabilet/memory-bank/suggested.txt).
+M58 adds no blanket A32 acceptance dependency. Hold A32 only when findings show
+that removal would break retained behavior or a required public contract; an
+owner-approved repair dependency must resolve that blocker first. Other gaps do
+not automatically hold A32. A32 rows and review counters are unchanged.
+M58's implementation successor remains unnumbered until its findings are
+accepted after closure. No new publication, deployment or Phase C authority.
+Registration stays denied; audit stays disabled. Earlier dated checkpoints are
+historical; this paragraph and the A32 specification define current readiness.
+
 # Milestone
 
 **Accepted P13 public producer — 2026-10-17.** Three rows pass task reviews1/1/1
@@ -870,7 +886,8 @@ independently published sibling prerequisites before adoption.
 
 Additional prerequisite: accepted/published OpenUdon:P13; preserve its public
 saved-session authority and observed fallback-rights regressions in A32.1/.5.
-Kinet:M53 still must pass its full release/no-consumer gate before A32 starts.
+Kinet:M53's accepted early-use handoff supplies the prerequisite; additional
+physical methods remain unqualified and are not A32 prerequisites.
 
 **P12 public preservation gate — 2026-10-13.** Depend on accepted/published
 OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories
@@ -881,9 +898,12 @@ untimed history. Retiring legacy authoring must not remove or widen the public
 path. Frozen consumer pins, all existing row text/markers and review0 remain
 unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
 
-**Stage/owner.** STG-12 Phase B; OpenUdon. Dispatch priority position 14/19.
+**Stage/owner.** STG-12 Phase B; OpenUdon. Second in the current remaining
+priority, after test-only Kinet:M58; priority adds no acceptance dependency.
 
-**Dependencies.** Accepted/published P10/P11/P12, and the accepted Kinet:M53 no-consumer proof.
+**Dependencies.** Accepted/published P10/P11/P12/P13, and the accepted
+Kinet:M53 no-consumer proof. M58 may identify a concrete removal-safety blocker;
+only an owner-approved repair decision adds a new prerequisite.
 
 **Scope.** Refresh the A31 inventory. Then delete:
 
@@ -912,7 +932,7 @@ unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
   evidence, execution-plan assertion hardening and the frozen Ramen/Authoring
   catch-up.
 
-**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, Kinet:M53. All required prerequisites must have
+**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, OpenUdon:P13, Kinet:M53. All required prerequisites must have
 accepted closure at exact revisions; sibling producer adoption also needs
 independently verified publication. A priority position never supplies authority.
 
