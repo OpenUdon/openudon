@@ -21,3 +21,9 @@ var CatalogSourceResources embed.FS
 //
 //go:embed openudon.broker-authority.v1.schema.json openudon.approval.v2.schema.json openudon.executor-run.v3.schema.json openudon.run-evidence.v4.schema.json
 var BrokerHandoffResources embed.FS
+
+// AuthoringCardResources contains the additive authoring-data contract. It is
+// independent of package, approval and historical step-authoring schemas.
+//
+//go:embed openudon.authoring-card.v1.schema.json
+var AuthoringCardResources embed.FS

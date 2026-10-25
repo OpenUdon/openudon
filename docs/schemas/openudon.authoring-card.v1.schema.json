@@ -1,0 +1,495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.authoring-card.v1.schema.json",
+  "title": "OpenUdon authoring card v1",
+  "description": "Authoring data and exact review projection only; never approval, source admission or an executable plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "intent",
+    "outcome",
+    "outline",
+    "validation"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.authoring-card.v1"
+    },
+    "intent": {
+      "$ref": "#/$defs/text"
+    },
+    "outcome": {
+      "$ref": "#/$defs/text"
+    },
+    "outline": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    }
+  },
+  "$defs": {
+    "detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "state": {
+      "enum": [
+        "known",
+        "missing",
+        "invalid",
+        "unresolved"
+      ]
+    },
+    "text": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "text"
+          ],
+          "properties": {
+            "state": {
+              "const": "known"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "missing"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "invalid"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "unresolved"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "enum": [
+            "openapi",
+            "google-discovery",
+            "aws-smithy",
+            "asyncapi",
+            "graphql",
+            "openrpc",
+            "grpc-protobuf",
+            "odata",
+            "runtime-function",
+            "browser-profile"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "key"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "id",
+            "ref"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "selector"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "selector": {
+          "$ref": "#/$defs/selector"
+        }
+      }
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "identity"
+          ],
+          "properties": {
+            "state": {
+              "const": "known"
+            },
+            "identity": {
+              "$ref": "#/$defs/operation"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "missing"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "invalid"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "unresolved"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        }
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "literal"
+          ],
+          "properties": {
+            "state": {
+              "const": "known"
+            },
+            "literal": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "binding"
+          ],
+          "properties": {
+            "state": {
+              "const": "known"
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "missing"
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "invalid"
+            },
+            "literal": {},
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          },
+          "not": {
+            "required": [
+              "literal",
+              "binding"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "detail"
+          ],
+          "properties": {
+            "state": {
+              "const": "unresolved"
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "detail": {
+              "$ref": "#/$defs/detail"
+            }
+          }
+        }
+      ]
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location",
+        "name",
+        "value"
+      ],
+      "properties": {
+        "location": {
+          "enum": [
+            "path",
+            "query",
+            "header",
+            "cookie",
+            "body",
+            "input"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "operation",
+        "mappings"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "operation": {
+          "$ref": "#/$defs/selection"
+        },
+        "mappings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/mapping"
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096,
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*$"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "findings"
+      ],
+      "properties": {
+        "outcome": {
+          "enum": [
+            "unvalidated",
+            "valid",
+            "invalid",
+            "unresolved"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        }
+      }
+    }
+  }
+}
