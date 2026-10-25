@@ -13,6 +13,7 @@ The public packages are:
 
 | Package | Contract |
 |---|---|
+| `authoringcard` | Additive typed authoring-card v1 data, bounded strict validation and complete deterministic text; [contract and adapter guidance](authoring-card-v1.md). |
 | `handoff` | Existing review-handoff v1/v2 manifest types, lifecycle metadata, diagnostics, canonical self digest and value validation. |
 | `digest` | Exact-byte SHA-256 and the existing SHA-256/Git object spelling checks. |
 | `authority` | Broker authority v1, symbolic bindings, canonical policy digest and identity/deadline validation against caller-supplied time. |
@@ -21,6 +22,11 @@ The public packages are:
 | `wire` | Bounded strict JSON decoding, with lossless-number option and duplicate-key rejection. |
 | `udonreport` | Existing execution-report v2–v5 types, validation and conservative v5 observations. |
 | `runevidence` | Existing run-evidence v1–v4/async/signature wires and bounded non-browser byte verification. |
+
+The additive `authoringcard` surface describes authoring data only. Its new
+schema and conformance fixtures do not change historical trust/package/approval
+wires. Source admission, complete product review and exact approval remain
+consumer-owned; neither a valid card nor its text grants execution authority.
 
 These APIs accept values and perform no filesystem, credential, provider,
 network or runtime operation. They preserve existing JSON field order,

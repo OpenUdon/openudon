@@ -11,6 +11,7 @@ admission and dispatch.
 
 | Package | Purpose |
 |---|---|
+| `authoringcard` | Typed authoring drafts, explicit incomplete values, strict validation and deterministic review text; data alone grants no approval or execution authority. |
 | `packagev3` | Construct and independently verify packages from reviewed UWS, source and shape bytes; inspect v2/v3 history read-only. |
 | `browsercontract` | Versioned public browser plan, source, worker and session metadata. |
 | `browsertransaction` | Canonical value-free browser-profile transactions and lifecycle validation. |
@@ -21,6 +22,7 @@ admission and dispatch.
 | `udonreport`, `runevidence` | Versioned execution reports and conservative evidence verification. |
 
 The [public trust API](docs/public-trust-api.md),
+[authoring card guide](docs/authoring-card-v1.md),
 [package v3 contract](docs/package-v3.md) and
 [browser supplement](docs/browser-package-v3.md) define the supported surface.
 The browser supplement preserves named-output ownership and historical-proof
