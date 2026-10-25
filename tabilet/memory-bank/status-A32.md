@@ -48,7 +48,7 @@ unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
 [Accepted P12 specification/status](../docs/history/status-P12.md).
 
 **Stage:** Kinet STG-12, Phase B. **Owner:** OpenUdon.
-**State:** Pending. No row has started. Review 0/10.
+**State:** A32.1 accepted; A32.2 next. Whole review 0/10. Coordinator is the sole ledger writer.
 **Source baseline:** `477bf1a53591da70c98979a7a351db4fafac0ff9` (clean at planning).
 **Coordinator:** [Stage 12 contract](../../../kinet/docs/stage12.md). This
 package-local milestone and status own acceptance. Planning was approved on
@@ -185,7 +185,7 @@ must stay fetchable. No tag deletion or history rewrite.
 
 | Item | State | Notes |
 |---|---|---|
-| A32.1 — Refresh the consumer inventory | `[ ]` | Regenerate the A31 inventory at HEAD. Confirm the Kinet:M53 retirement proof, P10's public subset and that frozen consumer pins resolve. Record every remaining production, test and command edge. |
+| A32.1 — Refresh the consumer inventory | `[+]` | Reproducible [inventory](../../docs/a32-consumer-inventory.json)/[handoff](../../docs/a32-transition-cleanup.md): 76 packages, 373 public dependencies, 565 Go files, 934 source edges, 159 schema/history fixtures. Six A31 consumer sets unchanged; five HCL inputs/four internal owners. Local frozen objects resolve; remote fetchability/builds remain A32.5. Settled setup failures: wrong PATH 0.17s, incomplete cache 0.72s; existing pinned Go/cache correction, then five inventory commands PASS (final generation/check 1.31s each), public boundary/surface tests PASS0.88s. Coordinator task review1 PASS/all five lenses; no P1/P2; A31 unchanged. |
 | A32.2 — Remove browser authoring and harness packages | `[ ]` | Delete `browserauthor`, `browserauthoring`, `browsercandidate`, `browsercapture`, `browserpackage`, `browserscenario`, `browsersystem`, `browserintegrationeval`, `browsertransactioneval`, `capturequalification`, `browserworkflow` and `browsercheck`, and the browser CLI commands. Preserve the P10 public subset including accepted P11 named-output resolution and historical-proof refusal. |
 | A32.3 — Remove the retained set and legacy CLI | `[ ]` | Delete synthesize, workflowintent, elicitor, projectwizard, udonrunner, trustedrunner and packagepipeline. Delete authoringcli/authoringengine/artifactwriter/stepauthoring and eval/smokematrix/releaseevidence. Delete `cmd/udon-runner`, the legacy `openudon` commands, and image/runner publication. Any CLI that remains is backed only by public packages. |
 | A32.4 — Remove legacy HCL adapters | `[ ]` | Delete the intent.hcl/workflow.hcl adapters. Prove no UWS HCL-input API (`convert.HCLToJSON`, `UnmarshalHCL`, `hcl.Import`) remains in any OpenUdon package. |
