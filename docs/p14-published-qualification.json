@@ -1,6 +1,6 @@
 {
   "version": "openudon.p14-published-qualification.v1",
-  "state": "independent exact source publication and ordinary consumer qualification passed; whole2 pending",
+  "state": "accepted/retired after fresh authoritative whole2/10; P14-W1/W2 resolved and P3 stale README wording reconciled",
   "human_approval": "Kinet docs/stage13-scoped-approval-20261025.json; actual I approve for frozen d9be4... proposal",
   "published_source": {
     "version": "stage13.github-publication-verified.v1",
@@ -816,5 +816,15 @@
   "conformance_cases": 33,
   "reusable_fixture": "docs/fixtures/authoring-card-consumer",
   "retention": "Original receipts/logs, exact cached module, two qualified owner worktrees and disposable consumer remain retained; none removed.",
-  "scope_limits": "Published producer and reusable ordinary typed/schema/text consumer only; actual Kinet W22/Ramen M136 adapters are downstream. No main/tags/deploy/live/private/browser or globally clean checker claim; publication grant ended after one exact push."
+  "scope_limits": "Published producer and reusable ordinary typed/schema/text consumer only; actual Kinet W22/Ramen M136 adapters are downstream. No main/tags/deploy/live/private/browser or globally clean checker claim; publication grant ended after one exact push.",
+  "whole_review": {
+    "iteration": 2,
+    "candidate": "9241386a5b6710b846c82aefcb2250ba7a93ec4d",
+    "model": "gpt-6.1-sol",
+    "effort": "xhigh",
+    "all5coverage": true,
+    "P1": 0,
+    "P2": 0,
+    "P3": "P14-W3 stale corpus README wording resolved as historical during closure; no contract/corpus data or publication replay"
+  }
 }

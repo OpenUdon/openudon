@@ -12,6 +12,7 @@ subsequently closed under the normal reviewed procedure.
 
 | Milestone | Outcome | Retired | Record | Summary |
 |---|---|---|---|---|
+| P14 | completed | 2026-10-25 | [P14](status-P14.md) | Additive typed cards/text; Unicode correction/full2, exact review-branch publication/ordinary module and33case typed consumer pass; fresh Sol/xhigh whole2 PASS, P3 wording resolved. |
 | P13 | completed | 2026-10-17 | [status-P13.md](status-P13.md) | Three rows/task reviews1/1/1/whole1; immutable session authority/fallback rights, complete public and ordinary module proof; exact source5f210465. |
 | P12 | completed | 2026-10-13 | [status-P12.md](status-P12.md) | Four rows/whole review1; authored bounded authentication, exact public/native zero-effect interoperability and ordinary source publication proof. |
 | P11 | completed | 2026-10-13 | [status-P11.md](status-P11.md) | Four rows/whole review1; exact named outputs/deterministic assessment; immutable history and ordinary published source/module proof. |

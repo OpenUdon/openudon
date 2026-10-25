@@ -23,8 +23,8 @@ Exact review-branch publication and ordinary Go-proxy/checksum acquisition pass.
 A reusable standalone consumer executes33shared cases (34RUN34PASS), typed
 Parse/Validate/RenderText and build metadata:57selected/4compiled includingmain,
 exact version/sum, no replacements. [Published proof](../../docs/p14-published-qualification.json)
-retains attempts/effects; fresh whole2 is started. See [original qualification](../../docs/p14-local-qualification.json),
-[correction](../../docs/p14-unicode-correction.json) and [live status](status-P14.md).
+retains attempts/effects; fresh whole2 passes; P14 is accepted/retired. See [original qualification](../../docs/p14-local-qualification.json),
+[correction](../../docs/p14-unicode-correction.json) and [accepted record](../docs/history/status-P14.md).
 No further acquisition/push, deployment or existing fixture/schema migration follows.
 
 ## Accepted P13 public session authority regression

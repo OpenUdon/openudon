@@ -171,7 +171,7 @@ selectors and raw literal keys/values. Preserve valid pairs, deliberate U+FFFD
 and literal backslash-u as separate accepted controls. The card-local fix avoids
 changing historical decoders. [P14 Unicode evidence](../../docs/p14-unicode-correction.json)
 retains the actual failing/passing regression and full check; publication and
-whole acceptance remain open in [P14 status](status-P14.md).
+whole acceptance pass in [P14 status](../docs/history/status-P14.md).
 
 ## Keep hypothetical execution separate from executable approval
 

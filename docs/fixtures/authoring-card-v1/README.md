@@ -25,8 +25,10 @@ literal values and keys, while preserving valid pairs, literal/escaped U+FFFD
 and escaped literal backslashes. These refusals may pass the schema-only check
 through a permissive decoder; adapters must check Unicode scalars before any
 lossy string decoding. Typed validation/rendering also checks raw literals.
-P14 v1 is still an unpublished draft: this correction extends its own corpus
-and updates its contract hashes without rewriting older public fixtures.
+During prepublication preparation, this correction extended P14 v1’s own
+corpus and contract hashes without rewriting older public fixtures. Exact e486
+is now independently published and ordinarily qualified; see
+[publication evidence](../../p14-published-qualification.json).
 
 Kinet may consume the published package and these files. Ramen may mirror the
 small types/schema/text behavior and fixture data with the exact producer commit

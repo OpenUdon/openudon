@@ -4,7 +4,7 @@
 **Planning approval:** Owner-approved full rescope on 2026-10-25 (approval: “I aapaprove”), following the earlier whole-stage approval. Planning only; no execution, commit or grant activation.
 **State:** Withdrawn; every untouched row is `[X]`; no work delivered. Review 0/10 remains unchanged.
 **Specification:** [milestone.md](milestone.md#stg13-p15).
-**Original dependencies (withdrawn; no active edges):** [UWS:C13](../../../uws/tabilet/memory-bank/status-C13.md), [APItools:M92](../../../apitools/tabilet/memory-bank/status-M92.md), [OpenUdon:P14](status-P14.md)
+**Original dependencies (withdrawn; no active edges):** [UWS:C13](../../../uws/tabilet/memory-bank/status-C13.md), [APItools:M92](../../../apitools/tabilet/memory-bank/status-M92.md), [OpenUdon:P14](../docs/history/status-P14.md)
 **Source baseline:** `8433e78f1b08be7a7d9cce6cad987cce747283c8`; existing dirty planning/history was inspected and preserved. Reconcile live source and exact accepted producers before implementation.
 **Ownership:** Withdrawn; no executable task owner. Original serial ownership and task boundaries are historical.
 **Authorization:** None from this withdrawn record. Original requirements are retained only as historical text in the specification; no old or proposed publication grant transfers.

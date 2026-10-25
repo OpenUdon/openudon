@@ -21,8 +21,8 @@ operation eligibility/mapping, product effects/capabilities and exact approval
 remain adapter duties. No shared UI repository, universal planner, transport,
 credential path or runtime dependency is introduced. Existing APItools pins and
 UWS contracts are retained. Exact P14 publication/ordinary consumer proof passes;
-fresh whole2 is started;
-[active status](status-P14.md) governs over historical phase observations.
+fresh whole2 passes; P14 is accepted/retired;
+[accepted record](../docs/history/status-P14.md) governs over historical phase observations.
 
 **P13 reviewed source contract — 2026-10-17.** Public browser authority binds
 the current exact execution receipt/deadline and immutable saved-session
