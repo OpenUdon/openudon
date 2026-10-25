@@ -4,6 +4,25 @@ Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;
 they do not make retired commands executable or expand current acceptance.
 
+## P14 additive authoring-card boundary — source checkpoint
+
+`authoringcard` is a public typed data/schema/deterministic-text contract,
+independent of existing package, approval and historical step-authoring wires.
+Its closed version1 schema is embedded from `docs/schemas`; the package bounds
+one encoded card to 256 KiB and validates union/state/identity consistency,
+canonical keys, duplicate keys and complete literal values before rendering.
+Card-local Unicode validation rejects unpaired UTF-16 escapes before lossy Go
+JSON decoding; valid non-BMP pairs, intentional U+FFFD and literal backslash-u
+remain distinct. Errors disclose no rejected card values.
+
+Kinet sequences business steps; Ramen organizes lifecycle roles and will mirror
+exact typed/schema/text/fixture data. Neither imports the other. Source admission,
+operation eligibility/mapping, product effects/capabilities and exact approval
+remain adapter duties. No shared UI repository, universal planner, transport,
+credential path or runtime dependency is introduced. Existing APItools pins and
+UWS contracts are retained. P14 publication and fresh whole review2 remain open;
+[active status](status-P14.md) governs over historical phase observations.
+
 **P13 reviewed source contract — 2026-10-17.** Public browser authority binds
 the current exact execution receipt/deadline and immutable saved-session
 metadata. Saved-state expiry does not renew or invalidate that review metadata;

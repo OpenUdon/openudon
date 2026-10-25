@@ -4,6 +4,25 @@ Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;
 they do not make retired commands executable or expand current acceptance.
 
+## P14 local qualification checkpoint — 2026-10-25
+
+Pinned cached Go1.26.6, `GOWORK=off`, network-off/read-only module resolution and
+existing caches qualify the additive card contract. The original clean tracked
+candidate passed full check1 (26.069s); the Unicode correction at
+`e3bd5b07b1509e831be834f0e37aaba572f44975` passed full check2 (24.261s).
+The retained primary-checkout public-boundary failure concerns ignored historical
+debug/private inputs kept on disk; it was not erased or treated as a product fix.
+Separate immutable tracked-source worktrees retain both qualifications.
+
+Corrected evidence records 91 selected modules, 35 actual BuildInfo modules
+including the local owner, 375 compiled packages, no replacements/private imports,
+and changed actual authoringcard BuildID. These are local `(devel)` source proofs,
+not published adoption. The 33-case corpus / 9 deterministic text goldens preserve
+all prior cases and add strict surrogate refusals/valid-Unicode controls.
+Whole review1 and its publication blocker persist. See [original qualification](../../docs/p14-local-qualification.json),
+[correction](../../docs/p14-unicode-correction.json) and [live status](status-P14.md).
+No acquisition, push, deployment or existing fixture/schema migration follows.
+
 ## Accepted P13 public session authority regression
 
 Existing Go1.26.6/tools/modules qualify the public authority/evidence repair without dependency, wire or schema changes. Fixed-clock regressions, strict Observe/Verify controls, existing public compatibility/goldens/history, full owner Make and `go vet ./...`, native module integrity and compiled public closure pass. Exact published source5f210465/ordinary module proof compares1697Git/ZIP/extracted files and nativeH1; no signed checksum-database claim. All15 invocations and the failed umask check remain recorded. Actual Kinet worker/native composition stays M53.22 and physical proof stays M53.4. See [qualification](../../docs/p13-qualification.json) and [retired P13](../docs/history/status-P13.md).

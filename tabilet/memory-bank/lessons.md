@@ -164,6 +164,15 @@ the closed union, and conformance uses the actual decoders. Evidence:
 review to immutable issued arguments and consumes approval/refusal once; a
 failed new-state publication must destroy old action authority.
 
+P14 review1 also exposed escaped UTF-16 surrogate collapse: valid raw UTF-8
+alone does not prevent `encoding/json` from converting an unpaired escaped
+surrogate to U+FFFD. Validate scalar escapes before decoding exact source IDs,
+selectors and raw literal keys/values. Preserve valid pairs, deliberate U+FFFD
+and literal backslash-u as separate accepted controls. The card-local fix avoids
+changing historical decoders. [P14 Unicode evidence](../../docs/p14-unicode-correction.json)
+retains the actual failing/passing regression and full check; publication and
+whole acceptance remain open in [P14 status](status-P14.md).
+
 ## Keep hypothetical execution separate from executable approval
 
 Project unresolved contracts only in memory for preview, using public runtime
