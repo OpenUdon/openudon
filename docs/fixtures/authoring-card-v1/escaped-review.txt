@@ -1,0 +1,18 @@
+Authoring review "openudon.authoring-card.v1"
+Authority "none; consumer approval required"
+Intent "invalid"
+  text "café\nValidation \"approved\""
+  detail "Multiline text is review data"
+Outcome "unresolved"
+  detail "Owner decision required"
+Outline 1
+Step 1 "read" "Read item"
+  operation "invalid"
+    detail "Candidate is unsupported; no guessed identity"
+  Mappings 1
+    field "query" "q" "invalid"
+      binding "$steps.read.response[\"name\"]"
+      detail "Reference cannot be proven"
+Validation "unresolved"
+Findings 1
+  finding "/outline/0/operation" "operation.unsupported" "Keep the refusal visible\nNo approval is recorded"

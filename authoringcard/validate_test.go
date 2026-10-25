@@ -149,3 +149,22 @@ func TestStrictParseRefusals(t *testing.T) {
 		})
 	}
 }
+
+func TestWholeCardByteAndDepthBounds(t *testing.T) {
+	data, err := json.Marshal(knownCard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, bytes.Repeat([]byte(" "), authoringcard.MaxBytes-len(data))...)
+	if _, err := authoringcard.Parse(data); err != nil {
+		t.Fatal("exact byte limit refused", err)
+	}
+	if _, err := authoringcard.Parse(append(data, ' ')); err != authoringcard.ErrCard {
+		t.Fatal("byte limit + 1 accepted")
+	}
+	card := knownCard()
+	card.Outline[0].Mappings[1].Value.Literal = json.RawMessage(strings.Repeat("[", 65) + "0" + strings.Repeat("]", 65))
+	if card.Validate() != authoringcard.ErrCard {
+		t.Fatal("deep literal escaped the public JSON depth bound")
+	}
+}

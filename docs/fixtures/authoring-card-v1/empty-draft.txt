@@ -1,0 +1,9 @@
+Authoring review "openudon.authoring-card.v1"
+Authority "none; consumer approval required"
+Intent "missing"
+  detail "Intent not supplied"
+Outcome "missing"
+  detail "Outcome not supplied"
+Outline 0
+Validation "unvalidated"
+Findings 0

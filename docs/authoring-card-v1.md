@@ -6,6 +6,14 @@ describe a single authoring draft. The new discriminator is
 `openudon.authoring-card.v1`; historical step-authoring v1, package v3, approval,
 handoff, browser and history contracts keep their existing versions and bytes.
 
+`Parse([]byte)` returns a fully checked card or a zero card plus the fixed
+value-free `ErrCard`. Typed callers use `Card.Validate()`. `RenderText(Card)`
+validates first and returns either the complete projection or empty text plus
+`ErrCard`. These helpers mutate no input and perform no external action. The
+[versioned conformance corpus](fixtures/authoring-card-v1/README.md) separates
+schema results from identity/consistency results and supplies exact text goldens
+for independent adapters.
+
 One card contains intent, desired outcome, an ordered outline, exact operation
 selections, input mappings, and a supplied validation assessment. Reviewing the
 whole card supplies the authoring review; there is no approval or confirmation

@@ -1,0 +1,209 @@
+{
+  "version": "openudon.authoring-card-conformance.v1",
+  "card_version": "openudon.authoring-card.v1",
+  "contract_files": [
+    {
+      "path": "authoringcard/card.go",
+      "sha256": "0809c7c6e138c6085f9bd14dc520152875f4962fad151d41f191cff011a24118"
+    },
+    {
+      "path": "authoringcard/validate.go",
+      "sha256": "c382f5c4d6d478102501f3bb8d44afb3daa4f5a529118713ff597a750a753433"
+    },
+    {
+      "path": "authoringcard/text.go",
+      "sha256": "1c94c4e837dcc4476e692fe9ec0785e13a2d8b870bde7d20e0ed481755302e2f"
+    },
+    {
+      "path": "docs/schemas/openudon.authoring-card.v1.schema.json",
+      "sha256": "dde6a49ba61b07e9aabe10fa0ed93beb33e1eb49ac9423eccb402e9c8d12c51d"
+    }
+  ],
+  "cases": [
+    {
+      "name": "complete",
+      "json": "docs/fixtures/authoring-card-v1/complete.json",
+      "sha256": "1d797c8a8b4e425723b19eb142ea1dbdbe673c72f459d88505610311a84fda3d",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/complete.txt",
+      "text_sha256": "b0b85535e69cf32bdde9bde3b3e577a32e8730de45c0f4aedb82238814a2dab3"
+    },
+    {
+      "name": "unfinished",
+      "json": "docs/fixtures/authoring-card-v1/unfinished.json",
+      "sha256": "499d5bfbff4f82ee13f06db7b4cc4a18088e2cd59793a8fb89557a27d10cde84",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/unfinished.txt",
+      "text_sha256": "1853a97270fbea80aaacdcc11f0d78ffe5c4b48e3b3b28227ae1795eb4bb8582"
+    },
+    {
+      "name": "id-selector",
+      "json": "docs/fixtures/authoring-card-v1/id-selector.json",
+      "sha256": "9db12ece3444b4d8ec24d0304860f4d6da0a570b9cb0e07bd93ef1da1586e0cb",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/id-selector.txt",
+      "text_sha256": "4e35de05f01153044c6a818ba0fa3632fd50b0d4749beac058e1798ed55fdb79"
+    },
+    {
+      "name": "empty-draft",
+      "json": "docs/fixtures/authoring-card-v1/empty-draft.json",
+      "sha256": "f9b23c6d3b489f27839fc0eeb41176dbf9e303a1e2c76ef736a72a0fdb0b47c1",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/empty-draft.txt",
+      "text_sha256": "66309673bb0b8726d631208bf81453b52b6957ce95588c9e1e714fb0de740ad6"
+    },
+    {
+      "name": "escaped-review",
+      "json": "docs/fixtures/authoring-card-v1/escaped-review.json",
+      "sha256": "7ec3c73e42502a103a9b0b24f3a14f48a6bdca9ed72132965311de508c6607e6",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/escaped-review.txt",
+      "text_sha256": "c87b1de2d3938be54a8836b4b47792843673821864c88b9b9f55f6d18d6bffab"
+    },
+    {
+      "name": "unknown-version",
+      "json": "docs/fixtures/authoring-card-v1/unknown-version.json",
+      "sha256": "14e55aeffb8e2ae9b487b88f033b66021fc9ce2bbe95fd829f6c555b75eb0c1d",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "approval-field",
+      "json": "docs/fixtures/authoring-card-v1/approval-field.json",
+      "sha256": "dcf72107019cfa6fcb1d5afc03cb86708c8bd3fc474b10647023a2ec398bb695",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "duplicate-step",
+      "json": "docs/fixtures/authoring-card-v1/duplicate-step.json",
+      "sha256": "2c289c35ba2ea83217caf7d5d089a993676f6f825134197d7385c9f7e5301ca7",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "duplicate-target",
+      "json": "docs/fixtures/authoring-card-v1/duplicate-target.json",
+      "sha256": "06d1fa129fcdd1b4508b1c63eb12103e0054e23c005146fd592d5dfb45826d96",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "mixed-payload",
+      "json": "docs/fixtures/authoring-card-v1/mixed-payload.json",
+      "sha256": "556dd21e768328efa87dac50a8b3c6a38db5da03b64b0ea0b6bf5fa416bf132a",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "known-without-payload",
+      "json": "docs/fixtures/authoring-card-v1/known-without-payload.json",
+      "sha256": "def9a4743e2cf996ce6baf0273db7fb00bcc12908862ba2c9d9ae37c4c5283f5",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "invalid-without-detail",
+      "json": "docs/fixtures/authoring-card-v1/invalid-without-detail.json",
+      "sha256": "59dffce38f8e9fdbd70e1ff904f0c155f512b24d238c594fba8697a60203bb9b",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "known-with-detail",
+      "json": "docs/fixtures/authoring-card-v1/known-with-detail.json",
+      "sha256": "f32cd8d11aa400737cb471f261f4af58324f88d476feb3f6951656fdd57a48ae",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "unsupported-selector",
+      "json": "docs/fixtures/authoring-card-v1/unsupported-selector.json",
+      "sha256": "a857de2a56ecea0ea77e42bf6164c0c1a7127d210b9e8a83d11d10462ab3b52e",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "missing-operation-key",
+      "json": "docs/fixtures/authoring-card-v1/missing-operation-key.json",
+      "sha256": "94055aed5d9fb899dbe919fa72d43848b786f09bbf730fed9d37804c03c4f239",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "uppercase-digest",
+      "json": "docs/fixtures/authoring-card-v1/uppercase-digest.json",
+      "sha256": "eae5dcc080014892c31b71a12ae29417287bd168daf763a5f1889acff789e670",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "unsupported-source",
+      "json": "docs/fixtures/authoring-card-v1/unsupported-source.json",
+      "sha256": "a9fab5cb37a85b43a895cd1ccf1921c458b05638a704f511f3d4fe06368a039e",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "false-valid",
+      "json": "docs/fixtures/authoring-card-v1/false-valid.json",
+      "sha256": "aa4dc2f02ddddfc9fbf78456233d2dd78f484652edcaaea966eb63b06a6d4d45",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "invalid-no-finding",
+      "json": "docs/fixtures/authoring-card-v1/invalid-no-finding.json",
+      "sha256": "e449918de1beca170a9fa992f5d95ee4943e56d8a84dca65b46a9bfb1c030f9e",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "unresolved-no-evidence",
+      "json": "docs/fixtures/authoring-card-v1/unresolved-no-evidence.json",
+      "sha256": "c0368f2030ffa8e13a70cf711a98f0bd4ba2cef4b5b113c07e596a9a71842a24",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "bad-finding-pointer",
+      "json": "docs/fixtures/authoring-card-v1/bad-finding-pointer.json",
+      "sha256": "1e71c81dcf796fe2dc767de99902b1da5f8d455474f18d6c963366d38f75b668",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "conflicting-source",
+      "json": "docs/fixtures/authoring-card-v1/conflicting-source.json",
+      "sha256": "cdb08be29dff25b1b105e2ad9d594d8bc24f78fa124038aec5727960612fd1b4",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "conflicting-operation",
+      "json": "docs/fixtures/authoring-card-v1/conflicting-operation.json",
+      "sha256": "74429d0254c5258753210313f545c779bfc24558ab6e9fec7c5ed29b1b169d2e",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "duplicate-json-key",
+      "json": "docs/fixtures/authoring-card-v1/duplicate-json-key.json",
+      "sha256": "cb0f06195e1a6960a1728e4dbb4bff7ceba68b696234d93112617fb91f5fc323",
+      "accepted": false,
+      "schema_accepted": false
+    },
+    {
+      "name": "noncanonical-key",
+      "json": "docs/fixtures/authoring-card-v1/noncanonical-key.json",
+      "sha256": "05320b1cfac4ca2729b1657985426ad4fc1fc6e768101a5817f27cb4edbad569",
+      "accepted": false,
+      "schema_accepted": false
+    }
+  ]
+}
