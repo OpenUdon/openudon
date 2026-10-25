@@ -303,6 +303,44 @@ Remaining: Kinet M20 → W8M W29
 - Use [tech-stack.md](tech-stack.md) for dependency and tooling defaults.
 - Use per-milestone `status-<LANE><NN>.md` files for task-level status history.
 
+## Milestone families
+
+Keep the original delivery outcome stable. Small directly related fixes stay in
+the current task. Substantial required repairs belong in amendment records;
+optional features, broader coverage and environment conveniences belong in
+option records. An amendment must identify the original unmet requirement,
+evidence and why a simpler implementation or verification route cannot meet it.
+External testing-tool repair is optional unless the owner explicitly promotes
+it, even under `CORRECTIVE_PLANNING: auto`. Mocks cannot prove unexecuted real
+acceptance. Missing original requirements need repair or an owner disposition.
+
+Each child owns its specification, task table and review in one file. Begin it
+with a heading in the form `## <child-id> - <title>` and exactly one
+`Parent: <root>` declaration. Keep concise parent/roadmap links instead of
+duplicate specifications. Child format and numbering are defined in
+[Status ID Pattern](#status-id-pattern). An initial option may be a short
+finding without task rows.
+
+Required amendments block the parent's acceptance; options do not. Preserve
+completed work and review counters. Record deferred acceptance as `[!]` with
+its amendment and resumption condition. `Parent:` does not mean a dependency
+on the completed parent. A child's review never replaces the parent's review.
+Keep detailed state in the owning file and Git history, not dated AGENTS prose.
+
+For multi-milestone sequencing, family ordering and `OPTION_POLICY` follow the
+selected goal protocol. Explicit owner selection is required for options;
+`ignore` leaves them deferred throughout the goal. These policies supply no
+extra action authority or budget. A claimed option still counts toward the
+one-row ownership rule, even when the unscoped runner cannot execute it.
+
+Retire child records under their original filename, preserving complete source,
+`Parent`, and permanent identity. Required amendment reviews and acceptance
+must pass before parent retirement. A declined rowless option can retire as
+cancelled or superseded only with its owner disposition,
+`Review: not applicable`, and `Review iterations: 0`. Supersession names an accepted
+successor that satisfies retained obligations. Reclassification requires an
+explicit owner decision and a fresh identity.
+
 ## Authorization requirements
 
 Each milestone specification may contain `AUTHORIZATION_REQUIREMENTS`. It
@@ -416,8 +454,15 @@ not consume corrective-planning or email options.
 
 ## Status ID Pattern
 
-Status files use one uppercase domain letter and a zero-padded number from
-`01` through `99`.
+Root records use `status-<LANE><NN>.md`, with one uppercase domain letter and
+a zero-padded number from `01` through `99`.
+
+Required amendment records use `amend-<root>-<NN>.md`; optional child records
+use `option-<root>-<NN>.md`. A child's ID is its root ID followed by `-NN`.
+Both kinds share one permanent `01`–`99` child sequence per root; reserve it
+across active and retired records. Every child declares exactly one
+`Parent: <root>`. Child families do not nest, and existing records are never
+silently renamed. Root lanes and archive numbering remain independent.
 
 Lane meanings:
 
@@ -720,7 +765,8 @@ uncommitted memory-bank changes included in the frozen files. Each record
 binds both documents by SHA-256. `legacy-preserved` records reserve their IDs
 and preserve history; they make no passing-review, delivered-acceptance, or
 dependency-satisfaction claim. Normal future retirement still uses the
-reviewed procedure below. The legacy path cannot be used for a new closure.
+reviewed procedure below. This one-time `legacy-preserved` migration cannot be
+used for a new closure.
 The separately tracked API runner validates the legacy envelope and frozen
 snapshot at skills commit `dc674b876f0f93636f0e3154f731baeb199eb044`.
 
@@ -744,12 +790,17 @@ is optional and never a retirement prerequisite.
    verification, consolidated knowledge, and reconciled downstream work. No
    `[ ]`, `[~]`, or `[!]` row may remain. Every `[-]` row names its accepted
    successor. A cancelled or superseded milestone needs an authorized outcome;
-   do not describe it as delivered acceptance.
+   do not describe it as delivered acceptance. The legacy-closure and rowless
+   option dispositions below are the only stated review exceptions.
 2. Create `tabilet/docs/history/status-<LANE><NN>.md` with the envelope below.
    Preserve the complete final milestone specification and status document in
    separate literal Markdown fences, including all task text, notes, acceptance,
    and review evidence. Choose fences longer than any source fence. Relative
    paths inside the literal documents retain their source-document meaning.
+   A child keeps its original amendment/option filename; both Source status and
+   Source specification name its original child path. Preserve the complete
+   child source, including `Parent`, specification prose and all earlier rows;
+   only the selected closing row may change to completed.
 3. Add one row to `tabilet/docs/history/index.md` with columns `Milestone |
    Outcome | Retired | Record | Summary`. Its ID, outcome, UTC date, and record
    link must match the envelope. Outcomes are `completed`, `cancelled`, or
@@ -804,6 +855,23 @@ with the authority, reason, and dependency disposition. A superseded outcome
 also requires `**Successor.**` naming its accepted successor. Retired records
 and index entries are frozen; append corrections to the knowledge journal or
 open remediation work with a backlink rather than rewriting old records.
+
+A legacy closure is a milestone that closed before the project adopted the
+persisted review gate, so no review-iteration count was recorded. Retire one
+only on an explicit cleanup request, with outcome `completed`, every row closed
+and its original closure evidence available. Use `**Review.** legacy` and
+`**Review iterations.** not recorded`, and add `**Legacy closure.**` explaining
+that the milestone predates the gate and its literal status preserves the
+original closure evidence. Verification records checks run at the evidence
+commit without claiming a new review. Never use this path for a milestone that
+closed after the gate was adopted, or to skip a required review. Existing
+`legacy-preserved` migration records remain frozen and acquire no acceptance.
+
+A declined rowless option may retire with outcome `cancelled` or explicitly
+`superseded`, its owner's `**Disposition.**`, `**Review.** not applicable` and
+`**Review iterations.** 0`. Preserve its complete source and permanent identity;
+no implementation row is needed to withdraw a proposal. A superseded option
+also names its accepted successor. This exception proves no product delivery.
 
 Retrieve current work from the active memory bank first, then search the
 history index by ID or topic. A stale status path resolves through the retired

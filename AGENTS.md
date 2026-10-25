@@ -1,53 +1,9 @@
 # AGENTS.md
 
-**Accepted P13 public producer — 2026-10-17.** Three rows pass task reviews1/1/1
-and fresh Sol xhigh whole review1, no unresolved findings. Exact source
-`5f2104652a7ef40e60cc04ce70e4b63206864f87` and ordinary module
-`v0.1.1-0.20261017191049-5f2104652a7e` are independently published/verified;
-complete1697Git/ZIP/extracted/nativeH1 and public compiled closure pass. Retired
-P13 preserves all15 checks, including setup/red/umask failures. Normal closure
-publication is pending before Kinet:M53.22 dispatch. M53.4 remains blocked at
-physical failure3; its counters, unknowns and ended grants stay unchanged.
-Remaining order: Kinet:M53 (adoption22, then original4/5) → OpenUdon:A32,
-then the five unchanged conditionals. Seven active milestones/46 rows
-(required2/27, conditional5/19); cumulative26/123 unchanged. Audit disabled.
-Earlier dated checkpoints below are historical.
-
-[Retired P13](tabilet/docs/history/status-P13.md) and [qualification](docs/p13-qualification.json) retain the exact accepted source and proof.
-
-## Approved P12 authentication timeout reconciliation
-
-All four P12 rows and whole review1 pass; [retired P12](tabilet/docs/history/status-P12.md), [qualification](docs/p12-qualification.json), [source compatibility](docs/p12-compatibility.md) and [publication](docs/p12-publication.json) bind exact bounded authentication/public-native interoperability. Reviewed source `54cd50d0b4a688fc1a2a32e679b4e6befc0f5114` is independently published; normal closure publication is verified before Kinet M52 adopts the exact ordinary successor. Historical untimed public proof/native refusal, wires/defaults/goldens and private-runtime separation remain intact. Audit disabled.
-
-Remaining required horizon: Kinet:M52 → W21 → U15 → M53 → OpenUdon:A32, plus the five unchanged untriggered conditionals. Ten active milestones / 43 rows (five required/24, five conditional/19); approved total21/92 preserved. A32 preserves P12 and waits for M53. P11/M56 authority remains ended; P12's two-invocation publication envelope ends after normal closure. No browser/sudo/deployment/live authority follows.
-
-## Accepted P11 correction
-
-P11's four rows and whole review1 qualify native browser named-output binding
-and deterministic proof while preserving historical inspection/fresh approval.
-[Retired record](tabilet/docs/history/status-P11.md),
-[qualification](docs/p11-qualification.json) and [publication](docs/p11-publication.json)
-bind independently published source `b5fba07aae9b50338ae44345be13eb0b99b5387b` and ordinary module
-proof. Coordinator verifies normal closure publication before consumer handoff.
-W20/M52 own actual adoption; A32 preserves P11 and remains gated by Kinet:M53.
-Native standalone GOAL and frozen P10 history remain unchanged. Audit disabled.
-
-## Accepted Stage12 P10 public browser supplement
-
-P10 is accepted/retired: five rows, whole review4, zero remaining findings,
-exact published source261563d846c755de2188d4f1e228cf1e374d1725 (qualifieda7185841).
-[Current bank](tabilet/memory-bank/milestone.md) and
-[full record](tabilet/docs/history/status-P10.md) bind public construction,
-verification/transaction, approval/Authority and conservative browser evidence.
-Public closure imports no retained package or private Udon; old wires/pins remain.
-A32 remains pending on Kinet:M53 no-consumer proof. Physical containment, custody,
-ordinary successor adoption and live/deployment authority remain owner gates.
-Audit stays disabled; standalone GOAL and old history/evolution are unchanged.
-
-## Approved Stage 11 planning
-
-[Stage 11](../kinet/docs/stage11.md) coordinates both refactoring phases across five package-local ledgers. Read the local [milestones](tabilet/memory-bank/milestone.md) before selecting work. Accepted OpenUdon:M98 exposes format-neutral public handoff/digest/approval/Authority and bounded trust/evidence verification contracts. Synthesis-coupled v2 construction, assessment and simulation orchestration remain private legacy adapters without a new public compatibility promise. Accepted OpenUdon:P09 supplies supported public v3 construction/assessment, independently reproduced source/shape/plan/authority checks and read-only v2/v3 history at a6a3ef010fe27f277f8191204c1c81ea1cc0334b, closing review 4. [Contract](docs/package-v3.md) and [qualification](docs/p09-qualification.md) bind ordinary published SDK v0.1.1-0.20261007094531-a6a3ef010fe2; isolation, actual worker identity and current grants belong to the consuming host. Kinet becomes the primary non-browser authoring product in Phase B. Public OpenUdon never imports private Udon modules; browser-dependent compatibility code remains until the Stage 12 closure gate.
-Planning is approved; implementation and named publication/deployment authority are separate. One serial execution owner, offline fixtures, exact upstream reconciliation and persisted milestone reviews apply. Completed records and frozen consumer pins stay preserved.
+Current delivery state and sequencing belong in
+[milestone.md](tabilet/memory-bank/milestone.md). Accepted and retired evidence
+belongs in the [history index](tabilet/docs/history/index.md) and its linked
+records. Keep this file focused on operating rules.
 
 Requested features, candidate promotions, future direction changes, and new
 engineering reviews follow the approved planning procedures in
@@ -71,8 +27,10 @@ This is a scoped exception to serial and whole-ledger single-row wording:
   package and one `[~]` row per lease. Outside this opt-in, serial rules apply.
 - Dispatch requires explicit `PARALLELISM`, `INTEGRATION: local-rebase-ff`,
   `COMMIT_POLICY: task` or `milestone`, and a milestone declared
-  `Parallel-safe: yes`. Strict `STATUS_ORDER` remains strict; only an explicit
-  `STATUS_PRIORITY` chooses among dependency-ready milestones without new edges.
+  `Parallel-safe: yes`. Strict `STATUS_ORDER` remains strict except for the
+  bundled protocol's contiguous parent/amendment family handling. Only an
+  explicit `STATUS_PRIORITY` chooses among dependency-ready milestones without
+  new edges.
 - Each lease uses an external worktree (`../<repo>.goal/<local ID>`) and local
   `goal/<local ID>` branch. Capture each package's actual symbolic integration
   ref, primary worktree and full base commit; never assume `main` or replace
@@ -185,6 +143,15 @@ limits. An upgrade never resumes execution or activates launch grants.
   gate while the OpenAPI-first apitools boundary is active.
 - `../openudon` owns only the integration layer above those projects.
 
+Out of scope ownership map:
+
+- Public UWS semantics -> `../uws`.
+- Generic compilation and runtime execution -> `../udon`.
+- API discovery, import, indexing and operation metadata -> `../apitools`.
+- Desired-state conversion and reconciliation -> `../ramen`.
+- Product authoring and isolated worker integration -> `../kinet`.
+- Concrete IaC authoring and planning -> `../openw8m` (parked).
+
 Rule of thumb:
 
 - If it changes public workflow semantics, it belongs in `../uws`.
@@ -214,6 +181,9 @@ Agents may generate and validate artifacts. Production side effects must only ha
 ## Go Conventions
 
 - Primary language is Go.
+- Prefer Go's standard library before adding helpers, frameworks or
+  dependencies. Keep trivial comparisons and transformations inline when that
+  is clearer than introducing a local abstraction.
 - Keep supported Go libraries at their public roots as documented in
   `docs/public-trust-api.md`; the private command/internal closure is retired.
 - Any retained developer command must depend solely on public packages.
@@ -229,6 +199,12 @@ Agents may generate and validate artifacts. Production side effects must only ha
 
 ## Documentation Rules
 
+- Keep dated delivery checkpoints in their owning milestone/status and history
+  records; use links from `AGENTS.md` instead of duplicating their state here.
+- For substantial discoveries, follow
+  [milestone families](tabilet/memory-bank/milestone.md#milestone-families).
+  Required amendments preserve original acceptance; options wait until parent
+  closure or remain deferred under `OPTION_POLICY: ignore`.
 - Update [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) when sequencing, milestone scope,
   acceptance criteria, cross-repo contracts, active/parked track summary, current-state dashboard,
   or status-file index changes.
