@@ -1,28 +1,15 @@
 ## Current Stage 12 follow-up order
 
-**M58 findings disposition.** The actual test report has no completed browser
-chain: credential storage passed; author assessment was indeterminate; the build
-API refused a request lacking genuine browser reviews, so publication and native
-execution/session/UI checks were skipped. Fresh hand-authored intake is a
-source-inferred missing capability; no product defect or A32 removal/public-
-contract blocker is demonstrated. No new A32 dependency is added. See
-[Kinet M58 findings](../../../kinet/tabilet/docs/history/status-M58.md#findings).
-Owner acceptance after M58 closure is required before creating any implementation
-successor; registration remains intentionally excluded and audit stays disabled.
-
-Kinet:M53 and Kinet:M58 are accepted/retired. M58 completed its test-only
-findings deliverable with no positive browser chain. OpenUdon:A32 is next
-required, then Kinet:M54? → Udon:M54? → UWS:C11? → APItools:M86? → Kinet:M55?.
-Current horizon: six milestones / 24 rows (required one / five, conditional five / 19).
-Use the single [Kinet launch reference](../../../kinet/tabilet/memory-bank/suggested.txt).
-M58 added no A32 acceptance dependency; no removal-safety blocker was demonstrated. Hold A32 only when findings show
-that removal would break retained behavior or a required public contract; an
-owner-approved repair dependency must resolve that blocker first. Other gaps do
-not automatically hold A32. A32 rows and review counters are unchanged.
-M58's implementation successor remains unnumbered until the owner accepts
-its findings. All M58 action grants ended; no new authority transfers to A32. No new publication, deployment or Phase C authority.
-Registration stays denied; audit stays disabled. Earlier dated checkpoints are
-historical; this paragraph and the A32 specification define current readiness.
+[A32](../docs/history/status-A32.md) is accepted/retired after all original
+obligations, four task review passes and fresh Sol/xhigh whole review1. Source
+d339d6879eee21b82e31d39e88ed27dd89299a04 is published/independently verified;
+normal closure publication is the remaining coordinator handoff operation.
+No active OpenUdon milestone remains. The cross-package goal has only five
+conditional milestones/nineteen pending rows; deployment and named inventory
+triggers are absent. Public SDK/API/history and consumer pins remain unchanged.
+M53 early-use and M58 findings closures are preserved; no implementation
+successor, browser/runtime/adoption/deployment authority or audit activation
+is created. Earlier dated checkpoints below remain historical.
 
 # Milestone
 
@@ -512,7 +499,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| A32 | Legacy closure removal | [status-A32.md](status-A32.md) | Pending (STG-12; follows P12 and Kinet:M53) |
 
 ## Requested Changes After Initialization
 
@@ -888,86 +874,6 @@ only.
 from the later confirmed goal. Source publication requires separately named
 authority. Consumers record exact accepted local Kinet prerequisites and accepted,
 independently published sibling prerequisites before adoption.
-
-### A32 — Legacy closure removal
-
-**Accepted Kinet:M53 early-use handoff — 2026-10-24.** Kinet completed all39 rows, task4/task5 reviews1/1 and fresh whole review1 under the owner-approved early local evaluation standard. [Exact dependency/artifact/limitation handoff](../../../kinet/docs/m53-stage12-handoff.md) and [retired M53](../../../kinet/tabilet/docs/history/status-M53.md) supply the dependency evidence. Selected native and retained default/Phase A/media paths use Kinet-owned workers/images, not the legacy OpenUdon CLI/image/internal producer. Public libraries (including live default801b), private Udon/HCL and P11/P12/P13 contracts remain. Additional physical/observer/forced-crash methods are deferred/unqualified, not A32 prerequisites or passed tests. Preserve unknowns/no replay/registration denial/disabled private input. A32 rows remain pending/review0; no publication, deployment or Phase C authority is added.
-
-
-Additional prerequisite: accepted/published OpenUdon:P13; preserve its public
-saved-session authority and observed fallback-rights regressions in A32.1/.5.
-Kinet:M53's accepted early-use handoff supplies the prerequisite; additional
-physical methods remain unqualified and are not A32 prerequisites.
-
-**P12 public preservation gate — 2026-10-13.** Depend on accepted/published
-OpenUdon:P12 and Kinet:M53's exact no-legacy-consumer proof. A32.1 inventories
-P12's public browser authentication predicate/plan path; A32.2/A32.5 preserve
-the authored bounded-auth correction and additive public/native compatibility
-regressions, existing complete hash/wire semantics, P11 outputs and readable
-untimed history. Retiring legacy authoring must not remove or widen the public
-path. Frozen consumer pins, all existing row text/markers and review0 remain
-unchanged. P12 owns the repair; A32 starts no duplicate row. Audit disabled.
-
-**Stage/owner.** STG-12 Phase B; OpenUdon. First in the current remaining
-priority after completed Kinet:M58; no new acceptance dependency was added.
-
-**Dependencies.** Accepted/published P10/P11/P12/P13, and the accepted
-Kinet:M53 no-consumer proof. M58 may identify a concrete removal-safety blocker;
-only an owner-approved repair decision adds a new prerequisite.
-
-**Scope.** Refresh the A31 inventory. Then delete:
-
-- the browser authoring and harness packages, except the P10 public subset including accepted P11 output resolution and historical-proof refusal;
-- the retained set: synthesize, workflowintent, elicitor, projectwizard,
-  udonrunner, trustedrunner;
-- packagepipeline, the legacy authoring packages and the eval packages;
-- `cmd/udon-runner`, the legacy commands and image/runner publication;
-- the legacy HCL adapters.
-
-**Acceptance.**
-
-- An empty legacy closure.
-- Public APIs, wires and history readers unchanged.
-- Frozen W8M/Ramen pins still fetchable.
-- No UWS HCL-input use remains.
-
-**Downstream.** UWS:C11? and Kinet:M55?.
-
-**Tasks/review.** [status-A32.md](status-A32.md), 5 rows, review 0/10.
-
-**Stage 12 candidate dispositions.**
-
-- **Promoted:** browser-dependent retirement, deferred in Stage 11.
-- **Still deferred:** live-read tiers, browser snapshot semantics, real-provider
-  evidence, execution-plan assertion hardening and the frozen Ramen/Authoring
-  catch-up.
-
-**Depends on.** OpenUdon:P10, OpenUdon:P11, OpenUdon:P12, OpenUdon:P13, Kinet:M53. All required prerequisites must have
-accepted closure at exact revisions; sibling producer adoption also needs
-independently verified publication. A priority position never supplies authority.
-
-**Downstream impacts.** UWS:C11?, Kinet:M55?.
-
-**Write set.** The owning `openudon/` package's implementation, tests, ordinary
-documentation, manifests and qualification outputs only as required by this
-milestone's existing scope, plus `tabilet/memory-bank/status-A32.md` in its
-assigned worktree. Excludes `AGENTS.md`, `tabilet/GOAL.md`, shared memory-bank
-files, other statuses, evolution, stages, history/knowledge, the package audit
-database/sidecars, coordination docs and launch input. The coordinator alone applies shared-memory and closure
-changes serially; no child writes a sibling repository or user ledger.
-
-**Contracts read.** Immutable exact prerequisite artifacts listed above, the
-M51 native-owner-reviewed contract/fixtures when applicable, the assigned
-package baseline and frozen shared-memory/consumer snapshots captured at
-dispatch. Cross-package checks use read-only exact snapshots or approved
-published module inputs, never changing sibling checkouts. Record full source,
-artifact and fixture hashes in the later execution brief; contract drift pauses
-affected leases for coordinator reconciliation. Existing no-workspace/no-directory
-substitution requirements for ordinary published adoption remain in force.
-
-**Parallel-safe.** yes. Eligible only under the explicit Stage 12 lease opt-in, with no dependency path or bidirectional read/write conflict against any running lease.
-At most one live milestone per package. All tests use private lease ports,
-disposable stores/caches/browser profiles and unique output directories.
 
 ## Stage 12 frozen consumer input checkpoint — 2026-10-09
 

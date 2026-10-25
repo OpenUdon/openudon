@@ -6496,3 +6496,12 @@ qualification commands and pinned toolchain assumptions are maintained below;
 exact authenticated-authoring evidence is in [E20](../docs/history/status-E20.md), with
 superseded wording in the [history index](../docs/history/index.md).
 ```
+
+
+## 2026-10-25 — A32 consolidation date and source context
+
+The preceding A32 public-library retirement entry records consolidation on
+2026-10-25. Its original wording and excerpts remain unchanged. Source baseline:
+`65504cc6a71f73a48bf050696ece72071adc5425`; replacements are the current
+product/architecture/stack headings and [retirement guide](../../../docs/legacy-cli-retirement.md).
+This dated annotation corrects entry metadata only, not evidence or acceptance.

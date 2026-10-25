@@ -55,7 +55,12 @@ A fresh empty bare Git store fetched both exact frozen OpenUdon commits
 1.8773 seconds, exit0. No alternates, existing object store, tag or ref rewrite
 was used. The coordinator retains `fresh-frozen-remote-result.json`.
 
-Qualified source publication and fresh independent whole review remain pending
-with the coordinator. This page grants no consumer adoption, deployment, runtime,
+Qualified source `d339d6879eee21b82e31d39e88ed27dd89299a04` was fast-forward published
+to the exact approved OpenUdon origin/main and independently verified by separate
+remote-ref query and exact-source fetch/tree comparison. No tag or deployment
+was invoked; source commits use `[skip ci]`. The coordinator retains
+`source-publication.json`. Fresh read-only Sol/xhigh whole review1 PASS covers all five lenses with no
+findings. The coordinator is consolidating retirement and normal closure
+publication; downstream adoption remains separately owned. This page grants no consumer adoption, deployment, runtime,
 registration or private-input authority. Historical UNKNOWNs and no replay
 remain; deferred Kinet physical/observer methods remain unqualified.
