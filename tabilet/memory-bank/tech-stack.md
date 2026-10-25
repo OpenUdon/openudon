@@ -19,9 +19,13 @@ including the local owner, 375 compiled packages, no replacements/private import
 and changed actual authoringcard BuildID. These are local `(devel)` source proofs,
 not published adoption. The 33-case corpus / 9 deterministic text goldens preserve
 all prior cases and add strict surrogate refusals/valid-Unicode controls.
-Whole review1 and its publication blocker persist. See [original qualification](../../docs/p14-local-qualification.json),
+Exact review-branch publication and ordinary Go-proxy/checksum acquisition pass.
+A reusable standalone consumer executes33shared cases (34RUN34PASS), typed
+Parse/Validate/RenderText and build metadata:57selected/4compiled includingmain,
+exact version/sum, no replacements. [Published proof](../../docs/p14-published-qualification.json)
+retains attempts/effects; fresh whole2 is started. See [original qualification](../../docs/p14-local-qualification.json),
 [correction](../../docs/p14-unicode-correction.json) and [live status](status-P14.md).
-No acquisition, push, deployment or existing fixture/schema migration follows.
+No further acquisition/push, deployment or existing fixture/schema migration follows.
 
 ## Accepted P13 public session authority regression
 

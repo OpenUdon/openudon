@@ -2,7 +2,7 @@
 
 **Stage/owner:** STG-13; OpenUdon.
 **Planning approval:** Owner-approved full rescope on 2026-10-25 (approval: “I aapaprove”), following the earlier whole-stage approval. Planning only; no execution, commit or grant activation.
-**State:** P14-W1 correction is locally committed and qualified; P14.4 is suspended pending P14-W2 now-authorized exact publication and remaining evidence/acceptance. Authoritative whole review counter remains 1/10; parent iteration 2 is pending. No general row is in progress; no gate pass or closure is claimed.
+**State:** All four original rows pass. Exact approved review-branch source publication, ordinary acquisition and independent typed consumer qualification pass. Fresh authoritative whole2 is started; no acceptance yet.
 **Specification:** [milestone.md](milestone.md#stg13-p14).
 **Depends on:** None.
 **Source baseline:** `8433e78f1b08be7a7d9cce6cad987cce747283c8`; existing dirty planning/history was inspected and preserved. Reconcile live source and exact accepted producers before implementation.
@@ -18,7 +18,7 @@
 | P14.1 — Specify additive authoring cards | `[+]` | Added authoringcard v1 types, separately embedded schema and docs/authoring-card-v1.md over existing source/selector spelling. Missing/invalid/unresolved states, literal null and opaque bindings remain explicit; no approval object. Offline Go1.26.6 focused schema/type check passed (0.015s); task review passed. Kinet internal/cardfixture remains adapter evidence only. |
 | P14.2 — Implement validation and deterministic text | `[+]` | Added bounded strict Parse, Card.Validate and deterministic RenderText. Refuses unsupported/ambiguous identities, duplicate keys/targets, conflicting payloads, stale valid claims, invalid UTF-8 and oversize input; exact literal tokens/bindings and incomplete data remain reviewable. Focused tests (0.032s), vet, format/diff and task review passed. Adapter guidance preserves admitted type/requiredness/effect/incompleteness evidence in each product's own exact review. |
 | P14.3 — Publish conformance fixtures | `[+]` | Added docs/fixtures/authoring-card-v1: initially 25 JSON/five text cases; the still-unpublished draft now has 33 JSON/nine text cases after the P14-W1 Unicode correction. Existing case bytes remain unchanged and the draft manifest binds the new helper/cases. New conformance/byte/depth checks, frozen public API/import checks and package/history/approval/handoff/wire checks pass. This is repository conformance data, not remote source publication. |
-| P14.4 — Qualify and hand off exact producer | `[!]` | P14-W1 correction committed locally at e3bd5b07b1509e831be834f0e37aaba572f44975 after red/green regressions, extended corpus and fresh DEFAULT/xhigh fix review (no P1/P2; P3 resolved). Exact clean detached p14-unicode-qualification passes public-boundary (0.188s) and overall full check 2 (24.261s). New compiled authoringcard BuildID/source/corpus identities are bound in docs/p14-unicode-correction.json; selected 91/compiled 35 module identities remain exact with no replacements. Prior 9e1 check 1 PASS (26.069s), proof and archives remain unchanged. Whole counter remains 1/10 with parent iteration 2 pending; P14-W2 publication remains denied/unperformed and gates acceptance/W22/M136. |
+| P14.4 — Qualify and hand off exact producer | `[+]` | Unicode correction e3bd passes full2/public-boundary; exact e486 published by one creation-only push2.022408s and independently verified ref/tree/time. Approved ordinary Go proxy+checksum acquisition1 passes14.913329s with expected sums/origin. Reusable typed/schema/text consumer passes34RUN34PASS (all33cases), vet/build/actual probe; selected57/compiled4 including main, exact published self identity and zero replacements. [Publication/consumer proof](../../docs/p14-published-qualification.json). Earlier local checks/failures/counters remain. Fresh whole2 started. |
 
 ## Acceptance and verification
 
@@ -32,7 +32,7 @@ Required verification: Schema/JSON/text conformance positives and refusals, exis
 
 ## Review
 
-Review gate iterations: 1
+Review gate iterations: 2
 
 Task reviews: P14.1 passed against the actual additive types/schema/docs. P14.2 passed against validation, deterministic projection, bounded/error/duplicate/drift paths and product review separation; empty nonnil raw literals were refused before acceptance. P14.3 passed against all 25 case outcomes, independently prepared text, hash-bound source/schema/cases, exact byte/depth controls and unchanged consumer history/API contracts. P14.4's fresh DEFAULT gpt-6.1-sol/xhigh review was limited to verification/input/publication evidence and the documentation-only follow-up; no P1/P2 evidence defect. P14-E1/P3 stale owning/shared summaries were corrected in the coordinator documentation commit; no evidence or acceptance changed. P14.4 acceptance remains pending. Authoritative whole-milestone review 1/10 completed with the P2 findings below; the earlier evidence-only task review was not a whole-implementation gate. Follow the package's existing persisted review and closure procedure; planning, terminal rows and successful builds do not establish acceptance.
 
@@ -100,3 +100,28 @@ the named ordinary consumer fixtures. Main/other pushes, deployment and all
 other acquisitions remain denied. Publication/consumption are still unperformed;
 the row stays suspended while Kinet:M59 owns serial execution. Review counter1,
 prior findings and all consumed checks remain; no acceptance is claimed.
+
+## Coordinator publication1 — selected
+
+Actual human scoped approval binds only exact e486fee4 to the new review ref
+`refs/heads/stage13/p14-authoring-cards-e486fee4`. Independent GitHub search
+confirms absent, local origin/tree/proposal and no pre-push hook match. ONE
+creation-only empty-expected-ref lease push is selected, hard300s, batch Git
+SSH/current host keys. No main/tag/update/delete/deploy/future push. Attempt1
+is reserved; no execution/success is claimed by selection. Root owns serial
+execution; other general rows remain suspended or complete.
+
+## Authoritative whole review2 — started
+
+Publication1 actually passed2.022408s/originalWait/bothEOF/exit0. Independent
+GitHub exact ref/commit/tree/time verification passed. Ordinary acquisition1
+passed14.913329s with exact origin/revision/module/go.mod sums. Offline reusable
+consumer readiness and test/vet/build/typed probe pass (1.290293s qualification,
+34RUN34PASS including33conformance cases; zeroFAIL/skip). Selected57modules and
+actual4compiled including consumer main agree on the new ordinary module; no
+workspace/replacement or local-owner substitute. Receipts use regular-file
+stdout/stderr for consumer commands; no pipe-EOF claim is made for those runs.
+[Exact qualification](../../docs/p14-published-qualification.json) retains all
+inputs, receipts/log hashes, source and compiled identities. P14-W1/W2 are now
+resolved at original acceptance; fresh whole2 reviews the full milestone. Prior
+whole1/tenlimit, all original failures and no-deployment/old-grant denials remain.

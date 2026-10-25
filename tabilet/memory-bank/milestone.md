@@ -8,7 +8,7 @@ and legacy-wrapper retirement are separate unnumbered candidates.
 
 **Current OpenUdon Stage 13 horizon.** OpenUdon:P14. One serial execution owner; parallel-safe no. The Kinet launch reference includes only the eight active milestones. This current section governs over earlier dated checkpoints.
 
-**Execution progress.** The separately approved local goal has completed P14.1–.3 and P14.4's local verification/readiness. Publication and authoritative whole review remain pending; the owner approved only the exact reviewed new-branch/acquisition scopes, not main pushes. The planning approval above supplies historical scope, not execution authority.
+**Execution progress.** The separately approved local goal has completed P14.1–.3 and P14.4's local verification/readiness. Publication/ordinary consumer qualification pass and authoritative whole2 is started; the owner approved only the exact reviewed new-branch/acquisition scopes, not main pushes. The planning approval above supplies historical scope, not execution authority.
 
 Preserve supported Ramen/Udon HCL input/output and supporting UWS codecs;
 Ramen remains YAML-first. Stage 12 stays closed. Withdrawn Kinet:M54/M55,
@@ -18,14 +18,14 @@ audit stays disabled. No old permission, budget or trigger is reactivated.
 
 | ID | Status file | State | Dependencies |
 |---|---|---|---|
-| P14 | [status-P14.md](status-P14.md) | 3 rows complete; .4 locally qualified, publication blocked; whole review 1/10; W1 corrected locally, W2 publication blocked | None. |
+| P14 | [status-P14.md](status-P14.md) | Four rows pass; exact publication/ordinary consumer pass; whole2 started | None. |
 | P15 | [status-P15.md](status-P15.md) | Withdrawn; 3 rows `[X]`; undelivered; review 0/10 | None active; original dependencies retained in the withdrawn record. |
 
 <a id="stg13-p14"></a>
 
 ### P14 — Typed authoring cards and text conformance
 
-**Stage/owner.** Kinet STG-13; OpenUdon. **State.** P14.1–.3 complete; P14.4 locally qualified, publication blocked; authoritative whole review 1/10; W1 corrected locally, W2 publication blocked.
+**Stage/owner.** Kinet STG-13; OpenUdon. **State.** All four original rows pass; publication/ordinary consumer qualify and fresh whole2 is started.
 **Depends on.** None.
 **Downstream.** [Kinet:W22](../../../kinet/tabilet/memory-bank/status-W22.md), [Ramen:M136](../../../ramen/tabilet/memory-bank/status-M136.md)
 **Outcome.** OpenUdon publishes an additive typed authoring-card contract and deterministic text representation usable by independent Kinet and Ramen adapters.
@@ -38,7 +38,7 @@ audit stays disabled. No old permission, budget or trigger is reactivated.
 - New schemas/fixtures are versioned and additive; existing consumers and immutable fixtures remain valid. Deterministic text and small local mirrors need no shared UI repository or private executor import.
 - Cards describe authoring-stage data, not a replacement authorization or confirmation protocol. Kinet retains its product-specific exact approval/receipt contracts; Ramen retains its own plan/apply approval. Publish adapter guidance demonstrating that distinction.
 
-**Verification.** Schema/JSON/text conformance positives and refusals, existing public-history/API compatibility tests, make public-boundary and make check. Apply the [shared verification policy](../../../kinet/docs/stage13.md#verification-policy), including `GOWORK=off` for every adoption/closure check. Corrected clean source `e3bd5b07b1509e831be834f0e37aaba572f44975` passes public-boundary (0.188s) and full check 2 (24.261s), with [Unicode correction and current compiled/corpus proof](../../docs/p14-unicode-correction.json). The [prior qualification](../../docs/p14-local-qualification.json) remains historical at its exact source. Publication and authoritative review 2 remain pending; no final acceptance is claimed.
+**Verification.** Schema/JSON/text conformance positives and refusals, existing public-history/API compatibility tests, make public-boundary and make check. Apply the [shared verification policy](../../../kinet/docs/stage13.md#verification-policy), including `GOWORK=off` for every adoption/closure check. Corrected clean source `e3bd5b07b1509e831be834f0e37aaba572f44975` passes public-boundary (0.188s) and full check 2 (24.261s), with [Unicode correction and current compiled/corpus proof](../../docs/p14-unicode-correction.json). The [prior qualification](../../docs/p14-local-qualification.json) remains historical at its exact source. [Exact publication/ordinary typed consumer qualification](../../docs/p14-published-qualification.json) passes; authoritative whole2 is started, no acceptance yet.
 
 **Review provenance.** Kinet Stage 13 plan review (`kinet-stage13.md`), 2026-10-25; source commit baseline not supplied. Review H4 (High/local P2), M1 (Medium/local Lower) and M6 (Medium/local Lower): the parent go.work can select changing siblings; Kinet routing provides no P14 input; Kinet internal/cardfixture/cards.go is a formatter/frontend test harness, not a replacement public card system. P14.1/.4 own the authoring-only contract and standalone proof. Revalidated at OpenUdon `8433e78f1b08be7a7d9cce6cad987cce747283c8` with the existing uncommitted Stage 13 planning inspected; source/history changes were not absorbed. This is review intake, not a closing review iteration.
 

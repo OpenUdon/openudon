@@ -15,8 +15,9 @@ Products retain their own orchestration, effect/capability checks and UI.
 
 P14.1–.3 are committed. Whole review1 found a Unicode identity defect and missing
 publication evidence. The card-local Unicode correction is committed and passes
-fresh full qualification; required publication remains denied/unperformed and
-P14 is not accepted. The [contract](../../docs/authoring-card-v1.md),
+fresh full qualification. Exact approved review-branch publication and ordinary
+typed/schema/text consumer qualification pass; fresh whole2 is started and
+P14 is not yet accepted. The [contract](../../docs/authoring-card-v1.md),
 [Unicode evidence](../../docs/p14-unicode-correction.json) and [active status](status-P14.md)
 own precise source, evidence and persisted review1. Legacy wires, fixtures,
 JSON/YAML/HCL behavior and the public/private runtime boundary stay unchanged.

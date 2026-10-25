@@ -20,7 +20,8 @@ exact typed/schema/text/fixture data. Neither imports the other. Source admissio
 operation eligibility/mapping, product effects/capabilities and exact approval
 remain adapter duties. No shared UI repository, universal planner, transport,
 credential path or runtime dependency is introduced. Existing APItools pins and
-UWS contracts are retained. P14 publication and fresh whole review2 remain open;
+UWS contracts are retained. Exact P14 publication/ordinary consumer proof passes;
+fresh whole2 is started;
 [active status](status-P14.md) governs over historical phase observations.
 
 **P13 reviewed source contract — 2026-10-17.** Public browser authority binds

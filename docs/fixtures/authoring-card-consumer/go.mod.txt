@@ -1,0 +1,10 @@
+module example.invalid/stage13/p14consumer
+
+go 1.26.6
+
+require (
+	github.com/OpenUdon/openudon v0.1.1-0.20261025103923-e486fee4f8b8
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+)
+
+require golang.org/x/text v0.39.0 // indirect
