@@ -1,0 +1,118 @@
+{
+  "version": "openudon.p14-unicode-correction.v1",
+  "finding": "P14-W1",
+  "whole_review_counter": 1,
+  "state": "focused correction and fresh DEFAULT task/fix review passed; changed-source clean qualification pending",
+  "prior_candidate": {
+    "source": "9e1a8c736ad9793aba613d26d1e8cd577c5bc267",
+    "record": "docs/p14-local-qualification.json",
+    "record_sha256": "c91a759c554aecc6d98282eb2ad9328a443e926f304f57e632f2948a7d12e701",
+    "full_owner_check": {
+      "attempt": 1,
+      "exit": 0,
+      "elapsed_seconds": 26.069
+    },
+    "meaning": "Previous candidate evidence retained unchanged; not qualification of this correction."
+  },
+  "base_source": "e4a0d4241b2b59d23044fdef35defeae5b593ed5",
+  "source_fix_commit": null,
+  "correction": "Reject unpaired UTF-16 surrogate escapes in JSON string values and keys before any lossy decoding, local to authoringcard. Valid pairs, U+FFFD and escaped literal backslash-u remain valid. Typed raw literals share the same check; no global wire/schema/dependency change.",
+  "regression": {
+    "command": "go test ./authoringcard -run 'TestRefuseUnpairedUnicodeEscapes|TestPreserveValidUnicodeAndLiteralBackslashes' -count=1",
+    "red": {
+      "source": "old production helper at e4a0d4241b2b59d23044fdef35defeae5b593ed5 plus new regression tests",
+      "exit": 1,
+      "elapsed_seconds": 0.497,
+      "refusal_subcases_failed": 48,
+      "capture": "/tmp/k13-8f7f/openudon-p14-unicode/regression-red.log",
+      "sha256": "7ba3e9920d9883673f33da3efbe862cd84e13bcbc6332709c69c77f0dff1100d"
+    },
+    "green": {
+      "exit": 0,
+      "elapsed_seconds": 0.46,
+      "go_test_seconds": 0.021,
+      "capture": "/tmp/k13-8f7f/openudon-p14-unicode/regression-green.log",
+      "sha256": "2442855c9b405d597a4c0eaa4a65138f4b7298fb3b2456ebdd1242623696ae5e"
+    },
+    "controls": "Source/operation/selector/mapping/text; raw literal keys and values; six malformed-surrogate patterns; valid non-BMP pairs including Unicode boundaries, intentional literal/escaped U+FFFD, and escaped literal backslashes.",
+    "argv": [
+      "go",
+      "test",
+      "./authoringcard",
+      "-run",
+      "TestRefuseUnpairedUnicodeEscapes|TestPreserveValidUnicodeAndLiteralBackslashes",
+      "-count=1"
+    ]
+  },
+  "focused": {
+    "command": "go test ./authoringcard -count=1",
+    "exit": 0,
+    "go_test_seconds": 0.078,
+    "vet": "go vet ./authoringcard passed",
+    "format_diff": "gofmt and git diff --check passed"
+  },
+  "draft_contract": {
+    "card_version": "openudon.authoring-card.v1",
+    "schema_sha256": "dde6a49ba61b07e9aabe10fa0ed93beb33e1eb49ac9423eccb402e9c8d12c51d",
+    "corpus_manifest_sha256": "35dab1d3689c8fedd43eae37c67deb2aff11d1fb7aa2581eb1a1a32c5c6331e9",
+    "cases": 33,
+    "positives": 9,
+    "new_unicode_cases": 8,
+    "new_unicode_refusals": 4,
+    "preexisting_case_bytes_unchanged": true,
+    "production_files": [
+      {
+        "path": "authoringcard/card.go",
+        "sha256": "0809c7c6e138c6085f9bd14dc520152875f4962fad151d41f191cff011a24118"
+      },
+      {
+        "path": "authoringcard/validate.go",
+        "sha256": "73bc82174dcbd4727bab1d94a795d2b0d1209691de4c3082c4d784d2bf3180a8"
+      },
+      {
+        "path": "authoringcard/text.go",
+        "sha256": "1c94c4e837dcc4476e692fe9ec0785e13a2d8b870bde7d20e0ed481755302e2f"
+      }
+    ],
+    "dependency_locks_unchanged": true
+  },
+  "verification_policy": {
+    "go": "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOAUTH": "off",
+    "GOTOOLCHAIN": "local",
+    "GOMODCACHE": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache",
+    "TMPDIR": "/tmp/k13-8f7f",
+    "GOTMPDIR": "/tmp/k13-8f7f",
+    "process_umask": "0077"
+  },
+  "fix_review": {
+    "scope": "P14-W1 correction and new regression/conformance coverage only; not authoritative whole review",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "xhigh",
+    "state": "passed: no P1/P2 correction finding; P3 command-copy metadata corrected",
+    "findings": [
+      {
+        "severity": "P3",
+        "owner": "P14.4",
+        "finding": "Unquoted -run alternation in evidence command could become a shell pipeline.",
+        "disposition": "Corrected quoted command and added exact subprocess argv; no source or test change."
+      }
+    ],
+    "followup": "Fresh read-only reviewer confirmed quoted alternation/exact argv; P3 resolved, no outstanding narrow correction finding. No whole-review effect."
+  },
+  "counts": {
+    "full_owner_checks_completed": 1,
+    "failed_full_owner_checks": 0,
+    "protected_actions": 0,
+    "whole_review_counter": 1
+  },
+  "remaining": [
+    "Changed-source clean qualification/public-boundary and full owner check 2",
+    "Parent-dispatched authoritative whole review iteration 2",
+    "P14-W2 independently verified ordinary publication remains denied/unperformed"
+  ],
+  "retention": "Keep prior candidate record/raw captures/immutable worktree and new private red/green captures; no cleanup or archive mutation."
+}

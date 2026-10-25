@@ -53,6 +53,15 @@ entry; it supplies no new default or hidden decision. `literal-json` quotes the
 raw JSON value bytes, including any internal whitespace, instead of interpreting
 them as review markup. Parse treats whitespace outside a JSON value as framing.
 
+All strings and object keys must contain Unicode scalar values. Before decoding,
+the contract refuses unpaired UTF-16 surrogate escapes anywhere in a card,
+including inside raw literal values and keys; a permissive JSON decoder must
+never replace them silently. Valid escaped surrogate pairs, literal or escaped
+U+FFFD, and literal backslash-u text remain valid. Typed validation/rendering
+apply the same rule to raw literals. Ordinary typed Go strings must be valid
+UTF-8; an intentionally supplied U+FFFD is preserved. This is an additional
+predecode check beyond JSON Schema and changes no historical wire helper.
+
 Kinet's adapter retains its business sequencing, source admission, exact
 rendered approval, receipts, ledger confirmation and worker isolation. Its
 `internal/cardfixture` is formatter/frontend evidence only. A card does not

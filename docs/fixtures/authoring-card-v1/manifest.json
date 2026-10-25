@@ -8,7 +8,7 @@
     },
     {
       "path": "authoringcard/validate.go",
-      "sha256": "c382f5c4d6d478102501f3bb8d44afb3daa4f5a529118713ff597a750a753433"
+      "sha256": "73bc82174dcbd4727bab1d94a795d2b0d1209691de4c3082c4d784d2bf3180a8"
     },
     {
       "path": "authoringcard/text.go",
@@ -204,6 +204,70 @@
       "sha256": "05320b1cfac4ca2729b1657985426ad4fc1fc6e768101a5817f27cb4edbad569",
       "accepted": false,
       "schema_accepted": false
+    },
+    {
+      "name": "unicode-lone-high-source",
+      "json": "docs/fixtures/authoring-card-v1/unicode-lone-high-source.json",
+      "sha256": "48b71fdcfc174ecc8faa1fa42dcdc768fa9e525508e98c252929b97e2db44c26",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "unicode-lone-low-source",
+      "json": "docs/fixtures/authoring-card-v1/unicode-lone-low-source.json",
+      "sha256": "f977d88a445a13f62819a73af63b4b043c60311f97df748f1d2743a0ea089b71",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "unicode-lone-high-literal",
+      "json": "docs/fixtures/authoring-card-v1/unicode-lone-high-literal.json",
+      "sha256": "b40952afc75d3ca3cc0f6ab842427b70708cfc1d6e10f645cd174c0bae42cc85",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "unicode-lone-low-key",
+      "json": "docs/fixtures/authoring-card-v1/unicode-lone-low-key.json",
+      "sha256": "82ddbefcecbbd28ae30560528b19dea80ef01770268ec019c99a62efd4e74040",
+      "accepted": false,
+      "schema_accepted": true
+    },
+    {
+      "name": "unicode-valid-pair",
+      "json": "docs/fixtures/authoring-card-v1/unicode-valid-pair.json",
+      "sha256": "13b611bfe28a09d8b9afc691b5c7a404688b1502eb1df5b80bf9f6cc83815a0d",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/unicode-valid-pair.txt",
+      "text_sha256": "0f3f3b3c089efa550b52fa4adc346fd7058f0d94167c165410860c031f1f9cf2"
+    },
+    {
+      "name": "unicode-literal-replacement",
+      "json": "docs/fixtures/authoring-card-v1/unicode-literal-replacement.json",
+      "sha256": "1636dd108d5649a89df0607391f7bf2522377f49a782fc3904910a54b3a2c9f5",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/unicode-literal-replacement.txt",
+      "text_sha256": "72fef77818eed4ed2cea4284bdf738b75dccf04c370e486daf2b9f507c769391"
+    },
+    {
+      "name": "unicode-escaped-replacement",
+      "json": "docs/fixtures/authoring-card-v1/unicode-escaped-replacement.json",
+      "sha256": "2aa6fb4db57539c05bc8999ddc7ed161444618042158f5ab66e577d512e4e6fb",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/unicode-escaped-replacement.txt",
+      "text_sha256": "e1e5dd7b590e2b5f090023d6a31a414abe87745f432d9dec26d5dfd3ca9cdaaf"
+    },
+    {
+      "name": "unicode-literal-backslashes",
+      "json": "docs/fixtures/authoring-card-v1/unicode-literal-backslashes.json",
+      "sha256": "49778a054c95ef3def85532325479bcbb72fe58c8a880c31e2a5860abd7da708",
+      "accepted": true,
+      "schema_accepted": true,
+      "text": "docs/fixtures/authoring-card-v1/unicode-literal-backslashes.txt",
+      "text_sha256": "2c0a1664ce44bb0fdea40860f016152d2a4dc88301db30b682079ee8fb8ef85f"
     }
   ]
 }

@@ -3,6 +3,7 @@ package authoringcard
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"sync"
 	"unicode/utf8"
 
@@ -41,16 +42,20 @@ var cardSchema = sync.OnceValue(func() *jsonschema.Schema {
 })
 
 // Parse decodes one bounded UTF-8 card, preserving literal numeric tokens and
-// rejecting unknown/noncanonical fields, duplicate keys and unsupported data.
+// rejecting unknown/noncanonical fields, duplicate keys, unpaired Unicode
+// escapes and unsupported data before any lossy string decoding.
 func Parse(data []byte) (Card, error) {
 	var card Card
-	if len(data) > MaxBytes || !utf8.Valid(data) || wire.DecodeStrictNumbers(data, &card) != nil || validateJSON(data) != nil || card.Validate() != nil {
+	if len(data) > MaxBytes || !utf8.Valid(data) || validateJSON(data) != nil || wire.DecodeStrictNumbers(data, &card) != nil || card.Validate() != nil {
 		return Card{}, ErrCard
 	}
 	return card, nil
 }
 
 func validateJSON(data []byte) error {
+	if !validUnicodeEscapes(data) {
+		return ErrCard
+	}
 	var value any
 	if wire.DecodeStrictNumbers(data, &value) != nil {
 		return ErrCard
@@ -60,6 +65,49 @@ func validateJSON(data []byte) error {
 		return ErrCard
 	}
 	return nil
+}
+
+// Go's JSON decoder replaces unpaired UTF-16 escapes. Check string tokens before
+// decoding so identities, values and object keys cannot silently change. This
+// scan only checks Unicode escapes; the JSON decoder still owns JSON grammar.
+func validUnicodeEscapes(data []byte) bool {
+	inString := false
+	for i := 0; i < len(data); i++ {
+		if data[i] == '"' {
+			inString = !inString
+			continue
+		}
+		if !inString || data[i] != '\\' {
+			continue
+		}
+		i++
+		if i >= len(data) {
+			return false
+		}
+		if data[i] != 'u' {
+			continue
+		}
+		if i+4 >= len(data) {
+			return false
+		}
+		first, err := strconv.ParseUint(string(data[i+1:i+5]), 16, 16)
+		if err != nil || first >= 0xdc00 && first <= 0xdfff {
+			return false
+		}
+		i += 4
+		if first < 0xd800 || first > 0xdbff {
+			continue
+		}
+		if i+6 >= len(data) || data[i+1] != '\\' || data[i+2] != 'u' {
+			return false
+		}
+		second, err := strconv.ParseUint(string(data[i+3:i+7]), 16, 16)
+		if err != nil || second < 0xdc00 || second > 0xdfff {
+			return false
+		}
+		i += 6
+	}
+	return true
 }
 
 // Validate checks structure, boundedness and internal consistency only. It does

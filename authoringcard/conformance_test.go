@@ -52,7 +52,7 @@ func TestVersionedConformance(t *testing.T) {
 	if err := wire.DecodeStrictNumbers(read(t, "docs/fixtures/authoring-card-v1/manifest.json", ""), &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Version != "openudon.authoring-card-conformance.v1" || manifest.CardVersion != authoringcard.Version || len(manifest.Cases) != 25 || len(manifest.ContractFiles) != 4 {
+	if manifest.Version != "openudon.authoring-card-conformance.v1" || manifest.CardVersion != authoringcard.Version || len(manifest.Cases) != 33 || len(manifest.ContractFiles) != 4 {
 		t.Fatal("unexpected conformance contract")
 	}
 	for _, file := range manifest.ContractFiles {

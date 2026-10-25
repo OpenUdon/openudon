@@ -2,7 +2,7 @@
 
 **Stage/owner:** STG-13; OpenUdon.
 **Planning approval:** Owner-approved full rescope on 2026-10-25 (approval: “I aapaprove”), following the earlier whole-stage approval. Planning only; no execution, commit or grant activation.
-**State:** P14.1–.3 complete; P14.4 local qualification/evidence readiness complete but blocked on forbidden publication and remaining acceptance. No general row is in progress; authoritative whole review 0/10.
+**State:** Authoritative whole review iteration 1 completed with P2 P14-W1 (Unicode scalar preservation) and P14-W2 (unperformed publication). P14.4 resumes its owned source correction; publication remains denied. No gate pass or closure is claimed.
 **Specification:** [milestone.md](milestone.md#stg13-p14).
 **Depends on:** None.
 **Source baseline:** `8433e78f1b08be7a7d9cce6cad987cce747283c8`; existing dirty planning/history was inspected and preserved. Reconcile live source and exact accepted producers before implementation.
@@ -17,8 +17,8 @@
 |---|---|---|
 | P14.1 — Specify additive authoring cards | `[+]` | Added authoringcard v1 types, separately embedded schema and docs/authoring-card-v1.md over existing source/selector spelling. Missing/invalid/unresolved states, literal null and opaque bindings remain explicit; no approval object. Offline Go1.26.6 focused schema/type check passed (0.015s); task review passed. Kinet internal/cardfixture remains adapter evidence only. |
 | P14.2 — Implement validation and deterministic text | `[+]` | Added bounded strict Parse, Card.Validate and deterministic RenderText. Refuses unsupported/ambiguous identities, duplicate keys/targets, conflicting payloads, stale valid claims, invalid UTF-8 and oversize input; exact literal tokens/bindings and incomplete data remain reviewable. Focused tests (0.032s), vet, format/diff and task review passed. Adapter guidance preserves admitted type/requiredness/effect/incompleteness evidence in each product's own exact review. |
-| P14.3 — Publish conformance fixtures | `[+]` | Added docs/fixtures/authoring-card-v1: 25 JSON positives/refusals, five independently prepared deterministic-text goldens and hash-bound contract/case manifest for both adapters. New conformance/byte/depth checks, frozen public API/import checks and package/history/approval/handoff/wire checks pass. Existing immutable fixture bytes remain unchanged. Task review passed; this is repository conformance data, not remote source publication. |
-| P14.4 — Qualify and hand off exact producer | `[!]` | Exact clean tracked-source qualification at 9e1a8c736ad9793aba613d26d1e8cd577c5bc267 passes public-boundary and full make check (attempt 1, 26.069s). Selected 91 modules/no replacements; compiled public probe has 375 packages/374 exports plus unsafe intrinsic, 35 BuildInfo modules including local owner source and 34 exact ordinary external identities. See docs/p14-local-qualification.json. Fresh DEFAULT/xhigh evidence-only task review and documentation follow-up pass; primary ignored archives/original cheap failure remain intact. All pushes remain denied; independently verified publication, authoritative whole review and coordinator closure still gate acceptance/W22/M136. |
+| P14.3 — Publish conformance fixtures | `[+]` | Added docs/fixtures/authoring-card-v1: initially 25 JSON/five text cases; the still-unpublished draft now has 33 JSON/nine text cases after the P14-W1 Unicode correction. Existing case bytes remain unchanged and the draft manifest binds the new helper/cases. New conformance/byte/depth checks, frozen public API/import checks and package/history/approval/handoff/wire checks pass. This is repository conformance data, not remote source publication. |
+| P14.4 — Qualify and hand off exact producer | `[~]` | P14-W1 correction passes red/green Unicode regressions, extended 33-case/nine-text corpus and fresh DEFAULT/xhigh fix review (no P1/P2; command-copy P3 corrected). Preparing a coherent source-fix commit and changed-source clean qualification/full check 2. Prior 9e1 check 1 PASS (26.069s), proof and archives remain unchanged. See docs/p14-unicode-correction.json and prior docs/p14-local-qualification.json. Whole counter remains 1/10; P14-W2 publication remains denied/unperformed and gates acceptance/W22/M136. |
 
 ## Acceptance and verification
 
@@ -32,9 +32,43 @@ Required verification: Schema/JSON/text conformance positives and refusals, exis
 
 ## Review
 
-Review gate iterations: 0
+Review gate iterations: 1
 
-Task reviews: P14.1 passed against the actual additive types/schema/docs. P14.2 passed against validation, deterministic projection, bounded/error/duplicate/drift paths and product review separation; empty nonnil raw literals were refused before acceptance. P14.3 passed against all 25 case outcomes, independently prepared text, hash-bound source/schema/cases, exact byte/depth controls and unchanged consumer history/API contracts. P14.4's fresh DEFAULT gpt-6.1-sol/xhigh review was limited to verification/input/publication evidence and the documentation-only follow-up; no P1/P2 evidence defect. P14-E1/P3 stale owning summaries were corrected; the shared milestone wording remains a coordinator-owned documentation correction, carried because it changes no evidence or acceptance. P14.4 acceptance remains pending. Whole-milestone review: 0/10, not started; this evidence-only review is not a whole-implementation gate. Follow the package's existing persisted review and closure procedure; planning, terminal rows and successful builds do not establish acceptance.
+Task reviews: P14.1 passed against the actual additive types/schema/docs. P14.2 passed against validation, deterministic projection, bounded/error/duplicate/drift paths and product review separation; empty nonnil raw literals were refused before acceptance. P14.3 passed against all 25 case outcomes, independently prepared text, hash-bound source/schema/cases, exact byte/depth controls and unchanged consumer history/API contracts. P14.4's fresh DEFAULT gpt-6.1-sol/xhigh review was limited to verification/input/publication evidence and the documentation-only follow-up; no P1/P2 evidence defect. P14-E1/P3 stale owning/shared summaries were corrected in the coordinator documentation commit; no evidence or acceptance changed. P14.4 acceptance remains pending. Authoritative whole-milestone review 1/10 completed with the P2 findings below; the earlier evidence-only task review was not a whole-implementation gate. Follow the package's existing persisted review and closure procedure; planning, terminal rows and successful builds do not establish acceptance.
+
+### Authoritative whole review iteration 1 — completed with findings
+
+Fresh read-only WHOLE_MILESTONE_REVIEW `gpt-6.1-sol/xhigh` reviewed the complete
+candidate from integration baseline `e71c79f98bff9eb95ce139ef6289cd7f2d3f769b`
+through `e4a0d4241b2b59d23044fdef35defeae5b593ed5`, including review-state updates.
+Qualified production/schema/test bytes were `9e1a8c736ad9793aba613d26d1e8cd577c5bc267`.
+The pass does not satisfy the gate; its persisted counter remains **1/10**.
+
+- **P14-W1 — P2, correctness/contracts.** `authoringcard/validate.go:47`
+  checks raw UTF-8 before Go JSON decoding, which replaces escaped lone UTF-16
+  surrogates. For example, source IDs `items\ud800` and `items\udc00` collapse
+  into the same decoded identity as intentional `items\uFFFD`. This violates
+  “exact source and operation identity” and P14.2's exact evidence/fail-closed
+  requirements. The reviewer established the decoder path from pinned Go's
+  `encoding/json/decode.go:98–101`; no reproduction was executed by the reader.
+  Owner: P14.4. Reproduce cheaply, refuse unpaired escapes in this new contract,
+  retain valid pairs/literal U+FFFD and historical wire behavior, then verify.
+- **P14-W2 — P2, unmet publication outcome/evidence.** The original outcome
+  says OpenUdon “publishes an additive typed authoring-card contract”; there is
+  no published module identity or independent publication proof. P14.4's local
+  “prepare exact ordinary publication” sub-obligation is legitimately prepared,
+  and actual Kinet/Ramen adoption belongs to W22/M136. Publication nevertheless
+  remains an unmet producer outcome and independent consumer/full-stage gate.
+  Owner: coordinator; explicit no-push remains binding. No action is authorized.
+
+All five lenses were covered. No additional material defect or P3 was found.
+The reader checked every new production/schema branch, all tests/corpus/docs,
+all 25 JSON/five text/four contract hashes and all seven retained capture hashes;
+selected/compiled evidence, no private imports and preservation of old fixtures
+were confirmed. Security boundaries and product-owned approval remain sound.
+Fix P14-W1 under existing local authority; P14-W2 stays blocked on actual human
+authority/evidence. The next complete authoritative review uses iteration **2**
+after corrections and applicable verification, never a reset to iteration 1.
 
 ## Execution evidence
 
@@ -49,3 +83,5 @@ P14.3: `go test ./authoringcard ./tests/publicapi ./packagev3 ./approval ./hando
 P14.4 clean-source qualification: detached immutable tracked-source worktree `/home/peter/Workspace/openudon.goal/p14-qualification` at exact `9e1a8c736ad9793aba613d26d1e8cd577c5bc267`; clean before/after, no retired internal/command/debug source paths. The primary main checkout remains documentation/status-dirty and retains its archives. Changed-input `make public-boundary` passed (0.235s), with retained Go1.26.6 and the same offline flags/cache, private `/tmp/k13-8f7f` TMPDIR/GOTMPDIR and process umask 077. Full owner `make check` attempt 1 passed (26.069s) within the 20-minute hard cap; full-check attempts 1, failed 0. Selected/compiled module proof has no replacements/private imports; the owner module remains explicitly local `(devel)` source, never published adoption. [Local qualification](../../docs/p14-local-qualification.json) retains source/schema/corpus hashes, full make output, actual BuildInfo, selected identities and private-capture hashes. A cheap metadata parser was corrected for the local root's absent Sum; the same compiled artifacts were reused without a verification retry. No protected action or unchanged retry. Whole review remains 0/10.
 
 Documentation-only readiness delta: README public-package navigation and docs/public-trust-api.md now link the additive authoringcard data surface, preserving historical trust/package/approval statements. These uncommitted primary-tree documentation changes are hash-bound separately from tested source 9e1; production/schema/test inputs are unchanged, so the passing full check is reused. Fresh read-only P14.4 evidence review and narrow documentation follow-up passed, preserving publication denial and counter 0. No P14.4 task commit, remote action, consumer dispatch or cleanup was performed; the coordinator owns remaining publication/review/closure and evidence retention.
+
+P14-W1 correction: the focused new Unicode regression failed on the old owned helper (48 refusal subcases; exit 1, 0.497s), then passed with the local predecode escape check (exit 0, Go test 0.021s). Full authoringcard tests including the extended 33-case/nine-text draft corpus pass (0.078s), with focused vet/format/diff checks. Valid surrogate pairs, intentional literal/escaped U+FFFD and literal backslash-u remain supported; raw literal keys/values share strict rejection. [Correction lineage](../../docs/p14-unicode-correction.json) preserves red/green hashes and prior 9e1 qualification unchanged. Fresh DEFAULT gpt-6.1-sol/xhigh fix review found no P1/P2; its P3 command-copy quoting issue was corrected with quoted display text and exact argv. Corrected-source qualification is pending; authoritative counter remains 1/10 and P14-W2 remains forbidden/unperformed.
