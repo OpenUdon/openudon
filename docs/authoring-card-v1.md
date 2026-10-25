@@ -41,7 +41,9 @@ the helpers also reject duplicate or noncanonical JSON keys, ambiguous duplicate
 step IDs or mapping targets, conflicting source identities, unknown versions,
 invalid UTF-8 and unsupported shapes. No payload is truncated. Text projection
 quotes all strings and preserves every field, literal numeric token and ordered
-entry; it supplies no new default, normalization or hidden decision.
+entry; it supplies no new default or hidden decision. `literal-json` quotes the
+raw JSON value bytes, including any internal whitespace, instead of interpreting
+them as review markup. Parse treats whitespace outside a JSON value as framing.
 
 Kinet's adapter retains its business sequencing, source admission, exact
 rendered approval, receipts, ledger confirmation and worker isolation. Its
@@ -52,6 +54,17 @@ these types, schema and versioned JSON/text fixtures with exact producer/file
 identities; a data mirror makes no compiled OpenUdon dependency claim. Neither
 product imports the other, and no shared UI, planner, transport or private
 executor dependency is introduced.
+
+The card's mapping target/value is not a replacement for admitted operation
+metadata. For example, Kinet's retained `catalog-1` and `workflow-repair` card
+fixtures also review contract/operation types and requiredness, source evidence,
+effect/capability reasons and incompleteness. Adapters must retain that evidence
+from their independently admitted exact source/shape snapshot and APItools
+eligibility/mapping reports, alongside this card in their own review. Ramen
+similarly adds lifecycle/resource-role and state/diff evidence. `RenderText` is
+the complete projection of the P14 card, not a sufficient product approval
+prompt. No adapter may discard existing review evidence merely because the
+common data contract has fewer fields.
 
 Adapters must keep credentials and private values outside cards. Review text
 contains the complete supplied public authoring values; render it as text with
