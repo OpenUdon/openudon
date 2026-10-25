@@ -6283,3 +6283,216 @@ index 19ada82..2206de8 100644
  Actual M56/M52 adapters project native observed facts; the immutable test vectors
  use explicitly labeled fixture-only projections and establish no containment.
 ```
+
+
+## A32 public-library retirement and superseded CLI facts
+
+Source context: `65504cc6a71f73a48bf050696ece72071adc5425`, before the approved A32 private-closure retirement. These operating descriptions are superseded by the delivered source; public metadata, schemas, history and frozen consumer evidence remain. Replacements are the same current-document headings and [retirement guide](../../../docs/legacy-cli-retirement.md). Qualification/publication/whole-review gates remain separate. Old wording follows verbatim.
+
+### tabilet/memory-bank/product.md — Product Goal
+
+```markdown
+## Product Goal
+
+Make UWS workflow projects authorable, reviewable and packageable through
+validated CLI/artifact contracts, with clear evidence for every generated
+artifact and side-effect boundary. Kinet owns the interactive UI and interviews.
+OpenUdon retains seeded/local draft, expert evaluations, supervised capture and
+native review/package operations. Its pure registration definitions support
+required, optional and conditional typed inputs, named private checkpoints and
+reviewed public previews. Runtime values remain in Udon's private input path.
+Registration 1.0/1.1 and existing source metadata remain readable. Neither draft
+construction, capture review nor package promotion authorizes execution.
+```
+
+### tabilet/memory-bank/product.md — Core Workflows
+
+```markdown
+## Core Workflows
+
+1. Author or refine an example brief under `examples/<name>/project.md`.
+2. Use Kinet's confirmed authoring flow, or explicit OpenUdon neutral commands,
+   to acquire reviewed local sources and publish one active workflow boundary.
+   Seeded expert draft publication requires explicit `--yes`; partial inputs
+   return structured frontier evidence without an interview or publication.
+3. Separately build and assess exact package bytes. Source refresh, authoring
+   decisions and package approval are separate; failed builds grant no retry authority.
+4. Validate API or browser-profile source availability, intent shape, workflow compilation, UWS
+   export, expected-plan matching, review evidence, credential policy, and secret scanning.
+5. Run eval fixtures to compare prompt/model/pipeline behavior across curated briefs.
+6. Generate local readiness evidence for optional sibling checkout state and deterministic gates.
+7. Produce approval JSON from the current handoff package digest.
+8. Use `openudon run` to validate handoff, stored and current quality, approval state, package digest,
+   tier compatibility, and trusted executor invocation.
+9. Optionally surface catalog-derived provider, spec, and auth/security advice in review evidence
+   while preserving explicit local API source inputs as authoritative project context.
+10. Run the consolidated local release-evidence flow to build sibling udon,
+    execute provider-free smoke, archive and verify run evidence, draft
+    release-note evidence, and write compact summaries when preparing release
+    or handoff evidence.
+```
+
+### tabilet/memory-bank/product.md — Scope
+
+```markdown
+## Scope
+
+- OpenUdon-owned project templates, prompts, closed neutral authoring, examples, eval fixtures, and review
+  policy.
+- UWS-facing artifacts authored or generated outside OpenUdon as review inputs
+  when users bring them to OpenUdon. Desired-state conversion and
+  provider/resource operation mapping are owned by `../ramen`, not OpenUdon.
+- Deterministic artifact generation from project briefs and intent into workflow HCL, UWS, plan,
+  quality, refinement, review, and handoff artifacts.
+- Quality gates and local validation wrappers for OpenUdon package correctness.
+- Optional workflow orchestration prompt/config policy for OpenUdon-managed work items.
+- Local trusted execution wrapper, approval template generation, package digest checks, and tier
+  enforcement.
+- Cross-repo compatibility evidence for UWS semantics, udon lowering/runtime behavior, provider
+  drift, release gates, and optional sibling checkout readiness.
+- OpenUdon-owned neutral workflow graph, v2 session/transcript/report adapters, reviewed source staging,
+  proposal/draft approval lifecycle, review evidence, package digest, credential policy, and trusted
+  executor handoff helpers. Generic graph/frontier mechanics remain in `../authoring` and API-source
+  discovery remains in `../apitools`.
+- Structured API security-alternative authoring: OpenUdon retains Apitools'
+  OR-of-AND sets through `authoring.prompt-context.v2`, forces one stable
+  SHA-256-fingerprinted resume-safe selection before mappings, and refuses to union credentials or
+  promote unresolved alternatives into runnable intent.
+- Shared fail-closed credential detection across artifacts and LLM request
+  mappings, bounded provider responses, header-only Gemini authentication, and
+  DNS-pinned remote-source acquisition.
+- API/event source metadata discovery/search/import/indexing reuse plus optional provider/spec/security
+  catalog advice through `github.com/OpenUdon/apitools`. OpenAPI/Swagger sources remain the default,
+  while Google Discovery, AWS Smithy JSON, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData can
+  be staged as first-class UWS source descriptions when the trusted executor supports them. GraphQL,
+  OpenRPC, gRPC/protobuf, and OData use the UWS 1.4 source-description contract and the reviewed
+  local source metadata exposed by `apitools`. AsyncAPI is treated as a
+  source document family for event/message operations, not as an OpenUdon-owned execution runtime.
+- API-first browser fallback through verified local Browsertools profiles or its static read-only
+  registry catalog. OpenUdon owns selection, interview evidence, materialization, review, and handoff;
+  Browsertools owns capture/profile/catalog mechanics and Udon owns runtime execution.
+- Package-local browser sign-in authoring from verified Browsertools
+  authentication profiles. OpenUdon owns the intent fields, profile/flow
+  selection, safe review metadata, UWS supplement lowering, quality gates, and
+  handoff inventory; it owns no credential value, challenge response, or live
+  browser state.
+- Digest-bound trusted browser replay through `openudon run`. OpenUdon derives
+  a value-free Browserdriver protocol, symbolic credential/session environment
+  mapping, and exact operation/authentication approval contract from the
+  reviewed package; Udon and Browserdriver retain runtime implementation,
+  credential resolution, MFA, and browser-session ownership.
+- Explicit Browsertools authoring handoff planning for UI-only capability gaps.
+  OpenUdon can replay and reduce an explicitly supplied
+  `browsertools.guided-authoring.v1` result to its verified embedded profile,
+  but it never stages the result's evidence envelope or launches the external
+  authoring commands.
+- Explicit authenticated goal-directed authoring orchestration through a
+  separately re-executed Browsertools worker, bundled in `icot` by default
+  with an absolute external CLI override only for experts. OpenUdon may guide only Browsertools-issued
+  candidate actions, retain no protocol transcript, and atomically stage only
+  canonical profiles plus safe review metadata after final human approval.
+- Strict author-session/result v2 MFA and output review. OpenUdon negotiates a
+  16-output bound, keeps exact challenge/output choices human-only, validates
+  value-free proofs, and reconstructs both profiles before staging.
+- Optional value-free current-page and cross-engine Browsertools verification
+  attachment. OpenUdon owns strict downstream validation, package summaries,
+  quality/review evidence, and digest binding; Browsertools owns live
+  acquisition. Raw/rich/private/authentication evidence and local report paths
+  do not enter the final package.
+- Provider-free integrated qualification across the exact OpenUdon,
+  Browsertools, UWS, Udon, and Browserdriver revisions. Default evidence uses
+  fake/synthetic sessions and launches no browser; installed engines and
+  headed authentication/authoring remain explicit loopback-only opt-ins.
+- Complementary real-browser scenario qualification with an embedded,
+  deterministic loopback corpus and a realistic local read/write journey
+  corpus as release gates, plus a fixed anonymous public inventory as
+  informational drift evidence. Public network authority is never implicit,
+  and no suite archives page or subprocess content.
+```
+
+### tabilet/memory-bank/product.md — Current Browser Authoring
+
+```markdown
+## Current Browser Authoring
+
+Reviewed structural-query navigation is retained in generated browser profiles;
+observed query values remain undisclosed. Registration foreground and private
+checkpoint countdowns do not grant live registration authority. Authoring and
+package review likewise do not grant live browser or target authority.
+[E20](../docs/history/status-E20.md) records the authenticated-authoring qualification lineage,
+while [M86](../docs/history/status-M86.md) records the retained UWS 1.11 real-browser
+qualification. Historical publication and failed-attempt details are preserved
+in the [history index](../docs/history/index.md).
+
+OpenUdon's Browser 1.10 synthetic journeys model `campaign_count` as the
+0–100 count of rendered campaign rows on the default first page and retain only
+that scalar. This is loopback compatibility evidence; it does not authorize
+contact with or changes to a target account. The qualification and review are
+preserved in the [E22 history record](../docs/history/status-E22.md).
+```
+
+### tabilet/memory-bank/architecture.md — Current State
+
+```markdown
+## Current State
+
+Registration v3 observations and ordered preview evidence produce review-v2
+BRP 1.1 and transaction v3. The guided editor records only reviewed public
+definitions; `inputBinding` follows the selected flow through intent, HCL, UWS,
+quality and package review. Trusted execution invokes Udon through its external
+CLI and protocol v5. Prepared form capability and expected snapshot identity
+travel only through private runtime environment values. Consumer
+authority is enforced by the public capture protocol; issued decisions,
+expiry and worker teardown remain native-owned. No private Udon import
+or target-specific browser implementation is added.
+
+OpenUdon has a Go module, a thin `cmd/openudon` CLI, closed neutral authoring commands, deterministic
+synthesis/build/promote/assess commands, an eval harness, local readiness reporting, and a trusted
+runner wrapper. It emits reviewed package artifacts under each example directory and validates those
+artifacts before any approved udon execution path.
+
+The retained v0.2 CLI/artifact boundary remains available. M98 additionally
+supports deliberate neutral public Go trust packages; private synthesis-coupled
+v2 construction is not a supported Go API. Release archives co-version
+`openudon` and `udon-runner`; `openudon version --json` carries build metadata.
+
+Generated packages now include project briefs, structured intent, workflow HCL, UWS YAML, expected
+plans, OpenAPI discovery reports, refinement reports, review notes, quality reports, and
+`expected/review-handoff.json` manifests. Executable packages use
+`apitools.review-handoff.v2`; each input has a SHA-256 digest and the handoff
+self-digest clears its own field before canonical JSON hashing.
+```
+
+### tabilet/memory-bank/architecture.md — Current Browser Authoring Boundary
+
+```markdown
+## Current Browser Authoring Boundary
+
+The shared Browsertools authorurl validator binds reviewed command URLs,
+parent and worker action traces, and generated navigation. Origin and path
+observations remain separate from native redirect containment. Closed worker
+and controller diagnostics stay private and value-free; native input identity
+does not itself prove a browser run. W8M selects exact retained passing runtime
+bytes, while OpenUdon's authoring boundary does not select a live target.
+Registration checkpoint timing passes from Browserdriver through Udon to its
+separate private form, outside OpenUdon authoring state. [E20](../docs/history/status-E20.md),
+[E19](../docs/history/status-E19.md), [E16](../docs/history/status-E16.md), and [E14](../docs/history/status-E14.md) retain the
+qualification lineage; the [history index](../docs/history/index.md) retains
+superseded wording.
+```
+
+### tabilet/memory-bank/tech-stack.md — Current Browser Authoring Tooling
+
+```markdown
+## Current Browser Authoring Tooling
+
+Reviewed query admission, generated-profile, parent-attestation, and synthetic
+application/package checks use the existing dependencies. Real Chromium gates
+retain the required sandbox; an administrator-owned `CHROME_DEVEL_SANDBOX` helper
+may be forwarded through reviewed local runner configuration when the host
+requires one. `openudon browser-system-input --repo-root ABS --udon-repo ABS`
+is a browser-free input inventory, not execution evidence. Current browser
+qualification commands and pinned toolchain assumptions are maintained below;
+exact authenticated-authoring evidence is in [E20](../docs/history/status-E20.md), with
+superseded wording in the [history index](../docs/history/index.md).
+```

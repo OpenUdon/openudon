@@ -1,5 +1,9 @@
 # Tech Stack
 
+Current source follows the public-library boundary documented below. Older
+accepted authoring/CLI/physical sections preserve their original pinned context;
+they do not make retired commands executable or expand current acceptance.
+
 ## Accepted P13 public session authority regression
 
 Existing Go1.26.6/tools/modules qualify the public authority/evidence repair without dependency, wire or schema changes. Fixed-clock regressions, strict Observe/Verify controls, existing public compatibility/goldens/history, full owner Make and `go vet ./...`, native module integrity and compiled public closure pass. Exact published source5f210465/ordinary module proof compares1697Git/ZIP/extracted files and nativeH1; no signed checksum-database claim. All15 invocations and the failed umask check remain recorded. Actual Kinet worker/native composition stays M53.22 and physical proof stays M53.4. See [qualification](../../docs/p13-qualification.json) and [retired P13](../docs/history/status-P13.md).
@@ -199,15 +203,16 @@ rechecks stay clean.
 
 ## Current Browser Authoring Tooling
 
-Reviewed query admission, generated-profile, parent-attestation, and synthetic
-application/package checks use the existing dependencies. Real Chromium gates
-retain the required sandbox; an administrator-owned `CHROME_DEVEL_SANDBOX` helper
-may be forwarded through reviewed local runner configuration when the host
-requires one. `openudon browser-system-input --repo-root ABS --udon-repo ABS`
-is a browser-free input inventory, not execution evidence. Current browser
-qualification commands and pinned toolchain assumptions are maintained below;
-exact authenticated-authoring evidence is in [E20](../docs/history/status-E20.md), with
-superseded wording in the [history index](../docs/history/index.md).
+Go 1.26.6 and existing module pins/caches qualify the public SDK without browser,
+worker, helper, display or provider execution. `GOWORK=off make check` builds the
+public module and runs `go test ./...` plus `go vet ./...`; `make public-boundary`
+selects the public API/import guards. `make fast` selects ordinary tests.
+
+Legacy smoke/qualify/CLI recipes below are retained historical context, not
+current commands. Current source no longer publishes CLI archives or owns a
+physical browser harness. The [A32 retirement guide](../../docs/legacy-cli-retirement.md)
+and [qualification](../../docs/a32-qualification.md) own the current evidence
+and its limits. No dependency/tool installation or consumer pin change follows.
 
 ## Memory Bank Index
 

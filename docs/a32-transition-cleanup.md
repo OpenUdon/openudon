@@ -1,16 +1,19 @@
-# A32 current removal inventory
+# A32 removal inventory and handoff
 
-[Current inventory](a32-consumer-inventory.json) refreshes the immutable
-[A31 inventory](a31-consumer-inventory.json) at the source baseline named in the
-JSON. It records all 76 owner packages, default production/transitive/test
-imports, all tracked Go import declarations including tagged files, command
-cases, build/doc references, and exact source/fixture hashes. This is source
-inventory; it executes no workflow, browser, native worker or consumer build.
-The six A31 targets still have the same production/transitive/test consumers.
-P10 added the three public browser packages since A31 (73 → 76 owner packages;
-353 → 373 public transitive packages).
+The immutable [A32.1 pre-removal inventory](a32-consumer-inventory.json) records
+76 owner packages, 373 public transitive packages, 565 Go files, six retained
+A31 targets, five production HCL input calls in four owners, and one legacy HCL
+round-trip test. Its SHA256 is
+`8851131ff8935f8ca82f35cf0f7fcaaa19c55e631e4c45c1766fdbf4d791f382`.
+The [A31 inventory](a31-consumer-inventory.json) and its original handoff remain
+historical evidence. A32.1 is reproducible with its original generator and
+recorded inputs at commit `cd57f0c9c4c42e9009dd4de10144967b154c3dfa`;
+its production/module source identity is `7356d428a406100105d843bbf526ae1b5867d47d`.
+The current generator preserves that baseline and writes a separate
+[final inventory](a32-final-consumer-inventory.json).
 
-Regenerate or check with Python's standard library and existing Go 1.26.6:
+Regenerate or check the final inventory with Python's standard library and
+existing pinned Go 1.26.6/cache inputs:
 
 ```sh
 export PATH=/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin:$PATH
@@ -19,55 +22,54 @@ python3 tools/consumer-inventory/generate.py --workspace /home/peter/Workspace -
 python3 tools/consumer-inventory/generate.py --workspace /home/peter/Workspace --w8m /home/peter/Ready/w8m-browser-operations --check
 ```
 
-The generator enforces offline, standalone, local-toolchain, read-only module
-selection. It records the last Go/module source revision, so ordinary inventory
-or ledger commits do not invalidate an unchanged source snapshot. Exact Go-file
-hashes identify the inspected working source. Tracked files only are inventoried;
-new product files must be tracked before final regeneration. Platform/default
-`go list` edges and all-file lexical import edges are deliberately separate.
-The lexical scan covers tagged imports; it does not claim tagged code compiled.
+The generator enforces offline, standalone, local-toolchain and read-only module
+selection. It refuses to overwrite the pre-removal baseline, checks every
+retained public source/schema/history fixture hash against that baseline, and
+records the last Go/module source revision. Tracked Go files are inventoried;
+new product files must be tracked before regeneration. Default `go list` graph
+edges and all-file lexical import edges remain distinct. Lexical tagged-file
+coverage does not claim tagged code executed.
 
-The declared removal set covers A32.2 browser authoring/harness packages and
-A32.3 retained authoring/runners/evaluation packages, including nested browser
-transaction engine/presentation and `cmd/udon-runner`. Its only external direct
-production consumer is `cmd/openudon`. All current command cases and 81
-build/doc reference files are in the JSON. Retire the legacy commands; any
-retained CLI must use public packages only. The `other_internal_packages` list
-makes the remaining helper/alias/test closure explicit: remove unused private
-helpers with their owners; migrate needed public API/wire regression tests from
-`internal/publicapi` before retiring it. Do not silently move a legacy helper
-into the supported public API. Later rows decide each concrete deletion.
+Accepted combined source `f34e6017e87735fccd9893a185119621787359f8`
+removed the private authoring, intent/synthesis, browser/capture harness,
+runner/evaluation/helper and CLI closure. Three public API guards migrated
+unchanged to `tests/publicapi`; six unique retained policy/report/authority
+success and refusal regressions migrated to public API consumers under `tests`.
+The [retirement guide](legacy-cli-retirement.md) records current owners.
+Source `9e80ca8b955bd567cf5e3da17907f0f935ac2d0c` adds a standard-library
+AST guard covering all owned Go source, including inactive build tags, and
+extends public dependency closure checks to all 13 roots.
 
-A32.4 must clear five production UWS HCL input calls in four owners:
-`synthesize` (two), `udonrunner`, `internal/udonreport`, and `uwsexec`, plus the
-legacy HCL round-trip test. Removing the six A31 targets alone is insufficient.
-The inventory also records intent/workflow HCL documentation. Retained public
-Horizon/HCL codec dependencies are distinct from these OpenUdon HCL input
-adapters; their presence is not permission to remove public source contracts.
+The final inventory distinguishes actual owned package/import/command/Make/CI
+closure from historical command examples retained in guides and frozen
+artifacts. Guard test strings intentionally name refused HCL entrypoints;
+these are recorded separately from owned input references. The semantic AST
+regression rejects aliased/dot/function-value HCL input references, while
+history bytes and external codec output dependencies remain legal. No claim
+that every legacy string vanished is made.
 
-Preserve every public root and embedded schema, the source hashes and historical
-wire fixtures in the JSON. In particular retain P10 construction/verification/
-transaction/approval/evidence, P11 named-output ownership and deterministic
-assessment plus stale-proof refusal, P12 bounded authentication construction and
-plan predicates with untimed history/native refusal, and P13 requested authority
-versus observed fresh-fallback rights and saved-metadata expiry regressions.
-Keep `packagev3` v2/v3 history readers and the API/wire manifests. Tests tied to
-retired private behavior may retire; meaningful success/refusal coverage for
-retained public behavior must survive through these public successors.
+P10 construction/verification/transaction/approval/evidence, P11 named-output
+ownership/deterministic assessment/stale-proof refusal, P12 authored bounded
+authentication and readable untimed history, P13 saved-metadata expiry/observed
+fallback rights, all v2/v3 history readers and public manifests remain unchanged.
+All 82 original public Go files and 159 schema/history/source fixture files
+retain their exact A32.1 hashes. External Horizon/HCL codec dependencies and
+`go.mod`/`go.sum` pins remain unchanged.
 
-The [Kinet M53 handoff](../../kinet/docs/m53-stage12-handoff.md) is hash-bound in
-the inventory. It establishes retirement of OpenUdon CLI/image/internal producer
-selection for accepted native and retained default/Phase A/media paths. Public
-libraries remain live (P13 browser workers and independent default801b workers),
-and private Udon/HCL remains. Extra physical/observer/forced-crash proof stays
-unqualified; historical UNKNOWNs, no replay, registration denial and disabled
-private input persist. Those deferred methods add no A32 prerequisite.
+The Kinet M53 source handoff at
+`/home/peter/Workspace/kinet/docs/m53-stage12-handoff.md` binds retirement
+of the old OpenUdon CLI/image/internal producer path for accepted native and
+retained default/Phase A/media paths. Public libraries remain live: browser
+workers use P13, independent default workers retain801b, and private Udon/HCL
+remains. Extra physical/observer/forced-crash methods stay unqualified; historical
+UNKNOWNs, no replay, registration denial and disabled private input persist.
+These deferred methods add no A32 prerequisite or runtime authority.
 
-Read-only local Git inspection resolves the frozen W8M baseline `b23fd637` and
-its original OpenUdon system-history `01998d6f` and candidate `c2f161d7` pins.
-Both lock contents and hashes are retained without changing the candidate's
-unqualified state. The exact inspected Ramen snapshot has no OpenUdon module
-requirement; its conversion/private-runtime boundary remains Ramen-owned.
-Local object availability is established here. Remote fetchability, retained
-consumer builds, final empty closure/public-boundary checks and source publication
-remain A32.5 owner gates. No sibling pin, history, tag or checkout is changed.
+Local Git inspection resolves frozen W8M `b23fd637` and its OpenUdon
+system-history `01998d6f` and candidate `c2f161d7` objects. Lock bytes and their
+candidate qualification state are preserved. The exact recorded Ramen snapshot
+has no OpenUdon module requirement. Final source checks are recorded in
+[A32 qualification](a32-qualification.md). Retained consumer builds, exact
+remote fetchability/source publication and fresh whole review remain
+coordinator-owned acceptance gates; this inventory supplies no completion or
+runtime claim for those gates.

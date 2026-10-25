@@ -100,12 +100,11 @@ disabled until explicitly requested; this opt-in changes no audit setting.
 
 ## Purpose
 
-OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can be
-used directly or under optional external orchestration, and it hands approved packages to a
-trusted executor boundary such as the private `udon` runtime.
-
-OpenUdon owns project templates, optional workflow orchestration policy, example artifacts, validation
-wrappers, review evidence, package digests, and trusted execution glue.
+OpenUdon provides public Go libraries for reviewed UWS packages, exact approval
+and authority metadata, executor handoffs and conservative run evidence. Kinet
+owns product authoring and isolated worker integration; private Udon owns
+execution. Current source contains no private authoring/CLI/browser harness.
+Public APIs, embedded schemas and versioned history remain supported.
 
 ## Memory Bank First
 
@@ -172,8 +171,8 @@ limits. An upgrade never resumes execution or activates launch grants.
 - `../uws` is the public UWS specification and Go model. Put public workflow semantics there.
 - `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
 - OpenUdon source code must not import `../udon`, udon's private build-time siblings, or any private
-  `genelet/*` executor module. OpenUdon invokes udon only as an external CLI or Docker executor through
-  the trusted run-config handoff.
+  `genelet/*` executor module. OpenUdon supplies public handoff metadata; the consuming host owns
+  external runtime selection and dispatch.
 - `../apitools` owns OpenAPI-first API metadata tooling: OpenAPI/Swagger discovery, import, search,
   indexing, summaries, auth/security metadata, ranking, catalog metadata, and upstream
   Discovery/Smithy import or lowering that is exposed to OpenUdon as OpenAPI-bound operation
@@ -199,25 +198,25 @@ Rule of thumb:
 ## Commands
 
 ```bash
-go test ./...
-go run ./cmd/openudon check
-go run ./cmd/openudon check-apitools-boundary
-(cd tabilet && go run ../cmd/openudon check-doc-memory)
-go run ./cmd/openudon validate ./examples/uws-validation
+GOWORK=off go test ./...
+GOWORK=off go vet ./...
+make public-boundary
 make check
 ```
 
 ## Architecture
 
-Natural-language project brief -> operator task or external workspace -> Codex-generated OpenAPI/UWS artifacts -> validation/review -> approved artifact -> udon execution by trusted runner.
+Reviewed UWS/source bytes -> public package/approval/authority verification ->
+host-owned confirmation and isolated runtime -> public report/evidence review.
 
 Agents may generate and validate artifacts. Production side effects must only happen through an approved trusted runtime path.
 
 ## Go Conventions
 
 - Primary language is Go.
-- Keep `cmd/openudon` thin.
-- Keep legacy implementation under `internal/`; M98 deliberately supports the public neutral trust packages documented in `docs/public-trust-api.md`.
+- Keep supported Go libraries at their public roots as documented in
+  `docs/public-trust-api.md`; the private command/internal closure is retired.
+- Any retained developer command must depend solely on public packages.
 - Keep scripts small wrappers around Go behavior when possible.
 - Do not add product-specific behavior to `../uws` or core `../udon`.
 
@@ -379,10 +378,8 @@ Runtime round limits do not reset the persisted milestone review counter.
 
 ## Development browser checks
 
-Use `make fast` for routine iterations and one authorized affected `make smoke`
-for UI/runtime changes. Default smoke is the typed public registration capture-to-runtime
-flow. Full `make qualify` is reserved for integration candidates and runtime
-adoption; do not rerun it for every edit. Native qualification remains three
-fresh repeats and never consumes the development cache. Reused development
-results retain their original execution identity/time and cannot qualify a
-runtime. See `docs/browser-system-eval.md` for cache and timing controls.
+Current OpenUdon verification is offline public-library build/test/vet and
+source/import/API guards. It launches no physical browser, worker or helper.
+Old smoke/qualify recipes belong to pinned historical revisions; Kinet owns
+actual browser integration. Preserve original scopes, historical unknowns,
+registration denial and disabled audit; retiring a harness grants no new run.

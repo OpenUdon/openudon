@@ -1,5 +1,9 @@
 # Architecture
 
+Current source follows the public-library boundary documented below. Older
+accepted authoring/CLI/physical sections preserve their original pinned context;
+they do not make retired commands executable or expand current acceptance.
+
 **P13 reviewed source contract — 2026-10-17.** Public browser authority binds
 the current exact execution receipt/deadline and immutable saved-session
 metadata. Saved-state expiry does not renew or invalidate that review metadata;
@@ -154,17 +158,13 @@ parents are rejected so the per-stage clean-source check remains meaningful.
 
 ## Current Browser Authoring Boundary
 
-The shared Browsertools authorurl validator binds reviewed command URLs,
-parent and worker action traces, and generated navigation. Origin and path
-observations remain separate from native redirect containment. Closed worker
-and controller diagnostics stay private and value-free; native input identity
-does not itself prove a browser run. W8M selects exact retained passing runtime
-bytes, while OpenUdon's authoring boundary does not select a live target.
-Registration checkpoint timing passes from Browserdriver through Udon to its
-separate private form, outside OpenUdon authoring state. [E20](../docs/history/status-E20.md),
-[E19](../docs/history/status-E19.md), [E16](../docs/history/status-E16.md), and [E14](../docs/history/status-E14.md) retain the
-qualification lineage; the [history index](../docs/history/index.md) retains
-superseded wording.
+The retained public browser subset accepts independently supplied review bytes
+and preserves P10–P13 metadata, exact hash/wire, output, timeout, saved-metadata
+and fallback-rights semantics. It supplies no browser, target, credential or
+session authority. Kinet owns supported capture/authoring workers and exact
+confirmation; Udon owns private execution. Legacy authoring and checkpoint
+transport implementations are absent from current OpenUdon source. Historical
+locks and qualification records remain valid only at their pinned contexts.
 
 ## Memory Bank Index
 
@@ -181,31 +181,22 @@ and trusted local execution.
 
 ## Current State
 
-Registration v3 observations and ordered preview evidence produce review-v2
-BRP 1.1 and transaction v3. The guided editor records only reviewed public
-definitions; `inputBinding` follows the selected flow through intent, HCL, UWS,
-quality and package review. Trusted execution invokes Udon through its external
-CLI and protocol v5. Prepared form capability and expected snapshot identity
-travel only through private runtime environment values. Consumer
-authority is enforced by the public capture protocol; issued decisions,
-expiry and worker teardown remain native-owned. No private Udon import
-or target-specific browser implementation is added.
+Current source is a public Go library module. The private `internal` tree,
+`cmd/openudon`, `cmd/udon-runner`, browser/authoring/evaluation harnesses and
+CLI/runner archive publication are removed. Supported Go roots and embedded
+schemas retain their exact existing bytes; public import/API guards live under
+`tests/publicapi`, with retained unique public regressions under `tests/`.
 
-OpenUdon has a Go module, a thin `cmd/openudon` CLI, closed neutral authoring commands, deterministic
-synthesis/build/promote/assess commands, an eval harness, local readiness reporting, and a trusted
-runner wrapper. It emits reviewed package artifacts under each example directory and validates those
-artifacts before any approved udon execution path.
+Public APIs construct and validate supplied package/approval/authority/report
+metadata. The host owns current grants, credential/session custody, isolation,
+execution and original cleanup evidence. Public history inspection remains
+read-only; it never renews approvals or infers missing effects.
 
-The retained v0.2 CLI/artifact boundary remains available. M98 additionally
-supports deliberate neutral public Go trust packages; private synthesis-coupled
-v2 construction is not a supported Go API. Release archives co-version
-`openudon` and `udon-runner`; `openudon version --json` carries build metadata.
-
-Generated packages now include project briefs, structured intent, workflow HCL, UWS YAML, expected
-plans, OpenAPI discovery reports, refinement reports, review notes, quality reports, and
-`expected/review-handoff.json` manifests. Executable packages use
-`apitools.review-handoff.v2`; each input has a SHA-256 digest and the handoff
-self-digest clears its own field before canonical JSON hashing.
+All five owned UWS HCL-input calls and the legacy round-trip test disappear
+with their private owners. A Go AST/source guard covers owned files and inactive
+build-tag sources; external codec implementations and historical HCL bytes are
+separate. This is not a globally HCL-free module or runtime claim. Actual
+consumer/runtime adoption remains with its owning milestone.
 
 ## System Boundary
 

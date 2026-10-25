@@ -61,8 +61,10 @@ def generate(workspace, w8m):
         for line, value in enumerate(text.splitlines(), 1):
             if re.search(r'\b(?:HCLToJSON|UnmarshalHCL|hcl\.Import)\b', value):
                 hcl.append({'file': name, 'line': line, 'test': name.endswith('_test.go'), 'source': value.strip()})
+    guard_references = [ref for ref in hcl if ref['file'] == 'tests/publicapi/legacy_closure_test.go']
+    hcl = [ref for ref in hcl if ref['file'] != 'tests/publicapi/legacy_closure_test.go']
     closure = sorted({p['ImportPath'] for p in public})
-    forbidden = [p for p in closure if p.startswith(MODULE + 'internal/') or (p.startswith('github.com/genelet/') and not p.startswith('github.com/genelet/horizon/'))]
+    forbidden = [p for p in closure if p.startswith(MODULE + 'internal/') or p.startswith(MODULE + 'cmd/') or (p.startswith('github.com/genelet/') and not p.startswith('github.com/genelet/horizon/'))]
     if forbidden:
         raise SystemExit('unsupported public closure: ' + repr(forbidden))
     targets = []
@@ -111,7 +113,18 @@ def generate(workspace, w8m):
     frozen['ramen'] = pin(ramen, ramen_revision) | {'go_mod_sha256': digest(ramen_mod), 'openudon_module_requirements': [line.strip() for line in ramen_mod.decode().splitlines() if 'github.com/OpenUdon/openudon ' in line], 'policy': 'no OpenUdon imports; conversion/runtime ownership remains Ramen'}
     handoff_path = workspace / 'kinet/docs/m53-stage12-handoff.md'
     handoff = handoff_path.read_bytes()
-    return {'version': 'openudon.a32-consumer-inventory.v1',
+    baseline_path = ROOT / 'docs/a32-consumer-inventory.json'
+    baseline = json.loads(baseline_path.read_text())
+    for key in ['retained_public_source_sha256', 'retained_history_wire_fixture_sha256']:
+        for name, expected in baseline[key].items():
+            if digest((ROOT / name).read_bytes()) != expected:
+                raise SystemExit('retained public source/fixture changed: ' + name)
+    legacy_packages = [p['package'] for p in graph if p['package'].startswith((MODULE + 'internal/', MODULE + 'cmd/'))]
+    legacy_edges = [e for e in source_edges if e['import'].startswith((MODULE + 'internal/', MODULE + 'cmd/'))]
+    build_refs = [r for r in refs if r['file'] == 'Makefile' or r['file'].startswith('.github/workflows/')]
+    return {'version': 'openudon.a32-final-consumer-inventory.v1',
+        'baseline_inventory_sha256': digest(baseline_path.read_bytes()),
+        'baseline_retained_hashes_match': True,
         'source_revision': run(['git', 'log', '-1', '--format=%H', '--', ':(glob)**/*.go', 'go.mod', 'go.sum']).strip(),
         'method': {'owner': 'go list -json ./...; no execution', 'public': 'go list -deps -json public roots; no execution', 'source_edges': 'all tracked .go import declarations, including tagged files', 'environment': {k: ENV[k] for k in ['GOWORK', 'GOPROXY', 'GOSUMDB', 'GOAUTH', 'GOTOOLCHAIN', 'GOFLAGS']}, 'go_version': run(['go', 'version']).strip()},
         'packages': len(graph), 'owner_graph': graph, 'owner_graph_sha256': digest(json.dumps(graph, sort_keys=True).encode()),
@@ -120,21 +133,30 @@ def generate(workspace, w8m):
         'declared_removal_packages': sorted(deleted), 'remaining_reverse_consumers': reverse,
         'other_internal_packages': sorted(p['package'] for p in graph if p['package'].startswith(MODULE + 'internal/') and p['package'] not in deleted),
         'command_cases': cases, 'command_build_doc_references': refs,
+        'current_build_command_references': build_refs,
+        'reference_scope': 'command_build_doc_references includes retained historical guide/example strings; current_build_command_references covers Make/CI only',
+        'legacy_packages': legacy_packages, 'legacy_source_imports': legacy_edges,
+        'empty_legacy_owned_closure': not (legacy_packages or legacy_edges or cases or hcl or build_refs),
+        'developer_commands': [p['ImportPath'] for p in listed if p.get('Name') == 'main'],
         'hcl_input_references': hcl,
+        'hcl_guard_fixture_references': guard_references,
+        'hcl_reference_scope': 'lexical candidates exclude synthetic guard fixture strings; tests/publicapi AST guard proves no owned HCL input references including inactive build tags',
         'public_roots': PUBLIC, 'public_closure': closure, 'public_closure_forbidden': forbidden,
         'retained_public_source_sha256': retain, 'retained_history_wire_fixture_sha256': fixtures,
         'frozen_consumers': frozen,
         'kinet_m53': {'handoff': 'kinet/docs/m53-stage12-handoff.md', 'sha256': digest(handoff), 'legacy_cmd_image_internal_consumers': 'none in accepted compiled/caller proof; public libraries remain LIVE', 'unqualified': 'extra physical/observer/forced-crash methods; historical UNKNOWN/no replay retained'},
-        'limitations': ['Inventory only; no product deletion, consumer build, runtime or physical qualification.', 'No remote fetchability claim; exact frozen objects were inspected locally.', 'A32.2-.4 must clear remaining reverse edges and all HCL-input references while preserving public APIs/wires/history.']}
+        'limitations': ['Source inventory only; semantic no-HCL-input/public-closure guards are separately qualified by make check.', 'No consumer build, runtime, physical or remote-fetchability claim; exact frozen objects were inspected locally.', 'Retained historical guides/examples and guard fixture strings are not current CLI/build consumers. Consumer/publication/whole-review acceptance is recorded separately.']}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--workspace', type=Path, required=True)
     parser.add_argument('--w8m', type=Path, required=True)
-    parser.add_argument('--output', type=Path, default=ROOT / 'docs/a32-consumer-inventory.json')
+    parser.add_argument('--output', type=Path, default=ROOT / 'docs/a32-final-consumer-inventory.json')
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
+    if args.output.resolve() == (ROOT / 'docs/a32-consumer-inventory.json').resolve():
+        raise SystemExit('A32.1 baseline is immutable; use a32-final-consumer-inventory.json')
     result = (json.dumps(generate(args.workspace, args.w8m), indent=2) + '\n').encode()
     if args.check:
         if args.output.read_bytes() != result:
