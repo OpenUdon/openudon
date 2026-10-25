@@ -2,7 +2,7 @@
 
 **Stage/owner:** STG-13; OpenUdon.
 **Planning approval:** Owner-approved full rescope on 2026-10-25 (approval: “I aapaprove”), following the earlier whole-stage approval. Planning only; no execution, commit or grant activation.
-**State:** P14-W1 correction is locally committed and qualified; P14.4 is blocked on P14-W2 forbidden/unperformed publication and remaining acceptance. Authoritative whole review counter remains 1/10; parent iteration 2 is pending. No general row is in progress; no gate pass or closure is claimed.
+**State:** P14-W1 correction is locally committed and qualified; P14.4 is suspended pending P14-W2 now-authorized exact publication and remaining evidence/acceptance. Authoritative whole review counter remains 1/10; parent iteration 2 is pending. No general row is in progress; no gate pass or closure is claimed.
 **Specification:** [milestone.md](milestone.md#stg13-p14).
 **Depends on:** None.
 **Source baseline:** `8433e78f1b08be7a7d9cce6cad987cce747283c8`; existing dirty planning/history was inspected and preserved. Reconcile live source and exact accepted producers before implementation.
@@ -89,3 +89,14 @@ Documentation-only readiness delta: README public-package navigation and docs/pu
 P14-W1 correction: the focused new Unicode regression failed on the old owned helper (48 refusal subcases; exit 1, 0.497s), then passed with the local predecode escape check (exit 0, Go test 0.021s). Full authoringcard tests including the extended 33-case/nine-text draft corpus pass (0.078s), with focused vet/format/diff checks. Valid surrogate pairs, intentional literal/escaped U+FFFD and literal backslash-u remain supported; raw literal keys/values share strict rejection. [Correction lineage](../../docs/p14-unicode-correction.json) preserves red/green hashes and prior 9e1 qualification unchanged. Fresh DEFAULT gpt-6.1-sol/xhigh fix review found no P1/P2; its P3 command-copy quoting issue was corrected and independently confirmed with quoted display text and exact argv. Corrected-source qualification passed below; authoritative counter remains 1/10, parent iteration 2 is pending and P14-W2 remains forbidden/unperformed.
 
 Corrected-source qualification input: local source-fix commit `e3bd5b07b1509e831be834f0e37aaba572f44975`, exact clean detached `/home/peter/Workspace/openudon.goal/p14-unicode-qualification`. Existing worktrees and absent/nonsymlink destination were inspected before creation; no clone/cache copy or old-worktree change. Public-boundary preflight passed (0.188s). Full owner check attempt 2 passed (24.261s) within the unchanged 20-minute hard cap; overall full checks attempted/completed 2 PASS, failed 0. The compiled authoringcard BuildID changed, binding the correction; actual 375-package/374-export graph and 35-module BuildInfo have the same 91 selected/34 external compiled identities as the prior proof, with no replacements/private imports. Old metadata is reused only after exact lock/schema/module identity parity checks; source/corpus/new binary identities remain distinct. The primary checkout has only correction evidence/status updates plus the preserved parent-owned milestone delta; its dirty state is not the frozen verification input. Both immutable qualification worktrees, prior record/seven captures and new private captures remain retained. No whole iteration 2, publication, external action or cleanup occurred.
+
+## Scoped continuation approval — 2026-10-25
+
+The invoking human “I approve” approved both exact reviewed scopes identified
+in the [approval record](../../../kinet/docs/stage13-scoped-approval-20261025.json).
+The coordinator may create only the named frozen review branch, acquire only
+the two exact modules after independent publication verification, and qualify
+the named ordinary consumer fixtures. Main/other pushes, deployment and all
+other acquisitions remain denied. Publication/consumption are still unperformed;
+the row stays suspended while Kinet:M59 owns serial execution. Review counter1,
+prior findings and all consumed checks remain; no acceptance is claimed.

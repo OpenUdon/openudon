@@ -8,7 +8,7 @@ and legacy-wrapper retirement are separate unnumbered candidates.
 
 **Current OpenUdon Stage 13 horizon.** OpenUdon:P14. One serial execution owner; parallel-safe no. The Kinet launch reference includes only the eight active milestones. This current section governs over earlier dated checkpoints.
 
-**Execution progress.** The separately approved local goal has completed P14.1–.3 and P14.4's local verification/readiness. Publication and authoritative whole review remain pending; all pushes remain denied. The planning approval above supplies historical scope, not execution authority.
+**Execution progress.** The separately approved local goal has completed P14.1–.3 and P14.4's local verification/readiness. Publication and authoritative whole review remain pending; the owner approved only the exact reviewed new-branch/acquisition scopes, not main pushes. The planning approval above supplies historical scope, not execution authority.
 
 Preserve supported Ramen/Udon HCL input/output and supporting UWS codecs;
 Ramen remains YAML-first. Stage 12 stays closed. Withdrawn Kinet:M54/M55,
@@ -61,11 +61,16 @@ AUTHORIZATION_REQUIREMENTS:
     scope:
       repository: /home/peter/Workspace/openudon
       remote: git@github.com-tabilet:OpenUdon/openudon.git
-      ref: refs/heads/main
+      ref: refs/heads/stage13/p14-authoring-cards-e486fee4
+      revision: e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0
       mode: fast-forward
+      creation_only: true
+      expected_ref: absent; empty expected-ref lease
 ```
 
 **Task/review owner.** [status-P14.md](status-P14.md) owns the 4 pending rows and persisted review; [the coordinator](../../../kinet/docs/stage13.md) owns cross-package acceptance and priority.
+
+**Scoped execution approval — 2026-10-25.** The owner said “I approve” after both exact linked proposals. The [approval record](../../../kinet/docs/stage13-scoped-approval-20261025.json) binds the reviewed hashes. Only this exact new review branch, disclosed source-test CI, two named module acquisitions and exact disposable compatibility inputs are excepted from the no-push/external-mutation policy. Main denials remain; publication, consumption and acceptance are not yet claimed. Existing review counter1 and every earlier outcome remain.
 
 <a id="stg13-p15"></a>
 
