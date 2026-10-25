@@ -1,5 +1,9 @@
 # OpenUdon Release Note Template
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 ## Candidate
 
 - Version:

@@ -1,5 +1,9 @@
 # Tutorial: Order Fulfillment Chain
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This fixture is the multi-service SaaS release demo. It fetches customer and
 inventory records, then creates a sandbox fulfillment order from reviewed
 request mappings. It demonstrates cross-service data flow, mixed credential

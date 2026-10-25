@@ -1,5 +1,9 @@
 # Intent HCL
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `workflows/intent.hcl` is OpenUdon's internal structured authoring contract between
 `project.md` and `workflows/workflow.hcl`. It records what OpenUdon intends to build before
 OpenUdon renders public workflow source and exported UWS.

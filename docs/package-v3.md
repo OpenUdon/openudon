@@ -70,12 +70,13 @@ missing field impossible. Stable findings name the workflow artifact without
 parser excerpts or private values. Flow observations remain advisory.
 
 Default literal-secret policy is the shared public `credentialpolicy` package;
-legacy internal adapters retain the same checks. Build's optional `Private`
+A32 retires the legacy internal adapters. Build's optional `Private`
 predicate applies the consuming host's known-secret policy to each input and
 emitted artifact, without loading secrets. Kinet still supplies short/encoded
 known-value detection and worker isolation. Credential readiness and current
 symbolic revisions are separately checked before execution authority. Historical
-browser artifact masking stays private and retains its unchanged adapter.
+browser artifact masking belongs to the consuming private host; A32 removes
+the legacy adapter.
 
 The eight copied synthetic source fixtures retain their accepted APItools
 hashes, native protocols/selectors and 9,829-byte golden shape table. The

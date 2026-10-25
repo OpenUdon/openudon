@@ -1,5 +1,9 @@
 # Multi-Service SaaS Patterns
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 M18 documents the repeatable SaaS workflow chains OpenUdon should keep
 reviewable and deterministic. The goal is not to add new runtime semantics; it
 is to make cross-service bindings, credential scopes, side effects, and

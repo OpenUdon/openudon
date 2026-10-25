@@ -1,5 +1,9 @@
 # iCoT v2 Transcript Format
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 iCoT writes ignored local transcript evidence to
 `<example>/.icot/transcript.json` unless `--no-transcript` or `--print` is used.
 It is not required by `openudon build` and must not contain secrets.

@@ -1,5 +1,9 @@
 # Catalog discovery and source provisioning
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 OpenUdon delegates catalog metadata, indexing, ranking and scoped discovery to
 the published APItools M81/M80 implementation. `step discover` is read-only;
 it grants no source, package, browser or execution approval.

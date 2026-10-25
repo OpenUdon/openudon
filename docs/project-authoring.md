@@ -1,5 +1,9 @@
 # Writing project.md for OpenUdon
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `project.md` is the user contract for OpenUdon synthesis. It should describe the business goal and the
 integration policy that tells OpenUdon when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.

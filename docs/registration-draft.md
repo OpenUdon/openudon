@@ -1,5 +1,9 @@
 # Structural registration drafts
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `openudon authoring registration-draft --request FILE|- [--at UTC_RFC3339]`
 turns reviewed structural registration definitions into a canonical native
 profile. This command starts no browser, writes no package, calls no model,

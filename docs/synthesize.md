@@ -1,5 +1,9 @@
 # Synthesize And Build
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 The synthesis path starts from a reviewed project brief and produces the package artifacts that
 reviewers inspect before any trusted-runner handoff.
 

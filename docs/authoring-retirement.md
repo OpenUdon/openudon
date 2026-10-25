@@ -1,5 +1,9 @@
 # OpenUdon authoring after iCoT retirement
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 Kinet owns chat, interviews and browser UI. OpenUdon is an external CLI/artifact
 producer; it has no terminal interview, UI listener or application-control server.
 This migration implements the approved 23 retained capabilities in

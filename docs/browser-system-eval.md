@@ -1,5 +1,9 @@
 # Browser system qualification
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 Use `make fast` for browser-free routine development. Deliberately select one
 synthetic affected `make smoke`; its development v2 report never qualifies a
 runtime. `make qualify` and `make browser-system-current-check` select fresh

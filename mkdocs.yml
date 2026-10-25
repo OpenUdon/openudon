@@ -21,46 +21,11 @@ theme:
 
 nav:
   - Home: index.md
+  - Public Trust APIs: public-trust-api.md
+  - Package V3: package-v3.md
+  - Browser Supplement: browser-package-v3.md
+  - Broker Handoff: broker-execution-handoff.md
+  - Run Evidence: per-step-run-evidence.md
+  - CLI Retirement: legacy-cli-retirement.md
   - Compatibility: compatibility.md
-  - Authoring:
-    - Overview: authoring.md
-    - Current CLI Migration: authoring-retirement.md
-    - Pure Registration Definitions: registration-draft.md
-    - Public Browser Capture: browser-capture-protocol.md
-    - Native Browser Package Handoff: browser-package-handoff.md
-    - Agentic SaaS Authoring: agentic-saas-authoring.md
-    - SaaS Authoring Corpus: saas-authoring-corpus.md
-    - SaaS Authoring Trials: saas-authoring-trials.md
-    - Multi-Service SaaS Patterns: multi-service-saas-patterns.md
-    - n8n Pattern Bridge: n8n-pattern-bridge.md
-    - Project Briefs: project-authoring.md
-    - project.md Schema: project-authoring-schema.md
-    - intent.hcl: intent.md
-    - Data Flow: data-flow.md
-    - Historical iCoT: icot.md
-    - Historical iCoT UI Server: icot-ui.md
-    - Authenticated Browser Authoring: authenticated-browser-authoring.md
-    - Browser-Profile Transactions: browser-profile-transactions.md
-    - iCoT Corpus And Provider Roadmap: icot-corpus-and-provider-roadmap.md
-    - iCoT Session Files: icot-session-schema.md
-    - iCoT Transcripts: icot-transcript.md
-    - Enterprise Authoring And Execution Boundary: enterprise-authoring-execution.md
-    - Synthesize: synthesize.md
-  - Tutorial:
-    - Weather: tutorial-weather.md
-    - Gmail Audit Receipt: tutorial-gmail.md
-    - Order Fulfillment Chain: tutorial-order-fulfillment.md
-    - Support Email: tutorial-support-email.md
-    - Eval Gallery: eval-gallery.md
-    - Eval Seed/Build Matrix: eval-seed-build-matrix.md
-  - Handoff:
-    - Safety: safety.md
-    - Review Handoff: review-handoff.md
-    - SaaS Review Handoff: saas-review-handoff.md
-    - SaaS Operator Release Path: saas-operator-release.md
-    - Product Smoke Matrix: product-smoke-matrix.md
-    - Browser Integration Evaluation: browser-integration-eval.md
-    - Browser Scenario Evaluation: browser-scenario-eval.md
-    - Release Stewardship: release-stewardship.md
-    - Release Notes Template: release-note-template.md
   - Related: related.md

@@ -1,5 +1,9 @@
 # SaaS Operator Release Path
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This page is the provider-free release demo path for OpenUdon's SaaS authoring
 slice. It shows how a new operator can move from reviewed source artifacts to
 quality evidence, approval JSON, and trusted-runner dry-run output without live

@@ -1,5 +1,9 @@
 # Pending step contracts
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `openudon step pending --example DIR --request FILE|-` authors one explicitly
 reviewed unresolved contract in `workflows/intent.hcl`. Its additive envelope is
 `openudon.step-pending.v1`; it reuses the published `stepContract`,

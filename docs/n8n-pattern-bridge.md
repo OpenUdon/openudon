@@ -1,5 +1,9 @@
 # n8n Pattern Bridge
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 The n8n pattern bridge is a review-first authoring aid. It records useful n8n
 evidence as a small OpenUdon summary so an operator or agent can draft a native
 `project.md` and `workflows/intent.hcl` candidate without importing n8n runtime

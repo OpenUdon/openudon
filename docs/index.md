@@ -1,107 +1,18 @@
-# OpenUdon
+# OpenUdon public libraries
 
-<p align="center">
-  <img src="assets/openudon.png" alt="OpenUdon logo" width=800>
-</p>
+OpenUdon supplies public Go contracts for reviewed UWS packages, approval,
+executor handoff and run evidence. Kinet owns the authoring product and isolated
+worker integration; private Udon owns runtime execution.
 
-OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It turns
-reviewed project briefs into deterministic workflow packages and hands approved packages to a trusted
-executor boundary.
+- [Public trust APIs](public-trust-api.md)
+- [Package v3](package-v3.md)
+- [Public browser supplement](browser-package-v3.md)
+- [Broker execution handoff](broker-execution-handoff.md)
+- [Per-step run evidence](per-step-run-evidence.md)
+- [Legacy CLI retirement](legacy-cli-retirement.md)
+- [Compatibility](compatibility.md)
 
-OpenUdon can be used directly by an operator or under optional external orchestration. In
-both modes, generated artifacts stay untrusted until validation, review, approval, and package digest
-checks pass.
-
-OpenUdon v0.1 is a CLI-first public beta. See the
-[compatibility contract](compatibility.md) for the supported deterministic
-package and trusted-handoff boundary.
-
-## What OpenUdon Owns
-
-- Project briefs, templates, neutral authoring, and eval fixtures.
-- API-first UWS artifact generation from reviewed API sources, with verified Browsertools profiles
-  as an explicit fallback for UI-only capabilities.
-- Review evidence, quality reports, approval templates, package digests, and handoff manifests.
-- Local trusted-runner enforcement before invoking an external executor.
-
-OpenUdon does not own public workflow semantics, generic OpenAPI/UWS execution, workflow
-state, or concrete infrastructure authoring. Those boundaries are summarized on the
-[Related](related.md) page.
-
-## Basic Flow
-
-```text
-project.md
-  -> reviewed API source or Browsertools profile selection
-  -> workflows/intent.hcl
-  -> workflows/workflow.hcl and workflows/workflow.uws.yaml
-  -> expected plan, quality, review, and handoff artifacts
-  -> approval JSON with package digest
-  -> openudon run trusted executor handoff
-```
-
-## Operator Commands
-
-```bash
-go run ./cmd/openudon authoring draft --from-example ./examples/eval/runtime-only-render --example .openudon-run/NEW --prompt-mode fast --no-llm --yes
-go run ./cmd/openudon synthesize --example ./examples/<name>
-go run ./cmd/openudon build --example ./examples/<name>
-go run ./cmd/openudon assess --example ./examples/<name>
-go run ./cmd/openudon approval-template --example ./examples/<name> --state approved_for_sandbox --reviewer "Reviewer Name"
-go run ./cmd/openudon run --example ./examples/<name> --tier sandbox --approval approvals/<name>.json --dry-run
-```
-
-Use [Authoring](authoring.md) for the two authoring paths, [Current Authoring Migration](authoring-retirement.md)
-for the retained neutral commands, [Tutorial](tutorial-weather.md) for fixture-based
-walkthroughs, [Enterprise Authoring And Execution Boundary](enterprise-authoring-execution.md) for
-the LLM-authoring/deterministic-execution product boundary, [SaaS Operator Release Path](saas-operator-release.md)
-for the provider-free release demo, and [Handoff](safety.md) for the review and execution boundary.
-
-## Documentation Index
-
-### Authoring
-
-- [Authoring](authoring.md)
-- [Agentic SaaS Authoring](agentic-saas-authoring.md)
-- [SaaS Authoring Corpus](saas-authoring-corpus.md)
-- [SaaS Authoring Trials](saas-authoring-trials.md)
-- [Multi-Service SaaS Patterns](multi-service-saas-patterns.md)
-- [n8n Pattern Bridge](n8n-pattern-bridge.md)
-- [Project Briefs](project-authoring.md)
-- [project.md Schema](project-authoring-schema.md)
-- [intent.hcl](intent.md)
-- [Data Flow](data-flow.md)
-- [iCoT](icot.md)
-- [Authenticated Browser Authoring](authenticated-browser-authoring.md)
-- [Browser-Profile Authoring Transactions](browser-profile-transactions.md)
-- [iCoT Corpus And Provider Roadmap](icot-corpus-and-provider-roadmap.md)
-- [iCoT Session Files](icot-session-schema.md)
-- [iCoT Transcripts](icot-transcript.md)
-- [Enterprise Authoring And Execution Boundary](enterprise-authoring-execution.md)
-- [Synthesize](synthesize.md)
-
-### Tutorials And Eval
-
-- [Weather Tutorial](tutorial-weather.md)
-- [Gmail Audit Receipt Tutorial](tutorial-gmail.md)
-- [Order Fulfillment Chain Tutorial](tutorial-order-fulfillment.md)
-- [Support Email Tutorial](tutorial-support-email.md)
-- [Eval Gallery](eval-gallery.md)
-- [Eval Seed/Build Matrix](eval-seed-build-matrix.md)
-
-### Handoff And Release
-
-- [Safety](safety.md)
-- [Review Handoff](review-handoff.md)
-- [SaaS Review Handoff](saas-review-handoff.md)
-- [SaaS Operator Release Path](saas-operator-release.md)
-- [Product Smoke Matrix](product-smoke-matrix.md)
-- [Browser Integration Evaluation](browser-integration-eval.md)
-- [Browser Scenario Evaluation](browser-scenario-eval.md)
-- [Release Stewardship](release-stewardship.md)
-- [Release Notes Template](release-note-template.md)
-
-### Related
-
-- [Related Projects](related.md)
-- [v0.2 Compatibility Contract](compatibility.md)
+The legacy CLI, browser authoring/capture harnesses and image/runner publication
+are retired. Earlier guides and frozen examples describe pinned historical
+versions. Supported public API/wire/history contracts remain unchanged; actual
+execution always requires the consuming host's current authority and admission.

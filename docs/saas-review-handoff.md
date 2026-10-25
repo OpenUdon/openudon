@@ -1,5 +1,9 @@
 # SaaS Review And Trusted Handoff
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 Side-effectful SaaS packages are review artifacts until `openudon run` validates
 approval and writes a trusted-runner config. Synthesis, build, promote, assess,
 iCoT, and eval commands do not send messages, create records, upload files, or

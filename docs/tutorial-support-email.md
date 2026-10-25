@@ -1,5 +1,9 @@
 # Tutorial: Support Email
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This fixture fetches a support ticket through OpenAPI and prepares a confirmation email through an
 approved function adapter. It demonstrates the approval boundary for a side-effectful workflow.
 

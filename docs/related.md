@@ -1,6 +1,6 @@
 # Related Projects
 
-OpenUdon is the integration layer above several sibling projects. Keep changes in the repo that owns
+OpenUdon supplies public package and trust contracts above several sibling projects. Keep changes in the repo that owns
 the relevant behavior.
 
 | Project | Ownership Boundary |
@@ -9,7 +9,7 @@ the relevant behavior.
 | [apitools](https://github.com/OpenUdon/apitools) | API source metadata discovery, import/materialization, search, indexing, summaries, auth/security summaries, catalog metadata, protocol-to-UWS-source-type mapping, and operation ranking for OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData sources. |
 | [Browsertools](https://github.com/OpenUdon/browsertools) | Engine-neutral browser capability/authentication/registration profile validation, offline registration draft and digest-bound review, private capture cache, reviewed capability bundles, bounded local discovery, and service-free local/HTTPS static registry tooling. Authentication and registration profiles remain local and are not published to the capability registry. |
 | [Ramen](https://github.com/OpenUdon/ramen) | Public API-source desired-state conversion, reconciliation, state, graphing, planning, drift, import, apply/delete, and audit artifacts. |
-| `udon` | Private UWS/API/browser-profile compiler and runtime executor. Persistent browser drivers, credentials, MFA challenge brokering, live sessions, exact runtime approvals, and execution remain behind its trusted run-config handoff. The currently pinned contract does not execute browser registration. |
+| `udon` | Private UWS/API/browser-profile compiler and runtime executor. Persistent browser drivers, credentials, MFA challenge brokering, live sessions, exact runtime approvals, and execution remain behind its trusted run-config handoff. Actual runtime support is qualified by the consuming owner at its exact pin. |
 | n8n / `../try-n8n` | Service-priority and workflow-pattern evidence for SaaS authoring. OpenUdon does not import or execute n8n workflows. |
 | [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the API source metadata boundary is active. |
 
@@ -24,16 +24,15 @@ the relevant behavior.
   registry mechanics belong in Browsertools. OpenUdon selects and packages
   reviewed profiles; it does not store raw captures or operate a registry
   service.
-- OpenUdon may expose thin `openudon catalog ...` wrappers for authoring and package-local API
-  source import or materialization, but catalog data stays advisory and does not change workflow
-  semantics.
+- Kinet owns product authoring and catalog user flows; APItools metadata remains
+  advisory and does not change workflow semantics.
 - Ramen owns desired-state reconciliation and Ramen-specific run/audit behavior. OpenUdon may review
   or package UWS-facing artifacts generated elsewhere, but it must not import Ramen.
 - n8n workflows are evidence for authoring, not an execution or compatibility target.
 - External workflow orchestration stays outside OpenUdon.
-- Live SaaS provider calls are outside build, assess, iCoT, eval, and dry-run release demos.
-- OpenUdon owns project templates, examples, review state, approval templates, package contents,
-  package digests, and local trusted-runner enforcement.
+- OpenUdon public byte APIs dispatch no live provider calls.
+- OpenUdon owns public package, review, approval, digest and evidence contracts.
+  Kinet owns trusted host enforcement and worker lifecycle.
 - Command code remains in the product repo that owns the command. Shared helpers should be
   extracted only after stable real overlap is proven.
 

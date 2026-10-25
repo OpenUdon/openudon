@@ -1,7 +1,8 @@
 # Public trust APIs
 
 Accepted Stage 11 M98 exposes format-neutral trust metadata and explicit-byte
-verification from the existing CLI. [Retired M98](../tabilet/docs/history/status-M98.md)
+verification, originally extracted from the legacy CLI. A32 retires that CLI
+and its private adapters; the public contracts remain supported. [Retired M98](../tabilet/docs/history/status-M98.md)
 records closing review 3. Qualified published source
 `08a3839f357ec40c7e50c8668e4bd7c8d86bb55a` resolves as
 `v0.1.1-0.20261007040813-08a3839f357e`.
@@ -31,8 +32,8 @@ the concrete authority's bounded validity interval.
 
 The `handoff` constructor builds neutral review metadata. It does not build,
 assess or simulate an OpenUdon v2 workflow package. Synthesis-coupled v2
-construction and orchestration remain private CLI adapters; supported v3
-construction belongs to P09. Workers must bound and strictly decode untrusted
+construction and orchestration belonged to the retired private CLI adapters;
+supported v3 construction belongs to `packagev3`. Workers must bound and strictly decode untrusted
 inputs, and redact private values in legacy diagnostics before display or
 storage. M98 is accepted and published; Phase B public v3 construction remains P09.
 
@@ -66,8 +67,10 @@ key PEM. It performs no path reads. Limits are 8 MiB for evidence/each artifact,
 1,024 artifacts and 64 MiB total, 1 MiB for a signature and 64 KiB for the trusted
 key. Report v5 keeps its tighter 256 KiB bound and 256-step maximum.
 The public verifier supports non-browser profiles; a browser record returns
-`ErrUnsupportedBrowser` and uses the retained exact CLI verification path.
-Browser wire types are shared metadata; no public browser execution API exists.
+`ErrUnsupportedBrowser`. P10 supplies separate public
+`ObserveBrowserReport`/`VerifyBrowserRunEvidence` verification for browser
+evidence; see [the browser supplement](browser-package-v3.md). No public browser
+execution API exists.
 Broker v4 byte verification additionally applies the exact existing embedded
 broker/run-evidence schemas through a closed resource loader. Unresolved
 references fail without external reads; no schema or dependency version changes.
@@ -87,14 +90,16 @@ cannot bind an executor report/signature to an exact attempt.
 Missing, invalid or mismatched v5 reports retain conservative unknown outcomes;
 they never imply successful dispatch or a safe retry. Validated incomplete
 reports preserve observed terminal steps and unknown/unstarted remainder.
-Public report parsing shares the retained CLI's wire validators. Workflow-based
-inventory derivation and browser runtime enforcement stay private. `Verify`
+Public report parsing retains its wire validators. Legacy workflow-based
+inventory derivation retires with the CLI; current runtime enforcement belongs
+to the consuming host. `Verify`
 returns fixed errors for invalid evidence; typed validators retain legacy
 diagnostic text and require caller redaction. Returned wire records contain
 legacy local paths and metadata; consumers choose appropriate reduced views.
 
 Golden tests consume the retained published simulation, broker-handoff and
 broker-execution fixtures, including their embedded policy/self digests.
-`internal/publicapi` verifies the transitive public dependency closure excludes
-OpenUdon internals and private `genelet/*` modules. Existing internal aliases
-keep CLI callers on the same wire types and validation implementation.
+`tests/publicapi` verifies that the transitive public dependency closure excludes
+OpenUdon internals and private `genelet/*` modules. The former internal aliases
+retire with their CLI callers; supported public types and validators keep their
+exact implementation bytes.

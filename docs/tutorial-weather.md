@@ -1,5 +1,9 @@
 # Tutorial: Weather
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This read-only fixture resolves Toronto coordinates and fetches current weather. It can also be used
 as the starting point for a Kinet-authored workflow that fetches weather, renders a report, and sends
 that report through Gmail after review.

@@ -1,5 +1,9 @@
 # Per-step run evidence v3
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 Opt in with `openudon run --executor-report-version v5` (or the exact
 `udon.execution-report.v5` name). Omitting it preserves report v3/v4 selection
 and `openudon.run-evidence.v2`. Executable run-config v2 already has

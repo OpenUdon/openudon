@@ -1,5 +1,9 @@
 # Browser Integration Evaluation
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `openudon browser-integration-eval` is the deterministic release-evidence
 matrix for anonymous and authenticated browser authoring through trusted replay. It runs named,
 provider-free checks in sibling OpenUdon, Browsertools, UWS, Udon, and

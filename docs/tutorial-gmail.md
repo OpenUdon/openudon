@@ -1,5 +1,9 @@
 # Tutorial: Gmail Audit Receipt
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This fixture models a sandbox Gmail-like send operation followed by a local audit receipt renderer.
 It is side-effectful by shape, so the tutorial keeps execution language at the review, approval, and
 sandbox handoff boundary.

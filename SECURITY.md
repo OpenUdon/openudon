@@ -20,8 +20,9 @@ security branches.
 
 OpenUdon treats project briefs, API source documents, UWS files, generated
 artifacts, approvals, run configs, and executor evidence as untrusted until
-validated. Authoring, build, assess, eval, and dry-run commands do not perform
-live provider operations. Credential values remain in the trusted operator or
+validated. Public package and evidence APIs perform no provider or runtime
+dispatch. The consuming host owns current authority, custody, admission and
+execution. Credential values remain in the trusted operator or
 executor environment and must not be placed in projects, prompts, approvals,
 release evidence, examples, logs, or issue reports.
 

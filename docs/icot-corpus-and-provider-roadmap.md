@@ -1,5 +1,9 @@
 # iCoT Corpus And Provider Roadmap
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 This note records the iCoT reliability direction. M40 starts the first active
 slice: checked-in natural-language authoring variants, broader Slack/Gmail/
 weather evidence, and provider/failure-family scorecard summaries before adding

@@ -1,5 +1,9 @@
 # Local iCoT UI Server
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 > Historical iCoT transport documentation. M95 removes those entry points; use
 > [current authoring migration](authoring-retirement.md),
 > [public capture](browser-capture-protocol.md) and

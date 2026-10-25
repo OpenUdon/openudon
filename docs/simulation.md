@@ -1,5 +1,9 @@
 # Pure workflow simulation
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `openudon simulate` previews the captured UWS package using UWS's public
 orchestrator and `mockruntime.Runtime`. It makes no network requests, resolves
 no account or environment credentials, invokes no executor, and writes no

@@ -1,5 +1,9 @@
 # Registration 1.1 in iCoT
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 Start `icot ui` with an example workspace, private producer root, package scope,
 scratch directory and package store. In registration authoring, choose profile
 version 1.1. Observe the public form, review suggested definitions, and declare

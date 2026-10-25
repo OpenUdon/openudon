@@ -1,82 +1,30 @@
-# v0.2 Compatibility Contract
+# Public compatibility boundary
 
-OpenUdon v0.2 is a security migration. Its compatibility boundary remains
-deliberately smaller than the full command surface.
+Current OpenUdon supports the [public trust APIs](public-trust-api.md),
+[package v3 byte API](package-v3.md) and
+[browser supplement](browser-package-v3.md). A32 retires the private legacy
+CLI/authoring implementation and runner publication; the
+[retirement guide](legacy-cli-retirement.md) identifies affected entrypoints.
+Existing published revisions and frozen consumer pins remain available under
+their original contracts.
 
-## Stable During v0.2.x
+Public API declarations, JSON wires, schema bytes and historical fixtures are
+preserved. V2/v3 package history inspection remains read-only and establishes no
+source proof or execution authority. Historical approvals never authorize a
+rebuilt successor. Readers reject unsupported future wire versions.
 
-- Deterministic UWS validation and package generation through `validate`,
-  `build`, `promote`, and `assess`.
-- Digest-bound approval generation and trusted handoff through
-  `approval-template` and `run`.
-- Explicit `package prepare|promote|inspect|recover` lifecycle commands and
-  exact `--package-store`/`--selection` approval or run adapters preserve the
-  existing approval, package-byte, and trusted-runner contracts. The legacy
-  artifact `openudon promote` command retains its original meaning.
-- Run evidence verification and archival through `run-evidence`.
-- `openudon.approval.v1` and `openudon.async-evidence-bundle.v1`.
-- Executable `openudon.executor-run.v2`, `openudon.run-evidence.v2`, and
-  `apitools.review-handoff.v2` documents.
-- The `OPENUDON_EXECUTOR` and `OPENUDON_UDON_RUNNER` selector rules and the
-  portable `udon-runner` run-config boundary.
-- Additive value-free browser replay fields in executor-run and run-evidence
-  v2: driver path/arguments, protocol, canonical environment mappings, and
-  exact reviewed operation/authentication approvals.
-- Additive value-free browser-registration package and runtime fields:
-  canonical symbolic credential mappings, exact reviewed registration
-  operation approvals, protocol v4 attestation/submit grants, and the private
-  attestation digest. Non-dry registration requires that complete contract and
-  Udon execution report v3; legacy or incomplete forms fail before invocation.
-- The public `openudon.browser-profile-transaction.v1` JSON artifact and its
-  schema. It coordinates the existing BAP/BCP and BRP families through closed,
-  value-free review, preparation, promotion, and recovery states; it neither
-  changes UWS semantics nor grants browser, executor, or target authority.
-- The additive `openudon.browser-profile-transaction.v2` JSON artifact is a
-  registration-only contract for exact
-  `browsertools.registration-authoring.v2` provenance. Transaction v1 bytes
-  and unchanged BAP production remain immutable.
-- Optional operator-authored content-provenance declarations lower to the
-  additive UWS 1.9.1 `contentTrust` registry. Packages without declarations
-  retain their previous UWS version and quality/review shape, including UWS
-  1.9.0 for otherwise unchanged browser 1.7 packages. Analyzer findings are
-  deterministic, value-free advisory warnings; they do not enter ordinary
-  validation, approval, trusted-runner authorization, executor reports, or
-  execution.
+P11 preserves named-output ownership, deterministic assessment and refusal of
+stale proof. P12 retains authored bounded authentication and readable untimed
+history. P13 distinguishes saved metadata from actual session eligibility and
+requires observed fallback to narrow reuse/save rights. Host/native admission,
+current grants, revocation, credentials and runtime custody remain independent.
 
-Additive flags and artifact fields may be introduced in v0.2.x. Existing
-fields, accepted inputs, and documented core behavior will not intentionally
-be removed or redefined. Readers continue to reject unknown future wire
-versions rather than guessing.
+Public UWS semantics remain governed by UWS. OpenUdon's ability to review supplied
+source bytes does not establish executable support in any consuming runtime.
+Optional Ed25519 signatures establish configured operator identity only when a
+trusted key is independently pinned; embedded-key verification establishes
+integrity.
 
-Public UWS document semantics and schema compatibility remain governed by the
-UWS project. OpenUdon does not promise that an external executor supports
-every UWS source family or runtime selector it can review and package.
-
-## Experimental Before v1
-
-Neutral expert authoring, LLM-assisted synthesis and repair, prompt wording,
-provider and model behavior, catalog advice, eval/readiness/smoke commands,
-n8n bridge evidence, release helpers, and exact generated Markdown remain
-experimental. These surfaces may change between pre-1.0 releases while the
-deterministic package and trusted-handoff boundary stays compatible.
-
-OpenUdon currently has no supported importable Go packages. The module's
-implementation packages remain internal, and v0.2 compatibility is a CLI and
-versioned-artifact contract. The browser-profile transaction therefore has a
-public JSON/schema boundary but no supported Go library API. Current `browser-author` and `package` commands expose that lifecycle, while
-Kinet owns UI and conversation. The former iCoT terminal, UI/API/control and
-binary are retired; historical `.icot` artifacts and versioned report readers
-retain their exact meaning. Those removed experimental transports were not
-part of the stable v0.2 CLI/HTTP compatibility boundary.
-
-## v1 Migration
-
-Existing v1 packages must be regenerated with `openudon build` before they can
-execute. `openudon run` and `udon-runner` reject v1 handoffs and run configs.
-Legacy v1 run evidence may be structurally verified for inspection, but it
-cannot be signed as v2 evidence or archived where bounded executor-report
-ownership cannot be proven.
-
-Optional Ed25519 signatures authenticate an operator only when verification
-pins a trusted PKIX public key. Embedded-key verification proves evidence
-integrity but does not by itself establish configured operator identity.
+Additional Kinet physical qualification deferred at M53 remains unqualified.
+Retirement adds no deployment, account, registration, private-input or runtime
+permission and changes no existing consumer pin.

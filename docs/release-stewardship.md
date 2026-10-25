@@ -1,5 +1,9 @@
 # Release Stewardship
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 OpenUdon release checks are split between public, provider-free gates and local
 maintainer evidence. Public automation must not depend on ignored memory-bank,
 evolution, readiness, eval, approval, or run-workdir files.

@@ -1,218 +1,22 @@
-.PHONY: help test vet check standalone-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification browser-capture-check eval-seed-build authoring-scorecard authoring-replay-repair-check authoring-variants-validate authoring-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-build public-boundary fast
 
 GO ?= go
-OPENUDON_LLM_PROVIDER ?= copilot-api
-OPENUDON_LLM_MODEL ?= gpt-5.4-mini
-OPENUDON_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-OPENUDON_RELEASE_SITE_DIR ?= /tmp/openudon-mkdocs-release
-OPENUDON_RELEASE_DEMO_ROOT ?= .openudon-run/release-saas-check
-OPENUDON_RELEASE_SAAS_FIXTURES ?= slack-message-audit-log gmail-send-audit-receipt itops-slack-jira-issue-intake itops-incident-response-archive order-fulfillment-chain weather-toronto
-OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-chain
-OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES ?= m28-gmail-audit-receipt m28-ambiguous-source-negative
-OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR ?= eval/runs/icot-replay-repair-local
-OPENUDON_BROWSER_INTEGRATION_OUT ?= eval/runs/browser-integration-local/report.json
-OPENUDON_BROWSERDRIVER_NODE_MODULES ?=
-OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT ?= eval/runs/browser-scenario-loopback-local/report.json
-OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT ?= eval/runs/browser-scenario-journey-local/report.json
-OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/report.json
-OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT ?= eval/runs/browser-transaction-qualification-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, standalone-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, browser-capture-check, eval-seed-build, authoring-scorecard, authoring-replay-repair-check, authoring-variants-validate, authoring-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-build, public-boundary, fast"
 
 test:
-	$(GO) test ./...
+	GOWORK=off $(GO) test ./...
 
 vet:
-	$(GO) vet ./...
+	GOWORK=off $(GO) vet ./...
 
 standalone-build:
-	GOWORK=off $(GO) build ./cmd/openudon ./cmd/udon-runner
+	GOWORK=off $(GO) build ./...
 
-check: standalone-build test siblings apitools-boundary
+public-boundary:
+	GOWORK=off $(GO) test ./tests/publicapi -count=1
 
-apitools-boundary:
-	$(GO) run ./cmd/openudon check-apitools-boundary
+check: standalone-build test vet
 
-readiness:
-	$(GO) run ./cmd/openudon readiness --run-gates --out eval/readiness/local.json
-
-release-check:
-	$(MAKE) standalone-build
-	$(GO) test ./...
-	$(GO) vet ./...
-	$(MAKE) check
-	git diff --check
-
-release-saas-check:
-	$(MAKE) release-check
-	$(MAKE) browser-integration-check
-	$(MAKE) browser-scenario-loopback
-	$(MAKE) browser-scenario-journey
-	$(MAKE) browser-capture-check
-	$(MAKE) eval-seed-build
-	$(MAKE) authoring-variants-validate
-	$(MAKE) authoring-variants-coverage
-	$(MAKE) authoring-scorecard
-	$(MAKE) validate-uws
-	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
-	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval
-	mkdocs build --strict --site-dir $(OPENUDON_RELEASE_SITE_DIR)
-	for fixture in $(OPENUDON_RELEASE_SAAS_FIXTURES); do \
-		$(GO) run ./cmd/openudon authoring lint --example ./examples/eval/$$fixture; \
-	done
-	rm -rf "$(OPENUDON_RELEASE_DEMO_ROOT)"
-	mkdir -p "$(OPENUDON_RELEASE_DEMO_ROOT)/approvals"
-	for fixture in $(OPENUDON_RELEASE_DEMO_FIXTURES); do \
-		cp -R "examples/eval/$$fixture" "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture"; \
-		mkdir -p "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture/workflows"; \
-		cp "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture/reference/intent.hcl" "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture/workflows/intent.hcl"; \
-		$(GO) run ./cmd/openudon build --example "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture"; \
-		$(GO) run ./cmd/openudon assess --example "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture"; \
-		$(GO) run ./cmd/openudon approval-template --example "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture" --state approved_for_sandbox --reviewer "Release SaaS Check" > "$(OPENUDON_RELEASE_DEMO_ROOT)/approvals/$$fixture.json"; \
-		$(GO) run ./cmd/openudon run --example "$(OPENUDON_RELEASE_DEMO_ROOT)/$$fixture" --tier sandbox --approval "$(OPENUDON_RELEASE_DEMO_ROOT)/approvals/$$fixture.json" --workdir "$(OPENUDON_RELEASE_DEMO_ROOT)/workdir-$$fixture" --dry-run; \
-	done
-
-release-eval:
-	$(GO) run ./cmd/openudon eval --root ./examples/eval --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --release-gate --min-briefs $(OPENUDON_RELEASE_MIN_BRIEFS)
-
-release-evidence:
-	$(GO) run ./cmd/openudon release-evidence
-
-content-trust-qualification:
-	$(GO) test ./internal/synthesize -run '^TestContentTrustQualification' -count=1
-	$(GO) test -tags=udon_contenttrust_qualification ./internal/synthesize -run '^TestUdonM37ContentTrustCompatibility$$' -count=1
-
-browser-integration-check:
-	$(GO) run ./cmd/openudon browser-integration-eval --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --out "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
-	$(GO) run ./cmd/openudon browser-integration-eval --verify "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
-
-browser-scenario-loopback:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite loopback --stack current --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
-	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
-
-browser-transaction-bap-bcp:
-	$(GO) test -tags=browser_transaction_qualification ./internal/browserscenario -run '^TestRealBAPBCPTransactionQualification$$' -count=1 -timeout=10m -v
-
-browser-transaction-brp:
-	$(GO) test -tags=browser_transaction_qualification ./internal/browserscenario -run '^TestRealBRPTransactionQualification$$' -count=1 -timeout=10m -v
-
-browser-transaction-adversarial:
-	$(GO) test -count=1 ./browsertransaction -run '^(TestCanonicalRoundTripAndDigest|TestVersionCompositionIsClosedAndLegacyBytesAreStable|TestCompositionAndValueFreeBoundary|TestPublicV2SchemaCompilesAndAcceptsOnlyRegistrationV2|TestLifecycleAndImmutableTransitions|TestLifecycleFieldsAndFailureCodes|TestClosedTransitionMatrix|TestStrictDecodeRejectsUnknownAndMultipleDocuments)$$'
-	$(GO) test -count=1 ./internal/browsercandidate -run '^(TestPrivateInboxRejectsReviewBindingAndLifecycleDrift|TestPrivateInboxRejectsUnsafeAndChangedResults|TestPrivateInboxRejectsNonCanonicalResultJSON|TestPrivateInboxRejectsPartialOversizedAndAmbiguousWrites)$$'
-	$(GO) test -count=1 ./internal/browserauthor -run '^(TestExternalRegistrationWorkerExitAndProtocolFailuresAreClosed|TestExternalRegistrationCancellationCannotAdoptCandidate|TestRegistrationControllerRequiresExactHumanReview|TestRegistrationControllerAcceptsObservationOnlyEmptyLabelButRejectsItsSelection|TestRegistrationControllerRejectsInvalidParentBounds|TestRegistrationServerDecoderRejectsAmbiguousJSON|TestStabilizeExecutableRejectsContentMutationDuringCopy|TestOperatorIdleCancellationIsBounded)$$'
-	$(GO) test -count=1 ./internal/elicitor -run '^(TestDiscoverVirtualBrowserSourcesRejectsAuthenticatedReviewDrift|TestVirtualBrowserDiscoveryRejectsStaleVersionAndCollisions|TestVirtualBrowserDependencyTraversalRejectsMissingCycleAndDuplicates|TestRequireFreshVirtualBrowserSourcesRejectsReplacement)$$'
-	$(GO) test -count=1 ./internal/browsertransaction/engine -run '^(TestAuthorizationRevisionConcurrencyAndCancellationPreserveState|TestIndeterminatePromotionRequiresExactInspectedRecovery)$$'
-	$(GO) test -count=1 ./internal/packagepipeline -run '^(TestPrepareCurrentHonorsCancellationAndRejectsDrift|TestConcurrentPromotionFailsClosedAndLeavesConsistentSelection|TestPromoteRejectsInvalidInputsAndGenerationCollision|TestPromotionFaultBoundariesHaveTypedRecoverableOutcomes|TestInterruptedPreselectionReconcilesAsRollbackAndPreservesGeneration|TestInterruptedIntentBeforePublicationReconcilesAsRollback|TestRecoveryRejectsSelectionDriftWithoutCleanup|TestRollbackReconciliationPreservesSelectedPriorAndTarget|TestInterruptedPromotionCancellationStates)$$'
-	$(GO) test -count=1 ./internal/artifactwriter -run '^(TestExpectedCurrentSHA256IsRecheckedAtReplacementBoundary|TestWriteConflictsIsReadOnlyAndRejectsUnsafePaths|TestPreparedPlanRejectsAmbiguousPathsBeforeFilesystemMutation|TestAtomicWriterCreateOnlyInstallCannotReplaceRacingFile|TestAtomicWriterClassifiesRollbackFailureIndeterminate|TestAtomicWriterRejectsSymlinksSwapsAndOutsidePaths)$$'
-	$(GO) test -count=1 ./internal/trustedrunner -run '^(TestValidatedPackageBrowserConfigStaysBoundToImmutableSnapshot|TestTrustedRunnerBrowserRegistrationDryRunNeverInvokesExecutor|TestOuterRunnerReceivesPrivateAttestationOnlyThroughClosedEnvironment|TestInspectPackageRejectsHandoffGenerationChangeDuringAssessment|TestRunDigestMismatchFails|TestRunRejectsSymlinkedWorkflowBeforeExecutorInvocation|TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor)$$'
-	$(GO) test -count=1 ./internal/registrationattestation ./internal/udonrunner ./internal/udonreport -run '^(TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact|TestReadOutsideRepoRejectsUnsafePathModeAndDrift|TestDecodeRejectsValuesUnknownFieldsAndLifecycleDrift|TestBrowserRegistrationEvidenceRejectsExecutorConstruction|TestDockerBrowserRegistrationCarriesOnlyV4NamesAndApprovals|TestDecodeRequiresTypedV3FailureAndNoSuccessCode)$$'
-	$(GO) test -count=1 ./internal/synthesize -run '^(TestValidateBrowserRegistrationReviewRejectsTamper|TestBrowserRegistrationProfileRejectsPIIAndSecretShapedValues|TestValidatePackagedBrowserProfileRejectsRawOrSecretShapedFields|TestNoSecretsQualityReportsOnlyArtifactPaths)$$'
-	$(GO) test -count=1 ./internal/browsertransactioneval ./internal/browserscenario -run '^(TestReportRejectsContractDriftFailureAndDependencyMismatch|TestVerifyFileRejectsTamperUnknownMissingDuplicateNoncanonicalAndSymlink|TestCompatibilityLockRejectsDirtyOrDriftedSibling|TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth)$$'
-	$(GO) test -count=1 ./internal/browsercapture ./internal/browserpackage ./internal/registrationdraft
-	cd "$${OPENUDON_BROWSERTOOLS_REPO:-../browsertools}" && $(GO) test -count=1 ./registrationauthorsession ./registrationauthorworker ./registrationauthorresult ./registrationauthor ./capture -run '^(TestStrictDecoderRejectsDuplicateTrailingDeepAndUnknownFields|TestProtocolAndPhaseMismatchesFailClosed|TestBackendFailureAndCancellationReturnFixedDiagnostics|TestFinishRequiresCleanBoundedNetworkSummary|TestCancellationInterruptsBlockedOwnedInputAndClosesBrowser|TestOversizedProtocolLineFailsWithoutEcho|TestSessionInterfaceHasNoMutationOrStateExportSurface|TestRunCancellationInterruptsReadAndClosesSession|TestWorkerSourceExposesNoPlaywrightOrEnvironmentSurface|TestVerifyRejectsEveryBoundIdentityAndSafetyMutation|TestDecodeRejectsUnclosedDuplicateUnknownDeepAndSensitiveInput|TestReadPrivateExactRejectsSymlinkModeAndTamper|TestBuildRejectsObservationAndSelectionDrift|TestChromeSandboxHelperRejectsUserControlledAndNoncanonicalPaths|TestPlaywrightRegistrationHasNoInputSubmitOrStateAPI|TestRegistrationNetworkGuardAllowsOnlyApprovedGETAndHEAD|TestRegistrationNetworkGuardBoundsAndCloseAccounting|TestValidateRegistrationBrowserRequestIsExactAndFinite|TestRegistrationURLFactsRejectsDisclosureAndQuery)$$'
-
-browser-transaction-qualification:
-	$(GO) run ./cmd/openudon browser-transaction-eval --out "$(OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT)"
-	$(GO) run ./cmd/openudon browser-transaction-eval --verify "$(OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT)"
-
-browser-scenario-journey:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --stack current --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
-	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
-
-browser110-smoke:
-	OPENUDON_BROWSER110_SMOKE=1 OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES="$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" $(GO) test -count=1 ./internal/browserscenario -run '^TestBrowser110CampaignCountFreshLoopbackSmoke$$' -timeout=10m -v
-
-browser-scenario-public:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite public --allow-network --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
-	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
-
-browser-capture-check:
-	@test "$${OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX:-}" != "1" \
-	 || { echo "browser-capture-check: sandbox-disable override is forbidden"; exit 1; }
-	$(GO) test -tags=browser_system_qualification ./internal/capturequalification -run '^TestNeutral(Registration|Authenticated)PublicCapturePackage$$' -count=1 -timeout=6m -v
-
-eval-seed-build:
-	$(GO) test ./internal/authoringcli -run TestEvalReferenceSeedBuildMatrix -count=1
-
-authoring-scorecard:
-	$(GO) run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/authoring-scorecard-local
-	$(GO) run ./cmd/openudon authoring report verify --file eval/runs/authoring-scorecard-local/scorecard.json
-
-authoring-replay-repair-check:
-	rm -rf "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
-	mkdir -p "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
-	set -e; for fixture in $(OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES); do \
-		$(GO) run ./cmd/openudon authoring replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
-	done
-
-authoring-variants-validate:
-	$(GO) run ./cmd/openudon authoring variants validate --root examples/eval
-
-authoring-variants-coverage:
-	$(GO) run ./cmd/openudon authoring variants coverage --root examples/eval
-
-product-smoke-check:
-	$(GO) run ./cmd/openudon smoke-matrix --mode dry-run --workdir .openudon-run/product-smoke --out .openudon-run/product-smoke/summary.json
-
-product-smoke-live:
-	$(GO) run ./cmd/openudon smoke-matrix --mode live --workdir .openudon-run/product-smoke --out .openudon-run/product-smoke/summary.json
-
-siblings:
-	$(GO) run ./cmd/openudon check
-
-validate-uws:
-	$(GO) run ./cmd/openudon validate ./examples/uws-validation
-
-eval:
-	$(GO) run ./cmd/openudon eval --root ./examples/eval --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL)
-
-synthesize-support:
-	$(GO) run ./cmd/openudon synthesize --example ./examples/support-email --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL)
-
-build-support:
-	$(GO) run ./cmd/openudon build --example ./examples/support-email --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL)
-
-promote-support:
-	$(GO) run ./cmd/openudon promote --example ./examples/support-email
-
-assess-support:
-	$(GO) run ./cmd/openudon assess --example ./examples/support-email
-
-# Explicit synthetic browser authority; no public suite or provider credentials.
-OPENUDON_BROWSER_SYSTEM_UDON_REPO ?= ../udon
-OPENUDON_BROWSER_SYSTEM_OUT ?= /tmp/openudon-browser-system
-OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES ?= $(OPENUDON_BROWSERDRIVER_NODE_MODULES)
-.PHONY: browser-system-check browser-system-current-check
-browser-system-check: browser-system-current-check
-
-browser-system-current-check:
-	@test -n "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" || { echo "set OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES to the supplied lock-matched read-only dependency directory"; exit 2; }
-	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --suite offline --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-offline.json"
-	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-offline.json"
-	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
-	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
-
-# Feature iteration: unit results use Go's normal dependency-aware cache.
-OPENUDON_SMOKE_OUT ?= /tmp/openudon-smoke-$(shell /usr/bin/date -u +%Y%m%dT%H%M%S%N).json
-OPENUDON_SMOKE_STAGE ?= registration_capture_handoff
-OPENUDON_SMOKE_CACHE ?= $(HOME)/.cache/openudon-browser-development
-OPENUDON_SMOKE_REUSE ?= false
-.PHONY: fast smoke qualify
-fast:
-	$(GO) test ./...
-	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
-smoke:
-	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
-qualify: browser-system-current-check
-
-# Explicit provider-free, disposable loopback qualification of accepted Udon M44.
-.PHONY: report-v5-qualification
-report-v5-qualification:
-	@test -n "$(OPENUDON_M44_EXECUTOR)" -a -n "$(OPENUDON_M44_CLOSURE)" || { echo "set OPENUDON_M44_EXECUTOR and OPENUDON_M44_CLOSURE to the accepted frozen M44 build"; exit 2; }
-	OPENUDON_M44_QUALIFY=1 OPENUDON_M44_EXECUTOR="$(OPENUDON_M44_EXECUTOR)" OPENUDON_M44_CLOSURE="$(OPENUDON_M44_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM44Qualification$$' -count=1 -v
-
-.PHONY: report-v5-m45-qualification
-report-v5-m45-qualification:
-	@test -n "$(OPENUDON_M45_EXECUTOR)" -a -n "$(OPENUDON_M45_CLOSURE)" || { echo "set OPENUDON_M45_EXECUTOR and OPENUDON_M45_CLOSURE to the accepted frozen M45 build"; exit 2; }
-	OPENUDON_M45_QUALIFY=1 OPENUDON_M45_EXECUTOR="$(OPENUDON_M45_EXECUTOR)" OPENUDON_M45_CLOSURE="$(OPENUDON_M45_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM45Qualification$$' -count=1 -v
+fast: test

@@ -1,5 +1,9 @@
 # Brokered executor handoff
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 M97 adds an explicit contract for one approved HTTP execution over the published
 Udon M46 broker transport. OpenUdon validates reviewed packages and passes the
 external CLI handoff; the trusted host owns accounts, grants, credentials,

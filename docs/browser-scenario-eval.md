@@ -1,5 +1,9 @@
 # Browser Scenario Evaluation
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 `openudon browser-scenario-eval` owns three complementary real-browser suites.
 They test the portable workflow boundary without storing a DOM, accessibility
 snapshot, screenshot, page value, credential, cookie, browser state, or child

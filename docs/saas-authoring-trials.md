@@ -1,5 +1,9 @@
 # SaaS Authoring Trials
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 M20 measures the end-to-end authoring path after the SaaS authoring, corpus,
 guided UX, multi-service pattern, and trusted-handoff milestones.
 

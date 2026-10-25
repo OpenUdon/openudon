@@ -1,5 +1,9 @@
 # Supervising-product browser capture protocol
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 M93.1 implements the `openudon.browser-capture.v1` event/decision foundation;
 M93.2 adds the authenticated/TOTP transport and M93.3 the registration
 transport over the existing browser controllers. M93.4 adds the public command,

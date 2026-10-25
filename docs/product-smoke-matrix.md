@@ -1,5 +1,9 @@
 # Product Smoke Matrix
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 M37 added this product smoke matrix for an unpublished `v0.1.2-a.1` candidate.
 It is historical optional provider evidence, not the v0.1.0 tag gate and not a
 new workflow feature. The matrix starts from reviewed

@@ -1,5 +1,9 @@
 # Eval Seed/Build Matrix
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 The eval corpus now carries an explicit offline seed/build contract in each
 `examples/eval/*/reference/policy.json`.
 

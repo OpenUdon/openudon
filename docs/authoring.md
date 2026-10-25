@@ -1,5 +1,9 @@
 # Authoring
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 OpenUdon has two supported authoring paths. Both produce the same reviewable package shape: a
 human-readable `project.md`, a structured `workflows/intent.hcl`, public UWS artifacts, expected
 plans, review evidence, quality reports, and a handoff manifest.

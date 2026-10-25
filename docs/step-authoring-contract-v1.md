@@ -1,5 +1,9 @@
 # OpenUdon step-authoring command contract v1
 
+> CLI retirement: command examples on this page describe pinned historical
+> versions. Current OpenUdon supplies public Go libraries; see the
+> [retirement guide](legacy-cli-retirement.md) for entrypoints and owners.
+
 **M87 release contract, extended additively by M89.** This document and its
 fixtures define the versioned OpenUdon CLI surface for step authoring and
 explicit local API-source provisioning. UWS owns pending-step semantics; the
