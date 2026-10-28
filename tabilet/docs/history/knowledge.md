@@ -6505,3 +6505,20 @@ The preceding A32 public-library retirement entry records consolidation on
 `65504cc6a71f73a48bf050696ece72071adc5425`; replacements are the current
 product/architecture/stack headings and [retirement guide](../../../docs/legacy-cli-retirement.md).
 This dated annotation corrects entry metadata only, not evidence or acceptance.
+
+## 2026-10-28 — P16 accepted report provenance correction
+
+Source: tech-stack.md, P16 planned report qualification; lessons.md, Verify optional report members with the strict consumer. Reason: P16 implemented and qualified the producer/consumer contract; retain the planning observations as historical evidence. Replacement: tech-stack.md and lessons.md P16 current sections; details in docs/p16-report-pairing.md.
+
+```markdown
+Current 3ed803c8593b06f8cb1b6d8962afc058e6da057f strictly rejects
+credential_sources in udonreport.Report/Decode; the actual decoder probe
+reproduced the refusal. No P16 implementation/pairing pass exists yet.
+
+An additive producer member can still break a strict consumer. M57 emitted
+credential_sources in v3/v4 while the current udonreport struct lacks it; the
+actual decoder refused before outcome validation. Pair actual emitted bytes
+and retain malformed/unknown-field refusals when extending the contract.
+Metadata stays observation, never authority. Evidence: udonreport/report.go,
+Udon cmd/udon/main.go and pending [P16](status-P16.md).
+```

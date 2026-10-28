@@ -2,10 +2,9 @@
 
 ## P16 planned report qualification — 2026-10-28
 
-Current 3ed803c8593b06f8cb1b6d8962afc058e6da057f strictly rejects
-credential_sources in udonreport.Report/Decode; the actual decoder probe
-reproduced the refusal. No P16 implementation/pairing pass exists yet.
-[P16](status-P16.md) requires actual emitted v3/v4 writer bytes, strict
+At baseline 3ed803c8593b06f8cb1b6d8962afc058e6da057f the strict decoder
+rejected credential_sources; the actual decoder probe reproduced that refusal.
+[P16](../docs/history/status-P16.md) requires actual emitted v3/v4 writer bytes, strict
 positive/refusal tests, make check and public-boundary verification with
 GOWORK=off/current cached tools. Keep private Udon imports out of the public
 graph: execute any producer harness in its owner or a disposable external
@@ -14,9 +13,8 @@ fixture. Source qualification does not publish or update consumer pins.
 P16 implementation now passes actual v3/v4 writer/decoder pairing and the full
 and public-boundary gates on the clean tracked-source candidate. The initial
 checkout gate failures and successful second attempts are recorded in
-[status-P16](status-P16.md); [pairing evidence](../../docs/p16-report-pairing.md)
-binds the producer, consumer, synthetic reports and retained harness. Whole
-review and retirement remain pending.
+[status-P16](../docs/history/status-P16.md); [pairing evidence](../../docs/p16-report-pairing.md)
+binds the producer, consumer, synthetic reports and retained harness. Whole review 1 passed and P16 is accepted and retired.
 
 Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;

@@ -1,3 +1,10 @@
+## Execution report provenance — P16
+
+The public udonreport decoder accepts an optional closed array of typed
+nonempty binding/source pairs on v3/v4. Strict decode and failure classification
+remain in the public graph; metadata supplies no approval or execution authority.
+The actual Udon writer pairing is documented in [P16 evidence](../../docs/p16-report-pairing.md).
+
 # Architecture
 
 Current source follows the public-library boundary documented below. Older

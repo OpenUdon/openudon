@@ -29,69 +29,12 @@ later matching-checksum launch approval. The dangerous environment preserves
 local task commits, automatic within-scope refresh and workspace-contained local
 verification, with EXTERNAL_MUTATIONS: none. Old completed-launch grants end.
 
-**Current openudon actionable horizon:** P16.
+**Current openudon actionable horizon:** none. P16 is accepted and retired; see the [history index](../docs/history/index.md).
 Earlier completed/withdrawn sections below retain historical outcomes rather
 than dispatch priority. Conditional unrelated work remains untriggered.
 
 | ID | Status file | State | Dependencies |
 |---|---|---|---|
-| P16 | [Credential-source report compatibility](status-P16.md) | Planned; 2 pending tasks; review 0/10 | None technical; Udon M57 is accepted historical producer evidence. |
-
-<a id="p16"></a>
-
-### P16 — Credential-source report compatibility
-
-**Owner/state.** openudon; approved planning, 2 pending tasks in
-[status-P16.md](status-P16.md). No active stage; **Parallel-safe: no**.
-**Depends on.** None technical; Udon M57 is accepted historical producer evidence.
-**Lineage.** Udon M57.4 and the existing OpenUdon udonreport v3/v4 consumer; P15 remains withdrawn and reserved.
-
-**Review provenance.** Ramen / Udon commit review — 2026-10-28 (review.md), findings in source order F01–F15.
-Source/current revalidation: Ramen b21f71bf80500643baefde82c17d810d7af83342, Udon 81e62149d48ce17ee153d931af27143f0f30d304,
-OpenUdon 3ed803c8593b06f8cb1b6d8962afc058e6da057f; all relevant worktrees clean. The owner's
-“I approve” accepts the complete standalone reconciliation proposal; it is
-planning approval only. This intake starts no task/whole review counter.
-F02 (source P1, local P1, confirmed) is owned by P16.1. Current evidence: udonreport/report.go Report/Decode and Udon cmd/udon/main.go writeExecutionReport. The actual current decoder rejects credential_sources as an unknown field.
-
-**Outcome.** Accept the producer's optional credential provenance without weakening strict report decoding or treating metadata as authority.
-
-**Write set.** udonreport/, focused public report fixtures/tests and operator documentation, and the owning memory-bank records. No private executor import, runtime pin, package/authority wire or v5 report change.
-
-**Tasks.**
-
-- **P16.1 — Accept optional provenance in the strict report contract.** Add typed credential_sources for v3/v4 with the producer schema's required nonempty binding/source strings and closed item fields. Preserve absent-field reports and existing success/failure validation. Refuse malformed types, missing/empty members and unknown fields; keep legacy v2's existing contract. Metadata grants no approval or execution authority.
-- **P16.2 — Qualify actual producer bytes and the public boundary.** Use actual Udon report-writer output from a frozen producer revision, with synthetic credentials only, to prove v3/v4 decode and failure classification. Keep producer execution in its owning package or a disposable external harness; commit no private Udon import to the public graph. Record exact producer/consumer identities and fixtures. Complete make check, public-boundary, vet/diff checks, reviews, docs and handoff.
-
-**Acceptance.** Valid v3/v4 reports with and without provenance decode; malformed/unknown metadata refuses; failed reports retain their actual failure classification. Existing v2 behavior and v5/native wires remain outside this change. Actual producer-byte pairing and a clean public dependency boundary are required, not only handcrafted JSON.
-
-**Verification.** Start with cached Go/module/fixture readiness. Run focused udonreport success/refusal tests, GOWORK=off make check, GOWORK=off make public-boundary and git diff --check. Producer report writing and decoder execution are actual evidence; they are not live workflow or physical browser qualification. Required unavailable inputs block acceptance. Required checks, task reviews, a passed
-whole review within ten persisted iterations, documentation, downstream
-reconciliation and normal retirement precede acceptance. No old attempt or
-action quantity transfers. Cheap readiness/focused diagnostics precede each
-counted expensive check; preserve the package verification-attempt gate and
-record reservations/results separately from review iterations.
-
-**Compatibility/downstream.** This extends the current source consumer only. No installed or pinned Kinet/OpenUdon consumer is automatically upgraded; source publication and ordinary module adoption are separately scoped. Udon M58 depends on this accepted contract for its final pairing.
-
-**Authorization requirements (conditions, not permission).** The proposed
-combined launch is local only. No publication, push, download, live origin,
-sudo, SSH or deployment requirement is scheduled. Its named gates retain
-separate bounded allowances only after a future checksum-approved launch.
-
-```yaml
-AUTHORIZATION_REQUIREMENTS:
-  git.commit:
-    via: goal-policy
-    executor: coordinator
-  cli.local:
-    via: goal-policy
-    executor: coordinator
-    scope:
-      repository: openudon
-      task: P16-implementation-and-offline-verification
-      gates: [go-full, public-boundary, report-pairing]
-```
-
 
 ## Approved Stage 13 planning — 2026-10-25
 

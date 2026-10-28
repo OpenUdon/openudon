@@ -4,6 +4,10 @@ Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;
 they do not make retired commands executable or expand current acceptance.
 
+P16 adds strictly validated optional symbolic credential-source metadata to
+the public v3/v4 execution report reader. It is evidence only; legacy v2 and
+v5 contracts and execution authority are unchanged.
+
 ## P14 typed authoring-card source checkpoint — 2026-10-25
 
 Current source adds public `authoringcard` and the independent
