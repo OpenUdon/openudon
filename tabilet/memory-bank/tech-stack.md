@@ -11,6 +11,13 @@ GOWORK=off/current cached tools. Keep private Udon imports out of the public
 graph: execute any producer harness in its owner or a disposable external
 fixture. Source qualification does not publish or update consumer pins.
 
+P16 implementation now passes actual v3/v4 writer/decoder pairing and the full
+and public-boundary gates on the clean tracked-source candidate. The initial
+checkout gate failures and successful second attempts are recorded in
+[status-P16](status-P16.md); [pairing evidence](../../docs/p16-report-pairing.md)
+binds the producer, consumer, synthetic reports and retained harness. Whole
+review and retirement remain pending.
+
 Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;
 they do not make retired commands executable or expand current acceptance.

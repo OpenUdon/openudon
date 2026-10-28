@@ -85,6 +85,18 @@ func TestFrozenPublicTrustSurface(t *testing.T) {
 	if json.Unmarshal(data, &manifest) != nil || manifest.Version != "openudon.public-trust-surface.v1" {
 		t.Fatal("invalid API surface manifest")
 	}
+	// P16 extends the report while preserving the original frozen manifest.
+	data, err = os.ReadFile("../../docs/fixtures/public-trust-api-v1/report-p16-surface.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reportSurface map[string]string
+	if err := json.Unmarshal(data, &reportSurface); err != nil || len(reportSurface) != 2 || reportSurface["Report"] == "" || reportSurface["CredentialSource"] == "" {
+		t.Fatal("invalid P16 report surface manifest")
+	}
+	for name, shape := range reportSurface {
+		manifest.Packages["udonreport"][name] = shape
+	}
 	for pkg, expected := range manifest.Packages {
 		actual := exportedSurface(t, filepath.Join("../..", pkg))
 		for name, shape := range expected {
