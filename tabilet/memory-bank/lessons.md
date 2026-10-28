@@ -1,5 +1,14 @@
 # Lessons
 
+## Verify optional report members with the strict consumer
+
+An additive producer member can still break a strict consumer. M57 emitted
+credential_sources in v3/v4 while the current udonreport struct lacks it; the
+actual decoder refused before outcome validation. Pair actual emitted bytes
+and retain malformed/unknown-field refusals when extending the contract.
+Metadata stays observation, never authority. Evidence: udonreport/report.go,
+Udon cmd/udon/main.go and pending [P16](status-P16.md).
+
 ## Resolve native output ownership before projection
 
 A named browser output is not an aggregate HTTP response body. Resolve its
