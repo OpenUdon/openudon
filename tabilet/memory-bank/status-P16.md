@@ -19,7 +19,7 @@ here. Future execution must start from committed planning and approved inputs.
 
 | Item | State | Notes |
 |---|---|---|
-| P16.1 — Accept optional provenance in the strict report contract | `[ ]` | Add typed credential_sources for v3/v4 with the producer schema's required nonempty binding/source strings and closed item fields. Preserve absent-field reports and existing success/failure validation. Refuse malformed types, missing/empty members and unknown fields; keep legacy v2's existing contract. Metadata grants no approval or execution authority. |
+| P16.1 — Accept optional provenance in the strict report contract | `[+]` | Add typed credential_sources for v3/v4 with the producer schema's required nonempty binding/source strings and closed item fields. Preserve absent-field reports and existing success/failure validation. Refuse malformed types, missing/empty members and unknown fields; keep legacy v2's existing contract. Metadata grants no approval or execution authority. |
 | P16.2 — Qualify actual producer bytes and the public boundary | `[ ]` | Use actual Udon report-writer output from a frozen producer revision, with synthetic credentials only, to prove v3/v4 decode and failure classification. Keep producer execution in its owning package or a disposable external harness; commit no private Udon import to the public graph. Record exact producer/consumer identities and fixtures. Complete make check, public-boundary, vet/diff checks, reviews, docs and handoff. |
 
 ## Acceptance and verification
@@ -38,7 +38,7 @@ nothing. No source publication or installed-consumer adoption is claimed.
 
 Review gate iterations: 0
 
-Task reviews: not started. Whole-milestone review: 0/10, not started.
+P16.1 task review 1 found a P2 field-alias refusal gap; corrected and focused tests passed. Fresh task re-review 2 passed with no findings. Whole-milestone review: 0/10, not started.
 This is standalone intake, not a continuation of a retired closing gate.
 
 ## Verification attempts

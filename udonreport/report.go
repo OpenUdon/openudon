@@ -3,6 +3,7 @@
 package udonreport
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -43,17 +44,24 @@ var verificationFailureCodes = map[string]bool{
 }
 
 type Report struct {
-	Version        string `json:"version"`
-	Status         string `json:"status"`
-	StartedAt      string `json:"started_at"`
-	FinishedAt     string `json:"finished_at"`
-	WorkflowPath   string `json:"workflow_path"`
-	WorkflowFormat string `json:"workflow_format"`
-	WorkDir        string `json:"workdir"`
-	OutputPath     string `json:"output_path,omitempty"`
-	OutputDigest   string `json:"output_digest,omitempty"`
-	ErrorCode      string `json:"error_code,omitempty"`
-	ErrorSummary   string `json:"error_summary,omitempty"`
+	Version           string             `json:"version"`
+	Status            string             `json:"status"`
+	StartedAt         string             `json:"started_at"`
+	FinishedAt        string             `json:"finished_at"`
+	WorkflowPath      string             `json:"workflow_path"`
+	WorkflowFormat    string             `json:"workflow_format"`
+	WorkDir           string             `json:"workdir"`
+	OutputPath        string             `json:"output_path,omitempty"`
+	OutputDigest      string             `json:"output_digest,omitempty"`
+	ErrorCode         string             `json:"error_code,omitempty"`
+	ErrorSummary      string             `json:"error_summary,omitempty"`
+	CredentialSources []CredentialSource `json:"credential_sources,omitempty"`
+}
+
+// CredentialSource is symbolic provenance, not an execution authorization.
+type CredentialSource struct {
+	Binding string `json:"binding"`
+	Source  string `json:"source"`
 }
 
 func ValidFailureCode(code string) bool {
@@ -68,6 +76,32 @@ func Decode(data []byte) (*Report, error) {
 	}
 	if report.Version != VersionV2 && report.Version != VersionV3 && report.Version != VersionV4 {
 		return nil, fmt.Errorf("version must be %s, %s or read-only legacy %s", VersionV4, VersionV3, VersionV2)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, fmt.Errorf("must be valid JSON: %w", err)
+	}
+	for name, raw := range fields {
+		if !strings.EqualFold(name, "credential_sources") {
+			continue
+		}
+		if name != "credential_sources" || report.Version == VersionV2 || strings.TrimSpace(string(raw)) == "null" {
+			return nil, fmt.Errorf("credential_sources must be an array on v3 or v4 reports")
+		}
+		var entries []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &entries); err != nil {
+			return nil, fmt.Errorf("credential_sources must be an array of objects: %w", err)
+		}
+		for _, entry := range entries {
+			if len(entry) != 2 || entry["binding"] == nil || entry["source"] == nil {
+				return nil, fmt.Errorf("credential_sources entries require binding and source only")
+			}
+		}
+		for _, source := range report.CredentialSources {
+			if source.Binding == "" || source.Source == "" {
+				return nil, fmt.Errorf("credential_sources entries require nonempty binding and source")
+			}
+		}
 	}
 	if report.Status != "success" && report.Status != "error" {
 		return nil, fmt.Errorf("status must be success or error")
