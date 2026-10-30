@@ -1,5 +1,9 @@
 ## Execution report provenance — P16
 
+## P17 runtime package contracts
+
+Public package assessment resolves a supported inline function against an independently reproduced catalog and complete shape, then projects its explicit request body and `received_body` response into binding and expression checks. Runtime profile and source binding stay distinct; diagnostic order is stable. The private runtime and separate admission stay outside this public library. See [P17](../docs/history/status-P17.md).
+
 The public udonreport decoder accepts an optional closed array of typed
 nonempty binding/source pairs on v3/v4. Strict decode and failure classification
 remain in the public graph; metadata supplies no approval or execution authority.

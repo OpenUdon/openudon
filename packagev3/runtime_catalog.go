@@ -10,12 +10,51 @@ import (
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/openudon/wire"
 	"github.com/OpenUdon/uws/binding"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 const RuntimeCatalogVersion = "udon.function-catalog.v1"
 const RuntimeSourceID = "udon-runtime-functions"
 const RuntimeSourceKind = "runtime-function"
 const MaxAPISources = 32
+
+// runtimeBodyBinding admits only the public runtime profile whose complete
+// verified contract describes the native request and response body identities.
+// Other invocation modes need their own proven projection.
+func runtimeBodyBinding(ctx context.Context, op *uws1.Operation, sources []Source, resolver *binding.TableResolver) (binding.Binding, bool) {
+	name, err := functionName(op)
+	if err != nil || len(op.Request) != 1 {
+		return binding.Binding{}, false
+	}
+	// The accepted native request-body-object path materializes explicit
+	// fields; it cannot expand an expression that produces the whole object.
+	if _, ok := op.Request["body"].(map[string]any); !ok {
+		return binding.Binding{}, false
+	}
+	profile, ok := op.Extensions["x-uws-runtime"].(map[string]any)
+	if !ok {
+		return binding.Binding{}, false
+	}
+	if _, exists := profile["arguments"]; exists {
+		return binding.Binding{}, false
+	}
+	for _, source := range sources {
+		if source.ID != RuntimeSourceID || source.Kind != RuntimeSourceKind {
+			continue
+		}
+		b := binding.Binding{Source: binding.Source{ID: source.ID, Kind: source.Kind, SHA256: source.Artifact.SHA256}, SelectorKind: "id", SelectorValue: name}
+		r, err := resolver.Resolve(ctx, b)
+		if err != nil || r.Status != binding.Resolved || r.Shape == nil {
+			return binding.Binding{}, false
+		}
+		s := r.Shape
+		if !s.Complete || s.Protocol != "fnct" || len(s.Inputs) != 1 || s.Inputs[0].Location != "body" || s.Inputs[0].Name != "request_body" || !s.Inputs[0].Required || !s.Inputs[0].Schema.Known || len(s.Outputs) != 1 || s.Outputs[0].Location != "body" || s.Outputs[0].Name != "received_body" || !s.Outputs[0].Schema.Known {
+			return binding.Binding{}, false
+		}
+		return b, true
+	}
+	return binding.Binding{}, false
+}
 
 // RuntimeVerifier is a trusted consumer-owned adapter to its implementing
 // runtime's independent catalog reproduction. It must check exact source bytes,

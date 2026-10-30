@@ -1,5 +1,9 @@
 # Product
 
+## P17 runtime package assessment
+
+Verified complete runtime metadata can establish public package compatibility for a supported inline function with an explicit request-body object and mapped response body. Unknown or incomplete evidence remains non-compatible. This assessment is review evidence, not runtime admission or execution authority. See [P17](../docs/history/status-P17.md).
+
 Current source follows the public-library boundary documented below. Older
 accepted authoring/CLI/physical sections preserve their original pinned context;
 they do not make retired commands executable or expand current acceptance.

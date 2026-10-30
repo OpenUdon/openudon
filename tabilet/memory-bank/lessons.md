@@ -1,5 +1,9 @@
 # Lessons
 
+## Prove native request form before declaring compatibility
+
+A schema-compatible whole-body expression can still be unexecutable when the native runtime requires an authored object. Match actual native input form before assessment, and sort map-derived diagnostics that enter reproducible package identity. P17 task reviews found and corrected both issues. See [P17](../docs/history/status-P17.md).
+
 ## Verify optional report members with the strict consumer
 
 An additive producer member can break a strict consumer. M57 emitted

@@ -55,12 +55,22 @@ func (e *expressionContracts) operationScope(op *uws1.Operation) expressionScope
 	return expressionScope{operation: op, index: -1}
 }
 func (e *expressionContracts) shape(op *uws1.Operation) *binding.OperationShape {
-	if op == nil || !op.HasSourceBinding() {
+	if op == nil {
 		return nil
 	}
-	b, err := browserOperationBinding(op, e.sources)
-	if err != nil {
-		return nil
+	var b binding.Binding
+	if op.HasSourceBinding() {
+		var err error
+		b, err = browserOperationBinding(op, e.sources)
+		if err != nil {
+			return nil
+		}
+	} else {
+		var ok bool
+		b, ok = runtimeBodyBinding(e.ctx, op, e.sources, e.resolver)
+		if !ok {
+			return nil
+		}
 	}
 	resolution, err := e.resolver.Resolve(e.ctx, b)
 	if err != nil || resolution.Status != binding.Resolved {
@@ -239,6 +249,9 @@ func responseReference(source string, shape *binding.OperationShape) (binding.Ou
 		return binding.OutputReference{Location: "header", Name: strings.TrimPrefix(source, "$response.headers.")}, true
 	default:
 		return binding.OutputReference{}, false
+	}
+	if shape != nil && shape.Protocol == "fnct" && ref.Location == "body" {
+		ref.Name = "received_body"
 	}
 	if shape == nil || shape.Browser == nil || shape.Browser.CallKind != "action" {
 		return ref, true

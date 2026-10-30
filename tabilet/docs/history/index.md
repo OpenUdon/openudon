@@ -12,6 +12,7 @@ subsequently closed under the normal reviewed procedure.
 
 | Milestone | Outcome | Retired | Record | Summary |
 |---|---|---|---|---|
+| P17 | completed | 2026-10-30 | [P17](status-P17.md) | Verified inline runtime package assessment and expression proof; task reviews 2/2/1, whole review 1; exact committed-source handoff pending. |
 | P16 | completed | 2026-10-28 | [P16](status-P16.md) | Strict v3/v4 provenance; actual producer pairing, public boundary and full checks; whole review 1. |
 | P14 | completed | 2026-10-25 | [P14](status-P14.md) | Additive typed cards/text; Unicode correction/full2, exact review-branch publication/ordinary module and33case typed consumer pass; fresh Sol/xhigh whole2 PASS, P3 wording resolved. |
 | P13 | completed | 2026-10-17 | [status-P13.md](status-P13.md) | Three rows/task reviews1/1/1/whole1; immutable session authority/fallback rights, complete public and ordinary module proof; exact source5f210465. |

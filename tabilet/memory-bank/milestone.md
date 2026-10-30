@@ -29,7 +29,8 @@ later matching-checksum launch approval. The dangerous environment preserves
 local task commits, automatic within-scope refresh and workspace-contained local
 verification, with EXTERNAL_MUTATIONS: none. Old completed-launch grants end.
 
-**Current openudon actionable horizon:** none. P16 is accepted and retired; see the [history index](../docs/history/index.md).
+**Current OpenUdon actionable horizon:** none. P17 is accepted/retired as a local corrective prerequisite; its exact committed-source handoff remains a Kinet resumption gate. P16 remains accepted/retired; see the [history index](../docs/history/index.md).
+
 Earlier completed/withdrawn sections below retain historical outcomes rather
 than dispatch priority. Conditional unrelated work remains untriggered.
 

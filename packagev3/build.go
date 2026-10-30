@@ -284,33 +284,45 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		if browserCall != nil && browserCall.Kind != "action" {
 			continue
 		}
-		if !op.HasSourceBinding() {
-			add("binding.profile_unproved", "indeterminate")
-			continue
+		var selected binding.Binding
+		runtimeBody := !op.HasSourceBinding()
+		if runtimeBody {
+			var ok bool
+			selected, ok = runtimeBodyBinding(ctx, op, manifest.Sources, resolver)
+			if !ok {
+				add("binding.profile_unproved", "indeterminate")
+				continue
+			}
+		} else {
+			source, ok := sourceByID[op.SourceDescription]
+			if !ok || source.Kind == RuntimeSourceKind {
+				add("binding.source_missing", "incompatible")
+				continue
+			}
+			selectorKind, selector := "id", op.SourceOperationID
+			if selector == "" {
+				selector = op.OpenAPIOperationID
+			}
+			if op.SourceOperationRef != "" {
+				selectorKind, selector = "ref", op.SourceOperationRef
+			}
+			if op.OpenAPIOperationRef != "" {
+				selectorKind, selector = "ref", op.OpenAPIOperationRef
+			}
+			if browserCall != nil {
+				selectorKind, selector = "id", browserCall.Selector.Value
+			}
+			selected = binding.Binding{Source: binding.Source{ID: source.ID, Kind: source.Kind, SHA256: source.Artifact.SHA256}, SelectorKind: selectorKind, SelectorValue: selector}
 		}
-		source, ok := sourceByID[op.SourceDescription]
-		if !ok {
-			add("binding.source_missing", "incompatible")
-			continue
-		}
-		selectorKind, selector := "id", op.SourceOperationID
-		if selector == "" {
-			selector = op.OpenAPIOperationID
-		}
-		if op.SourceOperationRef != "" {
-			selectorKind, selector = "ref", op.SourceOperationRef
-		}
-		if op.OpenAPIOperationRef != "" {
-			selectorKind, selector = "ref", op.OpenAPIOperationRef
-		}
-		if browserCall != nil {
-			selectorKind, selector = "id", browserCall.Selector.Value
-		}
-		request := binding.Request{Binding: binding.Binding{Source: binding.Source{ID: source.ID, Kind: source.Kind, SHA256: source.Artifact.SHA256}, SelectorKind: selectorKind, SelectorValue: selector}, ExpressionContext: expressions.Context{Version: doc.UWS}}
+		request := binding.Request{Binding: selected, ExpressionContext: expressions.Context{Version: doc.UWS}}
 		request.ExpressionTypes = contracts.types(op.Request, scope)
 		for location, value := range op.Request {
 			if location == "body" {
-				request.Inputs = append(request.Inputs, binding.BoundInput{Location: location, Name: "body", Value: value})
+				name := "body"
+				if runtimeBody {
+					name = "request_body"
+				}
+				request.Inputs = append(request.Inputs, binding.BoundInput{Location: location, Name: name, Value: value})
 				continue
 			}
 			fields, ok := value.(map[string]any)
@@ -351,8 +363,8 @@ func Assess(ctx context.Context, manifest Manifest, files map[string][]byte, run
 		for name := range op.Outputs {
 			outputNames = append(outputNames, name)
 		}
-		if browserCall != nil && browserCall.Kind == "action" {
-			// Distinct browser output diagnostics must have stable proof order.
+		if runtimeBody || browserCall != nil && browserCall.Kind == "action" {
+			// Distinct runtime and browser output diagnostics need stable order.
 			sort.Strings(outputNames)
 		}
 		for _, name := range outputNames {
