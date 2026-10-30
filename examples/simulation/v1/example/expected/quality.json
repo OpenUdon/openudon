@@ -1,0 +1,327 @@
+{
+  "status": "fail",
+  "example": "example",
+  "artifacts": {
+    "ExampleDir": ".",
+    "ProjectPath": "project.md",
+    "IntentPath": "workflows/intent.hcl",
+    "WorkflowPath": "workflows/workflow.hcl",
+    "UWSPath": "workflows/workflow.uws.yaml",
+    "PlanJSONPath": "expected/plan.json",
+    "PlanMDPath": "expected/plan.md",
+    "DiscoveryJSONPath": "expected/discovery.json",
+    "DataPath": "expected/data.hcl",
+    "RefinementJSONPath": "expected/refinement.json",
+    "RefinementMDPath": "expected/refinement.md",
+    "ReviewPath": "expected/review.md",
+    "ReviewHandoffPath": "expected/review-handoff.json",
+    "QualityJSONPath": "expected/quality.json",
+    "QualityMDPath": "expected/quality.md",
+    "PrimaryOpenAPI": "",
+    "OpenAPICandidates": [],
+    "DiscoveryReport": {
+      "truncated": false
+    }
+  },
+  "checks": [
+    {
+      "code": "project.present",
+      "status": "pass",
+      "message": "project.md is readable"
+    },
+    {
+      "code": "project.authoring.structured_policy",
+      "status": "pass",
+      "message": "openudon-policy block controls are valid"
+    },
+    {
+      "code": "project.authoring.goal",
+      "status": "pass",
+      "message": "project.md declares the workflow goal"
+    },
+    {
+      "code": "project.authoring.integration_policy",
+      "status": "warn",
+      "message": "External Systems and OpenAPI is missing",
+      "detail": "Add this section to make synthesis decisions auditable."
+    },
+    {
+      "code": "project.authoring.data_flow",
+      "status": "warn",
+      "message": "Data Flow is missing",
+      "detail": "Add this section when the workflow has multiple steps or fnct adapters."
+    },
+    {
+      "code": "project.authoring.credentials",
+      "status": "warn",
+      "message": "Credentials and Secrets is missing",
+      "detail": "Add this section when the workflow has multiple steps or fnct adapters."
+    },
+    {
+      "code": "project.authoring.runtime_policy",
+      "status": "warn",
+      "message": "Runtime Policy is missing",
+      "detail": "Add this section to make synthesis decisions auditable."
+    },
+    {
+      "code": "project.authoring.function_contracts",
+      "status": "warn",
+      "message": "Function Contracts is missing",
+      "detail": "Add this section when the workflow has multiple steps or fnct adapters."
+    },
+    {
+      "code": "project.authoring.safety",
+      "status": "warn",
+      "message": "Safety and Approval Boundary is missing",
+      "detail": "Add this section to make synthesis decisions auditable."
+    },
+    {
+      "code": "project.authoring.fallback",
+      "status": "warn",
+      "message": "Fallback Behavior is missing",
+      "detail": "Add this section to make synthesis decisions auditable."
+    },
+    {
+      "code": "openapi.local",
+      "status": "fail",
+      "message": "no local API source documents are available",
+      "detail": "Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/, aws-smithy/, asyncapi/, graphql/, openrpc/, grpc-protobuf/, or odata/.",
+      "failure_kind": "artifact"
+    },
+    {
+      "code": "plan.version",
+      "status": "pass",
+      "message": "expected workflow plan version is supported"
+    },
+    {
+      "code": "plan.gaps",
+      "status": "pass",
+      "message": "expected workflow plan has no unresolved gaps"
+    },
+    {
+      "code": "openapi.discovery",
+      "status": "warn",
+      "message": "OpenAPI discovery report is missing",
+      "detail": "Run `openudon synthesize` or `openudon build` to record OpenAPI discovery attempts."
+    },
+    {
+      "code": "intent.parse",
+      "status": "pass",
+      "message": "intent.hcl parses"
+    },
+    {
+      "code": "intent.slots",
+      "status": "pass",
+      "message": "intent.hcl has required slots"
+    },
+    {
+      "code": "intent.openapi_refs",
+      "status": "pass",
+      "message": "intent.hcl API source references are available"
+    },
+    {
+      "code": "intent.openapi_operations",
+      "status": "pass",
+      "message": "intent.hcl API source operation references are available"
+    },
+    {
+      "code": "intent.data_flow.required_params",
+      "status": "pass",
+      "message": "required OpenAPI parameters are satisfied or credential-bound"
+    },
+    {
+      "code": "credentials.bindings",
+      "status": "pass",
+      "message": "credential-like parameters are covered by project credential policy or not required"
+    },
+    {
+      "code": "credentials.security_schemes",
+      "status": "pass",
+      "message": "API source security requirements are covered by credential policy or not required"
+    },
+    {
+      "code": "intent.data_flow.sources",
+      "status": "pass",
+      "message": "intent.hcl data-flow references resolve to known steps or inputs"
+    },
+    {
+      "code": "intent.data_flow.response_paths",
+      "status": "pass",
+      "message": "intent.hcl response paths match available API source response schemas"
+    },
+    {
+      "code": "intent.data_flow.explicit",
+      "status": "pass",
+      "message": "single-step intent does not require cross-step data-flow evidence"
+    },
+    {
+      "code": "intent.function_contracts",
+      "status": "pass",
+      "message": "fnct steps match declared project function contracts"
+    },
+    {
+      "code": "intent.runtime_policy",
+      "status": "pass",
+      "message": "intent.hcl respects project runtime policy"
+    },
+    {
+      "code": "intent.project_policy",
+      "status": "pass",
+      "message": "intent.hcl preserves required project controls"
+    },
+    {
+      "code": "workflow.present",
+      "status": "pass",
+      "message": "workflow.hcl is readable"
+    },
+    {
+      "code": "workflow.hcl_syntax",
+      "status": "pass",
+      "message": "workflow.hcl syntax is valid"
+    },
+    {
+      "code": "workflow.uws_parse",
+      "status": "pass",
+      "message": "workflow.hcl parses as a public UWS document"
+    },
+    {
+      "code": "workflow.pending_steps",
+      "status": "fail",
+      "message": "workflow.hcl contains unresolved pending contracts",
+      "detail": "1 pending step(s); approval and execution refused",
+      "failure_kind": "artifact"
+    },
+    {
+      "code": "uws.present",
+      "status": "pass",
+      "message": "workflow.uws.yaml is present"
+    },
+    {
+      "code": "uws.schema",
+      "status": "pass",
+      "message": "workflow.uws.yaml validates against public UWS schema"
+    },
+    {
+      "code": "uws.pending_steps",
+      "status": "fail",
+      "message": "workflow.uws.yaml contains unresolved pending contracts",
+      "detail": "1 pending step(s); simulation only, approval and execution refused",
+      "failure_kind": "artifact"
+    },
+    {
+      "code": "browser.sources",
+      "status": "pass",
+      "message": "browser source review is not required"
+    },
+    {
+      "code": "browser.authentication.sources",
+      "status": "pass",
+      "message": "browser authentication review is not required"
+    },
+    {
+      "code": "browser.registration.sources",
+      "status": "pass",
+      "message": "browser registration review is not required"
+    },
+    {
+      "code": "side_effects.policy",
+      "status": "pass",
+      "message": "no side-effectful workflow behavior inferred"
+    },
+    {
+      "code": "side_effects.retry_policy",
+      "status": "pass",
+      "message": "retry action policy is not required"
+    },
+    {
+      "code": "review.execution_boundary",
+      "status": "pass",
+      "message": "review evidence records skipped side-effectful execution"
+    },
+    {
+      "code": "review.package",
+      "status": "pass",
+      "message": "review evidence lists the minimum trusted-execution review package"
+    },
+    {
+      "code": "review.trusted_runner",
+      "status": "pass",
+      "message": "review evidence includes trusted-runner handoff command"
+    },
+    {
+      "code": "review.production_boundary",
+      "status": "pass",
+      "message": "review evidence records the production execution boundary"
+    },
+    {
+      "code": "review.credential_audit",
+      "status": "pass",
+      "message": "review evidence records credential binding audit requirements"
+    },
+    {
+      "code": "review.approval_states",
+      "status": "pass",
+      "message": "review evidence records approval-state requirements"
+    },
+    {
+      "code": "review.sandbox_handoff",
+      "status": "pass",
+      "message": "review evidence scopes trusted-runner handoff to the approved execution state"
+    },
+    {
+      "code": "review.credential_bindings",
+      "status": "pass",
+      "message": "review evidence records credential-binding inventory"
+    },
+    {
+      "code": "review.side_effect_summary",
+      "status": "pass",
+      "message": "review evidence summarizes inferred side effects"
+    },
+    {
+      "code": "review.side_effect_risk",
+      "status": "pass",
+      "message": "review evidence includes side-effect risk review"
+    },
+    {
+      "code": "review.approval_artifact",
+      "status": "pass",
+      "message": "review evidence describes approval artifact requirements"
+    },
+    {
+      "code": "review.credential_scope",
+      "status": "pass",
+      "message": "review evidence includes credential scope matrix"
+    },
+    {
+      "code": "review.trusted_runner_dry_run",
+      "status": "pass",
+      "message": "review evidence includes trusted-runner dry-run evidence"
+    },
+    {
+      "code": "review.unresolved_risks",
+      "status": "pass",
+      "message": "review evidence records unresolved risks"
+    },
+    {
+      "code": "review_handoff.present",
+      "status": "pass",
+      "message": "review handoff manifest is readable"
+    },
+    {
+      "code": "review_handoff.contract",
+      "status": "pass",
+      "message": "review handoff manifest records package, state, execution, and credential contracts"
+    },
+    {
+      "code": "artifacts.no_secrets",
+      "status": "pass",
+      "message": "no obvious secret-like tokens found in artifacts"
+    },
+    {
+      "code": "conversion.diagnostics",
+      "status": "pass",
+      "message": "no conversion diagnostics artifact is present"
+    }
+  ]
+}

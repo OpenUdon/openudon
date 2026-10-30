@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.run-evidence.v4.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "created_at",
+    "scope",
+    "tier",
+    "approval_state",
+    "run_config_path",
+    "package_root",
+    "workdir",
+    "stage_kind",
+    "stage_path",
+    "workflow_path",
+    "package_paths",
+    "package_sha256",
+    "handoff_sha256",
+    "approval_sha256",
+    "run_config_sha256",
+    "dry_run",
+    "broker",
+    "step_execution",
+    "gates",
+    "executor"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.run-evidence.v4"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "tier": {
+      "type": "string"
+    },
+    "approval_state": {
+      "type": "string"
+    },
+    "run_config_path": {
+      "type": "string"
+    },
+    "package_root": {
+      "type": "string"
+    },
+    "workdir": {
+      "type": "string"
+    },
+    "stage_kind": {
+      "type": "string"
+    },
+    "stage_path": {
+      "type": "string"
+    },
+    "workflow_path": {
+      "type": "string"
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "handoff_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "approval_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "run_config_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "package_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "api_source_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "credential_bindings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "credential_env_names": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "browser": false,
+    "broker": {
+      "$ref": "openudon.broker-authority.v1.schema.json"
+    },
+    "step_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_version",
+        "run_id",
+        "workflow_id",
+        "workflow_digest",
+        "state",
+        "inventory_complete",
+        "steps"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "workflow_id": {
+          "type": "string"
+        },
+        "workflow_digest": {
+          "type": "string"
+        },
+        "report_status": {
+          "type": "string"
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "report_version": {
+          "const": "udon.execution-report.v5"
+        },
+        "state": {
+          "enum": [
+            "validated",
+            "dry_run",
+            "missing",
+            "invalid",
+            "mismatched"
+          ]
+        },
+        "inventory_complete": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "operation_id",
+              "invocation_id",
+              "outcome"
+            ],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "invocation_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "outcome": {
+                "enum": [
+                  "not_started",
+                  "unknown",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "finished_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "error_code": {
+                "const": "operation_failed"
+              }
+            }
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          }
+        }
+      }
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invoked",
+        "mode"
+      ],
+      "properties": {
+        "invoked": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "runner_path": {
+          "type": "string"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "report_path": {
+          "type": "string"
+        },
+        "report_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "report_size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "async_evidence_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "digest",
+          "records",
+          "purpose"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

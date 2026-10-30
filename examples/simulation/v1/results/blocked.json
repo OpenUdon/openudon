@@ -1,0 +1,16 @@
+{
+  "version": "openudon.simulate.v1",
+  "tier": "simulation",
+  "status": "blocked",
+  "package_unchanged": false,
+  "hypothetical": false,
+  "values_policy": "all preview scalar values and object field names redacted",
+  "steps": [],
+  "would_be_requests": [],
+  "diagnostics": [
+    {
+      "code": "package.invalid",
+      "message": "The review package is unavailable, inconsistent, unsafe or beyond simulation bounds."
+    }
+  ]
+}

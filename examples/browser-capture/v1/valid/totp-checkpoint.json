@@ -1,0 +1,22 @@
+{
+  "version": "openudon.browser-capture.v1",
+  "session_id": "capture-11111111111111111111111111111111",
+  "mode": "authenticated",
+  "revision": 1,
+  "event_id": "ref-22222222222222222222222222222222",
+  "type": "human_checkpoint",
+  "deadline": "2026-10-01T01:00:00Z",
+  "view": {
+    "state": "human_input",
+    "authentication": {
+      "checkpoint": {
+        "kind": "mfa",
+        "candidateId": "candidate-3333333333333333",
+        "inputKind": "otp",
+        "challengeKinds": [
+          "totp"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "version": "openudon.broker-execution-fixtures.v1",
+  "udon_source": "95c5850fd446e06ac6f79d943774db67e417c989",
+  "udon_publication": "71071537890599e98541abe8ca564490660dfd16",
+  "udon_executor_sha256": "53bb9e8976f67c6a5880f07248a99cd195e6285ce7a5a68239793dd5dc6eb429",
+  "udon_closure_sha256": "a286f21a5dcd4180b7ec19bf0630188ddacec26e0532198db14decd0c86b2069",
+  "udon_fixtures_sha256": "7289085b14f744504019ae6d607d351f74522ed3f930ecbbfd159200fd2ddb5f",
+  "files": {
+    "approval-valid.json": {
+      "kind": "approval",
+      "valid": true,
+      "sha256": "d7c431a0b422795d21d73d6d2d98a2ba3ca8b348b3dbdf7f0647d1691506b854"
+    },
+    "authority-valid.json": {
+      "kind": "authority",
+      "valid": true,
+      "sha256": "6f20a5661513f29e73551ad96b418840504cd162b0ed27f52a04475dbacc33e6"
+    },
+    "config-downgrade.json": {
+      "kind": "config",
+      "valid": false,
+      "sha256": "0540d08c65b5826c1fc62643e45bff2ccd09c466777ca4b5dfa4dfa65c4f001c"
+    },
+    "config-stale-package.json": {
+      "kind": "config",
+      "valid": false,
+      "sha256": "cd92de58828d8a0310df4c73704b13c2c64dd49c1ed7791f5ea654227ebc2391"
+    },
+    "config-unsupported.json": {
+      "kind": "config",
+      "valid": false,
+      "sha256": "6708b4535962bdff6be6b558f56c25edde30e64a5ae48ce4c463d4764cbb8a4d"
+    },
+    "config-valid.json": {
+      "kind": "config",
+      "valid": true,
+      "sha256": "4f973f501989c86dde55fc7df842a2f267f8f9a853e88724a9e9cfc7b4d9d784"
+    },
+    "evidence-downgrade.json": {
+      "kind": "evidence",
+      "valid": false,
+      "sha256": "dd31d53263729e96e4979241fc2a84689ff4f6bf95597574510a15f86296c2e0"
+    },
+    "evidence-dry-run.json": {
+      "kind": "evidence",
+      "valid": true,
+      "sha256": "9c81229ba3b569948b6f2bbebd010ed2313e68966303ba0dbc48e65a93b5c920"
+    },
+    "evidence-unknown.json": {
+      "kind": "evidence",
+      "valid": true,
+      "sha256": "b806e3025b74bab8eb07d3dd39b2947a6758e5c206b2920e7efa5272d6512c45"
+    },
+    "evidence-wrong-operation.json": {
+      "kind": "evidence",
+      "valid": false,
+      "sha256": "cca12f7e52a91befc4b14d65235f49cc77cee4aec69e8d2c639a92c9fb9895b1"
+    },
+    "plan-valid.json": {
+      "kind": "plan",
+      "valid": true,
+      "sha256": "d13fd7a0def58b427cbe0f2935ad71cddfcabcb5f3a4c1f5e71102e5c1cce504"
+    }
+  }
+}

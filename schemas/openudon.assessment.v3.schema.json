@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.assessment.v3.schema.json",
+  "title": "openudon.assessment.v3",
+  "description": "Closed structural record only; Go validation additionally enforces canonical public paths, inventories and cross-field identity. No authority is created.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "scope",
+    "inputs_sha256",
+    "manifest_sha256",
+    "outcome",
+    "findings",
+    "truncated"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.assessment.v3"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "outcome": {
+      "enum": [
+        "compatible",
+        "incompatible",
+        "indeterminate"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "path",
+          "outcome"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9_.-]+$"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 256,
+            "allOf": [
+              {
+                "not": {
+                  "pattern": "(?i)\\.hcl$"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "\\.icot"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "^browser[/\\-]"
+                }
+              }
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "compatible",
+              "incompatible",
+              "indeterminate"
+            ]
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,0 +1,516 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "created_at",
+    "scope",
+    "tier",
+    "dry_run",
+    "approval_state",
+    "browser",
+    "executor"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.browser-run-evidence.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "created_at": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "scope": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "tier": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "approval_state": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "owner_id",
+        "agent_id",
+        "run_id",
+        "package_sha256",
+        "handoff_sha256",
+        "inputs_sha256",
+        "approval_sha256",
+        "plan_sha256",
+        "workflow_sha256",
+        "supplement_sha256",
+        "worker",
+        "driver_closure_sha256",
+        "launch_nonce",
+        "containment_lease_id",
+        "admitted_deadline",
+        "origins",
+        "approved_calls",
+        "credential_revisions",
+        "host_fact_refs"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "owner_id": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "agent_id": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "run_id": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "package_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "handoff_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "inputs_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "approval_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "workflow_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "supplement_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "worker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile",
+            "binary_sha256",
+            "closure_sha256",
+            "runtime_revision"
+          ],
+          "properties": {
+            "profile": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "binary_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "closure_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "runtime_revision": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          }
+        },
+        "driver_closure_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "launch_nonce": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "containment_lease_id": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "admitted_deadline": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "origins": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        },
+        "approved_calls": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "operation_id",
+              "invocation_id",
+              "kind",
+              "source_id",
+              "source_sha256",
+              "profile_version",
+              "selector",
+              "selected_sha256",
+              "outer_protocol",
+              "origins",
+              "effects",
+              "credential_slots",
+              "reuse_allowed",
+              "save_allowed"
+            ],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "operation_id": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "invocation_id": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "kind": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "source_id": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "profile_version": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "selector": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "value",
+                  "key"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "key": {
+                    "type": "string",
+                    "maxLength": 2048
+                  }
+                }
+              },
+              "selected_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "outer_protocol": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "inner_protocol": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "origins": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "string",
+                  "maxLength": 2048
+                }
+              },
+              "effects": {},
+              "confirmation_policy_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "credential_slots": {
+                "type": "array",
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "slot",
+                    "name"
+                  ],
+                  "properties": {
+                    "slot": {
+                      "type": "string",
+                      "maxLength": 2048
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              },
+              "authentication_source_id": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "session_name": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "registration_input_binding": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "reuse_allowed": {
+                "type": "boolean"
+              },
+              "save_allowed": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "credential_revisions": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "revision"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "revision": {
+                "type": "string",
+                "maxLength": 2048
+              }
+            }
+          }
+        },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "binding_sha256",
+            "generation",
+            "created_at",
+            "expires_at",
+            "reuse_allowed",
+            "save_allowed"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "binding_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "created_at": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "expires_at": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "reuse_allowed": {
+              "type": "boolean"
+            },
+            "save_allowed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "host_fact_refs": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invoked",
+        "mode"
+      ],
+      "properties": {
+        "invoked": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "report_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "report_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "step_execution": {
+      "$ref": "#/$defs/observation_v5"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.browser-run-evidence.v1.schema.json",
+  "title": "openudon.browser-run-evidence.v1",
+  "description": "New closed value-free browser evidence; independent expected attempt and trusted host witnesses are required.",
+  "$defs": {
+    "observation_v5": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_version",
+        "run_id",
+        "workflow_id",
+        "workflow_digest",
+        "state",
+        "inventory_complete",
+        "steps"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string"
+        },
+        "workflow_id": {
+          "type": "string"
+        },
+        "workflow_digest": {
+          "type": "string"
+        },
+        "report_status": {
+          "type": "string"
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "report_version": {
+          "const": "udon.execution-report.v5"
+        },
+        "state": {
+          "enum": [
+            "validated",
+            "dry_run",
+            "missing",
+            "invalid",
+            "mismatched"
+          ]
+        },
+        "inventory_complete": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "operation_id",
+              "invocation_id",
+              "outcome"
+            ],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "invocation_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "outcome": {
+                "enum": [
+                  "not_started",
+                  "unknown",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "finished_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "error_code": {
+                "const": "operation_failed"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

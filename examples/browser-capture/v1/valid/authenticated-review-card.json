@@ -1,0 +1,23 @@
+{
+  "version": "openudon.browser-capture.v1",
+  "session_id": "capture-11111111111111111111111111111111",
+  "mode": "authenticated",
+  "revision": 2,
+  "event_id": "ref-44444444444444444444444444444444",
+  "type": "proposal",
+  "deadline": "2026-10-01T01:00:00Z",
+  "view": {
+    "state": "observation"
+  },
+  "action": {
+    "id": "ref-55555555555555555555555555555555",
+    "command_sha256": "94108c4b01d9e40f6fdb044a48816787a82fb4d0731c3ac693d1aedac53932cf",
+    "command": {
+      "authentication": {
+        "kind": "click",
+        "candidate_id": "candidate-3333333333333333",
+        "post_budget": 1
+      }
+    }
+  }
+}

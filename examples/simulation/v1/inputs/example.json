@@ -1,0 +1,12 @@
+{
+  "version": "openudon.simulate-input.v1",
+  "responses": {
+    "report": {
+      "example": {
+        "body": {
+          "text": "fixture response"
+        }
+      }
+    }
+  }
+}

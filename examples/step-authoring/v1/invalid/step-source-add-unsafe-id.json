@@ -1,0 +1,16 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "request",
+  "command": "step.source.add",
+  "manifest_revision": {
+    "state": "missing"
+  },
+  "sources": [
+    {
+      "source_kind": "openapi",
+      "source_id": "../weather",
+      "source_path": "/path/to/weather.yaml",
+      "source_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

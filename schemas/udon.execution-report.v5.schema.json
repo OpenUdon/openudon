@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "udon.execution-report.v5.schema.json",
+  "title": "Udon durable straight-line execution report v5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "workflow_id",
+    "workflow_digest",
+    "inventory_complete",
+    "status",
+    "started_at",
+    "steps"
+  ],
+  "properties": {
+    "version": {
+      "const": "udon.execution-report.v5"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "workflow_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "inventory_complete": {
+      "const": true
+    },
+    "status": {
+      "enum": [
+        "incomplete",
+        "success",
+        "error"
+      ]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error_code": {
+      "enum": [
+        "execution_failed",
+        "checkpoint_failed",
+        "cancelled"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "operation_id",
+          "invocation_id",
+          "outcome"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "invocation_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "outcome": {
+            "enum": [
+              "not_started",
+              "unknown",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error_code": {
+            "const": "operation_failed"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "not_started"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "started_at"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "finished_at"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "error_code"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "unknown"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "started_at"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "finished_at"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "error_code"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "succeeded"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "started_at",
+                "finished_at"
+              ],
+              "not": {
+                "required": [
+                  "error_code"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "failed"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "started_at",
+                "finished_at",
+                "error_code"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "incomplete"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "finished_at"
+              ]
+            },
+            {
+              "required": [
+                "error_code"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "success"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "finished_at"
+        ],
+        "not": {
+          "required": [
+            "error_code"
+          ]
+        },
+        "properties": {
+          "steps": {
+            "items": {
+              "properties": {
+                "outcome": {
+                  "const": "succeeded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "error"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "finished_at",
+          "error_code"
+        ]
+      }
+    }
+  ]
+}

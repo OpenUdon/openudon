@@ -1,0 +1,370 @@
+{
+  "version": "openudon.p12-offline-qualification.v1",
+  "milestone": "P12",
+  "candidate_baseline": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+  "included_changes": [
+    "Coordinator status and this qualification record, written after checks; no uncommitted implementation"
+  ],
+  "state": "All required offline checks and independent whole review1 pass; reviewed source publication and consumer adoption remain pending",
+  "audit_enabled": false,
+  "checks": [
+    {
+      "phase": "cli-build",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-o",
+        "/home/peter/Workspace/kinet.goal/stage12-coordinator/resume-20261013/p12-check-cli",
+        "./cmd/openudon"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 18.29,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "compiled-public",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-deps",
+        "-compiled",
+        "-export",
+        "-json",
+        "./approval",
+        "./authority",
+        "./digest",
+        "./handoff",
+        "./trust",
+        "./wire",
+        "./udonreport",
+        "./runevidence",
+        "./packagev3",
+        "./credentialpolicy",
+        "./browsercontract",
+        "./browsertransaction",
+        "./browserverify"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 1.224,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "c829d9157df6787dbe836ddd2606a2cd0c775fbcd26e94282f9c3c735ce69583",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "full-make",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/usr/bin/make",
+        "-j1",
+        "--no-print-directory",
+        "GO=/home/peter/Workspace/kinet.goal/stage12-coordinator/resume-20261013/p12-make-go-shim",
+        "check"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 178.354,
+      "runtimeCapSeconds": 1200,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "5a364861c958198b7c3f21720e31d5a4ff61067a102c9c985a917e2d027dda16",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "mod-verify",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "mod",
+        "verify"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 5.6,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "modules",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-mod=readonly",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.128,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "f00c4648c0249dd075c06014883c4c1d73fa04e95ded093b8f5ef9d4fc416fe5",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "proof",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/usr/bin/python3",
+        "/home/peter/Workspace/kinet.goal/stage12-coordinator/resume-20261013/verify-p12-public-closure.py",
+        "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 5.741,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "262fe4044e9ec25ad86872bf73182b174cd7d24bf2b2173298e8262f6898f271",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "public-readiness",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-deps",
+        "-json",
+        "./approval",
+        "./authority",
+        "./digest",
+        "./handoff",
+        "./trust",
+        "./wire",
+        "./udonreport",
+        "./runevidence",
+        "./packagev3",
+        "./credentialpolicy",
+        "./browsercontract",
+        "./browsertransaction",
+        "./browserverify"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.498,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "cd93295040e0db70d7ee3e004acc7ea756e0fc12004c2376384f1e1d9b43bcd7",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "race",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-count=1",
+        "-timeout=280s",
+        "./packagev3",
+        "./browsercontract",
+        "./browsertransaction",
+        "./browserverify"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 259.542,
+      "runtimeCapSeconds": 300,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "262ccb5c5d32371f5f28e8f5a6cbe8b079fb9581d676dd84ed29b832e62f7f7e",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "staticcheck",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/usr/bin/timeout",
+        "--signal=TERM",
+        "--kill-after=5s",
+        "120s",
+        "/var/tmp/kinet-stage9-p_9plhx7/staticcheck",
+        "./packagev3",
+        "./internal/publicapi"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 12.9,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ephemeralCacheRemoved": true
+    },
+    {
+      "phase": "tidy-diff",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.365,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    },
+    {
+      "phase": "vet",
+      "attempt": 1,
+      "state": "COMPLETED",
+      "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "vet",
+        "./..."
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 13.061,
+      "runtimeCapSeconds": 120,
+      "cleanupCapSeconds": 5,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputHashesUnchanged": true,
+      "postGitIdentityUnchanged": true,
+      "postToolsUnchanged": true
+    }
+  ],
+  "public_closure": {
+    "selected_modules": 91,
+    "dependency_archives_verified": 90,
+    "dependency_archive_files_hashed": 17550,
+    "dependency_extracted_files_compared": 16931,
+    "compiled_packages": 373,
+    "compiled_modules": 35,
+    "compiled_exports_verified": 372,
+    "nonstandard_source_fields_verified": 1812,
+    "recursive_metadata_errors": 0,
+    "replacements": [],
+    "retained_internal_openudon_packages": [],
+    "private_genelet_packages": [],
+    "legacy_golden_hashes_verified": 20,
+    "public_declaration_unique_files": 3
+  },
+  "proofs": {
+    "public-closure-proof.json": {
+      "sha256": "24e77eeaafcf6e7681b74092f4f3c6a05298989b3249f569c4f41944d6acb90f"
+    },
+    "verify-p12-public-closure.py": {
+      "sha256": "4215278f6028f7e6923284705bf7c403d2ddc5deea3f7f330c7d7d77f1b30b83"
+    },
+    "p12-owner-check.py": {
+      "sha256": "2a67877f66afad32e102bdbdbe6a5384d0b54c0f4d159cc932db31220f1b5fab"
+    },
+    "p12-make-go-shim": {
+      "sha256": "20cbf91a1c6b928268a6ad6fc104275722bdc2ba0c7842da47e76a00fe0b6ed4"
+    },
+    "p12-joint-owner-confirmation.json": {
+      "sha256": "eaec9f48f5051333c418b8bf9286348c4f4c78487561738a14e794fe2d14fdfc"
+    },
+    "p12-joint-owner-confirmation.log": {
+      "sha256": "67aa5450c60199b24843dee4c00d2c8fcd84dd1b4ab1b04591b2421fa5a9c045"
+    }
+  },
+  "compatibility": {
+    "record": "docs/p12-compatibility.json",
+    "sha256": "d32df9ea9d78d3cf79fe7ae5937bcf2b4bbc9520949d8b926f193a4947a75360",
+    "native_revision": "5bbf2924d85b9f13b89bb8c000cb1b12e6c56491",
+    "pure_only": [
+      "Compile",
+      "CheckSupported"
+    ],
+    "effect_callbacks": 0,
+    "source_fixture_not_ordinary_adoption": true
+  },
+  "limits": [
+    "No physical browser/live target/privileged setup or new dependency/tool acquisition",
+    "Full owner suite runs once through Make for unchanged candidate",
+    "Source fixture and ordinary publication/consumer adoption remain separate",
+    "Synthetic worker/containment metadata gives no compiled worker or host authority",
+    "Source/closure publication bounded to two coordinator pushes including failures/cancellations",
+    "Audit disabled"
+  ],
+  "full_make": {
+    "attempt": 1,
+    "candidate": "8081e7cdf82d5714c5f70ce0ace36efc6c1b4dfc",
+    "command": [
+      "/usr/bin/make",
+      "-j1",
+      "--no-print-directory",
+      "GO=/home/peter/Workspace/kinet.goal/stage12-coordinator/resume-20261013/p12-make-go-shim",
+      "check"
+    ],
+    "cwd": "/home/peter/Workspace/openudon.goal/P12",
+    "runtimeCapSeconds": 1200,
+    "cleanupCapSeconds": 5,
+    "exitCode": 0,
+    "elapsedSeconds": 178.354,
+    "logSHA256": "5a364861c958198b7c3f21720e31d5a4ff61067a102c9c985a917e2d027dda16",
+    "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "inputHashesUnchanged": true,
+    "postGitIdentityUnchanged": true,
+    "postToolsUnchanged": true,
+    "frozen_input_files": 1691
+  },
+  "whole_review": {
+    "iteration": 1,
+    "state": "PASS",
+    "findings": [],
+    "lenses": [
+      "correctness/compatibility/native acceptance",
+      "provenance/security/documentation"
+    ],
+    "lower_dashboard_findings": "Coordinator corrected stale status/current summaries before publication; no behavioral change or carried finding"
+  },
+  "publication": {
+    "used": 0,
+    "limit": 2,
+    "state": "ready for first bounded coordinator source publication"
+  }
+}

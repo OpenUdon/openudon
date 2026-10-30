@@ -1,0 +1,52 @@
+{
+  "version": "openudon.broker-authority.v1",
+  "run_id": "0123456789abcdef0123456789abcdef",
+  "owner_id": "owner",
+  "agent_id": "agent",
+  "grant_id": "one-off",
+  "grant_revision_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "occurrence_id": "occurrence",
+  "package_sha256": "964910aa91c2c4b554eaa22d855b56a86e3f4c75bf6ed231f86ba4b0bed3e299",
+  "handoff_sha256": "0a54781e1a73ba7f4e41d0fd4ed1486dda7a37e4df45dbd7de94afe139e31628",
+  "inputs_sha256": "a21eff0f354b1b7f567633996767b12892167a1ccacc95cc204a754394b0002b",
+  "executor_sha256": "306c6ca7407560340797866e077e053627ad409277d1b9da58106fce4cf717cb",
+  "policy_sha256": "b50e0ff18fa86b716131f11a18e48c1ab8093b06cede078460082f19cfd4c658",
+  "approved_at": "2026-04-29T12:00:00Z",
+  "expires_at": "2026-04-29T13:00:00Z",
+  "operations": [
+    {
+      "step_id": "read",
+      "operation_id": "get",
+      "invocation_id": "read",
+      "method": "GET",
+      "origin": "https://service.test",
+      "constraints_sha256": "da3be54cbbc36336f4af13538bcca94de6dd6482060734afae866f63399af661",
+      "bindings": [
+        {
+          "name": "token",
+          "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "kind": "bearer",
+          "in": "header",
+          "parameter": "Authorization"
+        }
+      ]
+    },
+    {
+      "step_id": "write",
+      "operation_id": "post",
+      "invocation_id": "write",
+      "method": "POST",
+      "origin": "https://service.test",
+      "constraints_sha256": "7c1eeb260efeff43efb17da29c0526589b3d1a75e92b5fcbd31b9c606da86581",
+      "bindings": [
+        {
+          "name": "token",
+          "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "kind": "bearer",
+          "in": "header",
+          "parameter": "Authorization"
+        }
+      ]
+    }
+  ]
+}

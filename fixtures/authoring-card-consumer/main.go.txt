@@ -1,0 +1,17 @@
+package main
+import (
+ "encoding/json"
+ "fmt"
+ "os"
+ "runtime/debug"
+ "github.com/OpenUdon/openudon/authoringcard"
+)
+func main() {
+ if len(os.Args)!=2 { panic("one source fixture path required") }
+ raw, err := os.ReadFile(os.Args[1]); if err!=nil {panic(err)}
+ card, err := authoringcard.Parse(raw); if err!=nil {panic(err)}
+ if err=card.Validate();err!=nil {panic(err)}
+ text, err := authoringcard.RenderText(card); if err!=nil {panic(err)}
+ info, ok:=debug.ReadBuildInfo();if !ok {panic("missing BuildInfo")}
+ if err=json.NewEncoder(os.Stdout).Encode(struct{CardVersion string; Text string; BuildInfo *debug.BuildInfo}{authoringcard.Version,text,info});err!=nil {panic(fmt.Sprint(err))}
+}

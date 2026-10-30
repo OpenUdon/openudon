@@ -1,0 +1,4 @@
+{
+  "CredentialSource": "CredentialSource struct {\n\tBinding\tstring\t`json:\"binding\"`\n\tSource\tstring\t`json:\"source\"`\n}",
+  "Report": "Report struct {\n\tVersion\t\t\tstring\t\t\t`json:\"version\"`\n\tStatus\t\t\tstring\t\t\t`json:\"status\"`\n\tStartedAt\t\tstring\t\t\t`json:\"started_at\"`\n\tFinishedAt\t\tstring\t\t\t`json:\"finished_at\"`\n\tWorkflowPath\t\tstring\t\t\t`json:\"workflow_path\"`\n\tWorkflowFormat\t\tstring\t\t\t`json:\"workflow_format\"`\n\tWorkDir\t\t\tstring\t\t\t`json:\"workdir\"`\n\tOutputPath\t\tstring\t\t\t`json:\"output_path,omitempty\"`\n\tOutputDigest\t\tstring\t\t\t`json:\"output_digest,omitempty\"`\n\tErrorCode\t\tstring\t\t\t`json:\"error_code,omitempty\"`\n\tErrorSummary\t\tstring\t\t\t`json:\"error_summary,omitempty\"`\n\tCredentialSources\t[]CredentialSource\t`json:\"credential_sources,omitempty\"`\n}"
+}

@@ -1,0 +1,1 @@
+{"version":"udon.http-broker.v1","identity":{"run_id":"run-fixture-01","step_id":"read","operation_id":"readStatus","invocation_id":"read","policy_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","request_id":"ade8df53c6e391f8cb41c62fc3f33d37f47e0bf80805466a419ec69f5ab7f02a"},"outcome":"unknown","code":"completion_missing","body":"eA=="}

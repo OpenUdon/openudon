@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.broker-authority.v1.schema.json",
+  "title": "Concrete reviewed broker authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "owner_id",
+    "agent_id",
+    "grant_id",
+    "grant_revision_sha256",
+    "occurrence_id",
+    "package_sha256",
+    "handoff_sha256",
+    "inputs_sha256",
+    "executor_sha256",
+    "policy_sha256",
+    "approved_at",
+    "expires_at",
+    "operations"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.broker-authority.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16,64}$"
+    },
+    "owner_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "grant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "grant_revision_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "occurrence_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "handoff_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "executor_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "operation_id",
+          "invocation_id",
+          "method",
+          "origin",
+          "constraints_sha256"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "invocation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "HEAD",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "OPTIONS"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^https?://[^/?#@]+$"
+          },
+          "constraints_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "bindings": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "revision",
+                "kind",
+                "in",
+                "parameter"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9_.-]+$"
+                },
+                "revision": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "kind": {
+                  "enum": [
+                    "api_key",
+                    "bearer"
+                  ]
+                },
+                "in": {
+                  "enum": [
+                    "header",
+                    "query"
+                  ]
+                },
+                "parameter": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9_.-]+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

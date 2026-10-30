@@ -1,0 +1,14 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "example",
+  "workflow": "report",
+  "summary": "Preview a report",
+  "steps": [
+    {
+      "name": "report",
+      "type": "pending",
+      "inferred": true,
+      "runtime": "pending"
+    }
+  ]
+}

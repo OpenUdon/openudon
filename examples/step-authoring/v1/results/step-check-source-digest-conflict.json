@@ -1,0 +1,9 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.check",
+  "status": "conflict",
+  "diagnostics": [
+    { "code": "source.digest_mismatch", "severity": "error", "message": "The selected API source changed after operation selection." }
+  ]
+}

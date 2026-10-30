@@ -1,0 +1,43 @@
+{
+  "version": "openudon.p10-whole-review-result.v1",
+  "iteration": 4,
+  "codeReviewResult": "PASS",
+  "milestoneAcceptance": "Pending required source publication/independent proof/integration/consolidation/retirement",
+  "candidate": "b75bfed46d11647c2384c468c1695c5496fb9c51",
+  "assignmentBase": "f9f48a007d721b984bd26358b300cb5748f63754",
+  "P1": 0,
+  "P2": 0,
+  "P3Found": 1,
+  "P3Resolved": 1,
+  "P3Remaining": 0,
+  "resolution": {
+    "finding": "P3 stale owner graph summary hash",
+    "priorValue": "75858df2fd1b5ac4574951773109fa2bd115ff5048911c2a5a8486e65289ff5d",
+    "correctValue": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
+    "basis": "Actual current hashed owner-public-packages log, current check receipt and compiled closure proof agree",
+    "scope": "Summary metadata only; no source, command result, module, API, schema or oracle change; frozenb75candidate preserves previous summary bytes"
+  },
+  "fullScope": "All five rows and complete68path assignment reviewed; three priorP2 and cross-leaf stop edges qualified, no furtherfinding",
+  "verified": {
+    "sourceFiles": 1675,
+    "qualificationRefs": 65,
+    "currentChecks": 13,
+    "explicitRetainedChecks": 6,
+    "unchangedFilesSupportingRetainedChecks": 53,
+    "compiledSourceRecords": 7260,
+    "compiledExports": 1279,
+    "ordinaryModuleSets": 194,
+    "legacyGoldens": 20,
+    "publicDeclarations": 16,
+    "rawM51": "unchanged",
+    "API_SCHEMA_PINS": "unchanged"
+  },
+  "limits": [
+    "Reviewer ran no project code/tests/mutations/network/audit",
+    "Source consumer overlays are explicit prepublication compatibility only",
+    "Report/witness facts do not qualify actualM56containment/M52custody",
+    "Required root-only publication/independentexactproof unperformed"
+  ],
+  "auditEnabled": false,
+  "recordedAt": "2026-10-10T19:40:08.495228+00:00"
+}

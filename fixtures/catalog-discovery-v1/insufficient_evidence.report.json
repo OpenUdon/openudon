@@ -1,0 +1,76 @@
+{
+  "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+  "coverage": [
+    {
+      "provider_id": "example-notes",
+      "reason": "configure an explicit prepared catalog root and index",
+      "spec_ref_id": "synthetic-notes-openapi",
+      "state": "missing"
+    },
+    {
+      "provider_id": "example-notes-alias",
+      "reason": "configure an explicit prepared catalog root and index",
+      "spec_ref_id": "synthetic-notes-openapi",
+      "state": "missing"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "discovery.root_missing",
+      "message": "configure an explicit prepared catalog root and index",
+      "severity": "warning"
+    }
+  ],
+  "examined_operations": 0,
+  "incomplete": true,
+  "leads": [
+    {
+      "display_name": "Example Notes",
+      "evidence": {
+        "authority": "official-provider",
+        "license_identifier": "unknown",
+        "license_note": "Synthetic fixture: redistribution permitted.",
+        "provider_id": "example-notes",
+        "redistribution": "unknown",
+        "spec_ref_id": "synthetic-notes-openapi"
+      },
+      "kind": "openapi",
+      "provider_id": "example-notes",
+      "reason": "configure an explicit prepared catalog root and index",
+      "spec_ref_id": "synthetic-notes-openapi"
+    },
+    {
+      "display_name": "Example Notes Shared",
+      "evidence": {
+        "authority": "official-provider",
+        "license_identifier": "unknown",
+        "license_note": "Synthetic fixture: redistribution permitted.",
+        "provider_id": "example-notes-alias",
+        "redistribution": "unknown",
+        "spec_ref_id": "synthetic-notes-openapi"
+      },
+      "kind": "openapi",
+      "provider_id": "example-notes-alias",
+      "reason": "configure an explicit prepared catalog root and index",
+      "spec_ref_id": "synthetic-notes-openapi"
+    }
+  ],
+  "limits": {
+    "max_context_bytes": 524288,
+    "max_operations": 50000,
+    "max_results": 20,
+    "timeout_millis": 30000
+  },
+  "outcome": "insufficient_evidence",
+  "qualified_operations": 0,
+  "schema_version": "apitools.catalog-discovery/v1",
+  "scope": {
+    "complete": false,
+    "provider_constrained": false,
+    "provider_ids": [
+      "example-notes",
+      "example-notes-alias"
+    ]
+  },
+  "truncated": false
+}

@@ -1,0 +1,21 @@
+{
+  "version": "openudon.browser-capture.v1",
+  "session_id": "capture-11111111111111111111111111111111",
+  "mode": "registration",
+  "revision": 1,
+  "event_id": "ref-22222222222222222222222222222222",
+  "type": "propose",
+  "command": {
+    "registration": {
+      "type": "preview",
+      "confirmed": true,
+      "preview": {
+        "candidateId": "candidate-3333333333333333",
+        "generation": 1,
+        "action": "select_option",
+        "purpose": "public_form_preview",
+        "option": "member"
+      }
+    }
+  }
+}

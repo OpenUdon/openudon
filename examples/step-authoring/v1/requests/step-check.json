@@ -1,0 +1,30 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "request",
+  "command": "step.check",
+  "step_id": "list_projects",
+  "contract": {
+    "id": "list_projects",
+    "purpose": "List projects visible to the configured account",
+    "inputs": {
+      "type": "object",
+      "properties": { "page_size": { "type": "integer" } }
+    },
+    "outputs": {
+      "type": "object",
+      "properties": { "projects": { "type": "array" } },
+      "required": ["projects"]
+    },
+    "effect": "read",
+    "account_constraints": ["organization_account"]
+  },
+  "operation_ref": {
+    "source_kind": "openapi",
+    "source_id": "src-1d4eb0f1835e8dcc2a650198",
+    "source_sha256": "sha256:a46290a985f29d7e68638b1154b180f564ecfe910a8a47b9a17ff079ef82f257",
+    "native_selector": "#/paths/~1projects/get",
+    "operation_key": "listProjects",
+    "operation_id": "listProjects"
+  },
+  "intent_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

@@ -1,0 +1,102 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/OpenUdon/openudon/authoringcard"
+	"github.com/OpenUdon/openudon/docs/schemas"
+	"github.com/OpenUdon/openudon/wire"
+	"github.com/santhosh-tekuri/jsonschema/v6"
+)
+
+type fixtureFile struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
+type fixtureManifest struct {
+	Version       string        `json:"version"`
+	CardVersion   string        `json:"card_version"`
+	ContractFiles []fixtureFile `json:"contract_files"`
+	Cases         []struct {
+		Name           string `json:"name"`
+		JSON           string `json:"json"`
+		SHA256         string `json:"sha256"`
+		Accepted       bool   `json:"accepted"`
+		SchemaAccepted bool   `json:"schema_accepted"`
+		Text           string `json:"text,omitempty"`
+		TextSHA256     string `json:"text_sha256,omitempty"`
+	} `json:"cases"`
+}
+
+func TestVersionedConformance(t *testing.T) {
+	read := func(t *testing.T, path, digest string) []byte {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(os.Getenv("P14_MODULE_DIR"), filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if digest != "" {
+			sum := sha256.Sum256(data)
+			if hex.EncodeToString(sum[:]) != digest {
+				t.Fatalf("conformance input drift: %s", path)
+			}
+		}
+		return data
+	}
+	var manifest fixtureManifest
+	if err := wire.DecodeStrictNumbers(read(t, "docs/fixtures/authoring-card-v1/manifest.json", ""), &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Version != "openudon.authoring-card-conformance.v1" || manifest.CardVersion != authoringcard.Version || len(manifest.Cases) != 33 || len(manifest.ContractFiles) != 4 {
+		t.Fatal("unexpected conformance contract")
+	}
+	for _, file := range manifest.ContractFiles {
+		read(t, file.Path, file.SHA256)
+	}
+	var resource any
+	data, err := schemas.AuthoringCardResources.ReadFile("openudon.authoring-card.v1.schema.json")
+	if err != nil || wire.DecodeStrictNumbers(data, &resource) != nil {
+		t.Fatal("embedded conformance schema unavailable")
+	}
+	compiler := jsonschema.NewCompiler()
+	const location = "https://openudon.dev/schemas/openudon.authoring-card.v1.schema.json"
+	if err := compiler.AddResource(location, resource); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile(location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range manifest.Cases {
+		t.Run(test.Name, func(t *testing.T) {
+			data := read(t, test.JSON, test.SHA256)
+			var value any
+			schemaAccepted := wire.DecodeStrictNumbers(data, &value) == nil && schema.Validate(value) == nil
+			if schemaAccepted != test.SchemaAccepted {
+				t.Fatalf("schema result %t; want %t", schemaAccepted, test.SchemaAccepted)
+			}
+			card, err := authoringcard.Parse(data)
+			if (err == nil) != test.Accepted {
+				t.Fatalf("parse result %v; accepted=%t", err, test.Accepted)
+			}
+			if !test.Accepted {
+				if err != authoringcard.ErrCard || card.Version != "" || test.Text != "" {
+					t.Fatal("refusal returned data or unexpected diagnostic")
+				}
+				return
+			}
+			golden := read(t, test.Text, test.TextSHA256)
+			for range 3 {
+				text, err := authoringcard.RenderText(card)
+				if err != nil || text != string(golden) {
+					t.Fatalf("text differs from independently prepared conformance golden: %v\n%s", err, text)
+				}
+			}
+		})
+	}
+}

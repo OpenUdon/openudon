@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.step-pending.v1.schema.json",
+  "title": "OpenUdon unresolved step authoring v1",
+  "description": "Additive protocol; existing step-authoring v1 definitions are reused without alteration. Resolving uses step.bind with the exact pending contract.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "command",
+        "step_id",
+        "contract",
+        "intent_revision"
+      ],
+      "properties": {
+        "version": {
+          "const": "openudon.step-pending.v1"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "command": {
+          "const": "step.pending"
+        },
+        "step_id": {
+          "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/symbol"
+        },
+        "contract": {
+          "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/stepContract"
+        },
+        "depends_on": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/symbol"
+          }
+        },
+        "intent_revision": {
+          "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/intentRevision"
+        },
+        "scaffold": {
+          "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/scaffold"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "kind",
+        "command",
+        "status",
+        "diagnostics"
+      ],
+      "properties": {
+        "version": {
+          "const": "openudon.step-pending.v1"
+        },
+        "kind": {
+          "const": "result"
+        },
+        "command": {
+          "const": "step.pending"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "blocked",
+            "conflict",
+            "needs_input"
+          ]
+        },
+        "diagnostics": {
+          "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/diagnostics"
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step_id",
+            "write_outcome"
+          ],
+          "properties": {
+            "step_id": {
+              "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/symbol"
+            },
+            "write_outcome": {
+              "enum": [
+                "written",
+                "unchanged",
+                "indeterminate"
+              ]
+            },
+            "intent_sha256": {
+              "$ref": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json#/$defs/sha256"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

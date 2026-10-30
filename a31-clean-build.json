@@ -1,0 +1,16 @@
+{
+  "version": "openudon.a31-clean-build.v1",
+  "source_revision": "39f4bfdfd830a6497f163336fe34e6b82f475c5e",
+  "go_version": "go1.26.6",
+  "workspace": "off",
+  "network": "offline cached exact modules",
+  "vcs_modified": false,
+  "reproduced_cli": true,
+  "openudon_sha256": "29d0e70a1ed5e17252f035f66e7adbb88c697347051fdece5291840d99ef685a",
+  "udon_runner_sha256": "d99adb4d944c5ec20690587c9374f8481ee3c1e11ae7d37c149611f47a837a5a",
+  "go_mod_sha256": "bbe880ccc9109f9b7fb2e73d142da7b6e42f60dfb113d24676b162e3c26ecaa0",
+  "go_sum_sha256": "048394c87c17b4e3a46a2bcee0215107ce1e0baf42ad0d512c3b399814388177",
+  "dependency_versions_unchanged": true,
+  "directory_replacements": 0,
+  "publication_pending": true
+}

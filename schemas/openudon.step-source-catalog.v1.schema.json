@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.step-source-catalog.v1.schema.json",
+  "title": "Exact confirmed catalog source request (installation paths excluded)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "command",
+    "confirmed",
+    "manifest_revision",
+    "sources"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.step-source-catalog.v1"
+    },
+    "kind": {
+      "const": "request"
+    },
+    "command": {
+      "const": "step.source.add"
+    },
+    "confirmed": {
+      "const": true
+    },
+    "manifest_revision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "missing"
+            },
+            "sha256": {
+              "const": ""
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "sha256"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "references"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$"
+          },
+          "references": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "catalog_sha256",
+                "provider_id",
+                "spec_ref_id",
+                "artifact_id",
+                "kind",
+                "sha256",
+                "bytes",
+                "selector"
+              ],
+              "properties": {
+                "catalog_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "provider_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "spec_ref_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "artifact_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "kind": {
+                  "enum": [
+                    "openapi",
+                    "asyncapi",
+                    "google-discovery",
+                    "aws-smithy",
+                    "openrpc",
+                    "graphql",
+                    "grpc-protobuf",
+                    "odata"
+                  ]
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                },
+                "selector": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

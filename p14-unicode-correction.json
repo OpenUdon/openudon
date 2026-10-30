@@ -1,0 +1,238 @@
+{
+  "version": "openudon.p14-unicode-correction.v1",
+  "finding": "P14-W1",
+  "whole_review_counter": 1,
+  "state": "P14-W1 correction locally committed and qualified; parent authoritative whole review iteration 2 and forbidden publication remain pending",
+  "prior_candidate": {
+    "source": "9e1a8c736ad9793aba613d26d1e8cd577c5bc267",
+    "record": "docs/p14-local-qualification.json",
+    "record_sha256": "c91a759c554aecc6d98282eb2ad9328a443e926f304f57e632f2948a7d12e701",
+    "full_owner_check": {
+      "attempt": 1,
+      "exit": 0,
+      "elapsed_seconds": 26.069
+    },
+    "meaning": "Previous candidate evidence retained unchanged; not qualification of this correction."
+  },
+  "base_source": "e4a0d4241b2b59d23044fdef35defeae5b593ed5",
+  "source_fix_commit": "e3bd5b07b1509e831be834f0e37aaba572f44975",
+  "correction": "Reject unpaired UTF-16 surrogate escapes in JSON string values and keys before any lossy decoding, local to authoringcard. Valid pairs, U+FFFD and escaped literal backslash-u remain valid. Typed raw literals share the same check; no global wire/schema/dependency change.",
+  "regression": {
+    "command": "go test ./authoringcard -run 'TestRefuseUnpairedUnicodeEscapes|TestPreserveValidUnicodeAndLiteralBackslashes' -count=1",
+    "red": {
+      "source": "old production helper at e4a0d4241b2b59d23044fdef35defeae5b593ed5 plus new regression tests",
+      "exit": 1,
+      "elapsed_seconds": 0.497,
+      "refusal_subcases_failed": 48,
+      "capture": "/tmp/k13-8f7f/openudon-p14-unicode/regression-red.log",
+      "sha256": "7ba3e9920d9883673f33da3efbe862cd84e13bcbc6332709c69c77f0dff1100d"
+    },
+    "green": {
+      "exit": 0,
+      "elapsed_seconds": 0.46,
+      "go_test_seconds": 0.021,
+      "capture": "/tmp/k13-8f7f/openudon-p14-unicode/regression-green.log",
+      "sha256": "2442855c9b405d597a4c0eaa4a65138f4b7298fb3b2456ebdd1242623696ae5e"
+    },
+    "controls": "Source/operation/selector/mapping/text; raw literal keys and values; six malformed-surrogate patterns; valid non-BMP pairs including Unicode boundaries, intentional literal/escaped U+FFFD, and escaped literal backslashes.",
+    "argv": [
+      "go",
+      "test",
+      "./authoringcard",
+      "-run",
+      "TestRefuseUnpairedUnicodeEscapes|TestPreserveValidUnicodeAndLiteralBackslashes",
+      "-count=1"
+    ]
+  },
+  "focused": {
+    "command": "go test ./authoringcard -count=1",
+    "exit": 0,
+    "go_test_seconds": 0.078,
+    "vet": "go vet ./authoringcard passed",
+    "format_diff": "gofmt and git diff --check passed"
+  },
+  "draft_contract": {
+    "card_version": "openudon.authoring-card.v1",
+    "schema_sha256": "dde6a49ba61b07e9aabe10fa0ed93beb33e1eb49ac9423eccb402e9c8d12c51d",
+    "corpus_manifest_sha256": "35dab1d3689c8fedd43eae37c67deb2aff11d1fb7aa2581eb1a1a32c5c6331e9",
+    "cases": 33,
+    "positives": 9,
+    "new_unicode_cases": 8,
+    "new_unicode_refusals": 4,
+    "preexisting_case_bytes_unchanged": true,
+    "production_files": [
+      {
+        "path": "authoringcard/card.go",
+        "sha256": "0809c7c6e138c6085f9bd14dc520152875f4962fad151d41f191cff011a24118"
+      },
+      {
+        "path": "authoringcard/validate.go",
+        "sha256": "73bc82174dcbd4727bab1d94a795d2b0d1209691de4c3082c4d784d2bf3180a8"
+      },
+      {
+        "path": "authoringcard/text.go",
+        "sha256": "1c94c4e837dcc4476e692fe9ec0785e13a2d8b870bde7d20e0ed481755302e2f"
+      }
+    ],
+    "dependency_locks_unchanged": true
+  },
+  "verification_policy": {
+    "go": "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOAUTH": "off",
+    "GOTOOLCHAIN": "local",
+    "GOMODCACHE": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache",
+    "TMPDIR": "/tmp/k13-8f7f",
+    "GOTMPDIR": "/tmp/k13-8f7f",
+    "process_umask": "0077"
+  },
+  "fix_review": {
+    "scope": "P14-W1 correction and new regression/conformance coverage only; not authoritative whole review",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "xhigh",
+    "state": "passed: no P1/P2 correction finding; P3 command-copy metadata corrected",
+    "findings": [
+      {
+        "severity": "P3",
+        "owner": "P14.4",
+        "finding": "Unquoted -run alternation in evidence command could become a shell pipeline.",
+        "disposition": "Corrected quoted command and added exact subprocess argv; no source or test change."
+      }
+    ],
+    "followup": "Fresh read-only reviewer confirmed quoted alternation/exact argv; P3 resolved, no outstanding narrow correction finding. No whole-review effect."
+  },
+  "counts": {
+    "full_owner_checks_attempted": 2,
+    "full_owner_checks_completed": 2,
+    "failed_full_owner_checks": 0,
+    "protected_actions": 0,
+    "whole_review_counter": 1,
+    "retained_original_cheap_compatibility_failure": 1,
+    "expected_regression_red_invocations": 1
+  },
+  "remaining": [
+    "Parent-dispatched authoritative whole review iteration 2; no gate pass inferred from DEFAULT fix review",
+    "P14-W2 independently verified ordinary publication remains denied/unperformed; no downstream adoption or closure"
+  ],
+  "retention": "Prior9e1 record/seven captures/immutable worktree and corrected-source worktree/new private captures remain intact. Parent owns evidence-preserving retention/cleanup; nothing was deleted, moved or chmodded.",
+  "qualification": {
+    "source": "e3bd5b07b1509e831be834f0e37aaba572f44975",
+    "worktree": "/home/peter/Workspace/openudon.goal/p14-unicode-qualification",
+    "detached": true,
+    "clean_before_and_after": true,
+    "copied_status_is_frozen_input_not_active_ledger": true,
+    "public_boundary": {
+      "command": "make public-boundary",
+      "exit": 0,
+      "go_test_seconds": 0.188,
+      "hard_cap_seconds": 120
+    },
+    "full_owner_check": {
+      "command": "make check",
+      "overall_attempt": 2,
+      "exit": 0,
+      "elapsed_seconds": 24.261,
+      "hard_cap_seconds": 1200,
+      "capture": "/tmp/k13-8f7f/openudon-p14-unicode/make-check-attempt2.log",
+      "sha256": "abbb15d628d724a6886f7a7f1adb6a5673abb280d6a2e9121df487fa7c7f4114",
+      "output": "GOWORK=off go build ./...\nGOWORK=off go test ./...\nok  \tgithub.com/OpenUdon/openudon/approval\t0.024s\nok  \tgithub.com/OpenUdon/openudon/authoringcard\t0.201s\nok  \tgithub.com/OpenUdon/openudon/authority\t0.020s\n?   \tgithub.com/OpenUdon/openudon/browsercontract\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/browsertransaction\t0.116s\nok  \tgithub.com/OpenUdon/openudon/browserverify\t0.147s\n?   \tgithub.com/OpenUdon/openudon/credentialpolicy\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/digest\t0.011s\n?   \tgithub.com/OpenUdon/openudon/docs/schemas\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/handoff\t0.009s\nok  \tgithub.com/OpenUdon/openudon/packagev3\t18.875s\nok  \tgithub.com/OpenUdon/openudon/runevidence\t0.888s\nok  \tgithub.com/OpenUdon/openudon/tests/authority\t0.039s\nok  \tgithub.com/OpenUdon/openudon/tests/credentialpolicy\t0.008s\nok  \tgithub.com/OpenUdon/openudon/tests/publicapi\t0.288s\nok  \tgithub.com/OpenUdon/openudon/tests/udonreport\t0.010s\n?   \tgithub.com/OpenUdon/openudon/tools/packagev3-fixtures\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/trust\t0.011s\nok  \tgithub.com/OpenUdon/openudon/udonreport\t0.019s\nok  \tgithub.com/OpenUdon/openudon/wire\t0.139s\nGOWORK=off go vet ./...\n"
+    },
+    "source_files": [
+      {
+        "path": "go.mod",
+        "sha256": "687fbc2745c7f93714c9b5a0fd3b2248768006660e54019a006fc6a026130694"
+      },
+      {
+        "path": "go.sum",
+        "sha256": "5c3af6342eb67127c7119d11c644cf7992efd735e2818bdf125edb58b225f40e"
+      },
+      {
+        "path": "authoringcard/validate.go",
+        "sha256": "73bc82174dcbd4727bab1d94a795d2b0d1209691de4c3082c4d784d2bf3180a8"
+      },
+      {
+        "path": "authoringcard/unicode_test.go",
+        "sha256": "8831a47b96ea2374d89d559e3272ca8e2b7acef5526225f34e21bb8bb7229adb"
+      },
+      {
+        "path": "docs/schemas/openudon.authoring-card.v1.schema.json",
+        "sha256": "dde6a49ba61b07e9aabe10fa0ed93beb33e1eb49ac9423eccb402e9c8d12c51d"
+      },
+      {
+        "path": "docs/fixtures/authoring-card-v1/manifest.json",
+        "sha256": "35dab1d3689c8fedd43eae37c67deb2aff11d1fb7aa2581eb1a1a32c5c6331e9"
+      }
+    ],
+    "selected_module_count": 91,
+    "selected_exact_path_version_sum_main_identities_match_prior_report": true,
+    "compiled_package_count": 375,
+    "compiled_export_count": 374,
+    "compiler_intrinsic_without_export": [
+      "unsafe"
+    ],
+    "compiled_buildinfo_module_count": 35,
+    "ordinary_external_compiled_module_count": 34,
+    "compiled_module_identities_match_prior_report": true,
+    "actual_buildinfo_sha256": "9196a1910f3005e96a55c46061796e895e7977c496bd9eab2ac839928139e723",
+    "actual_authoringcard_buildid": "0z4E0o8dBGNyOs8DP6oS/L6UzSJ1cTePxPyIJ7wHW",
+    "prior_authoringcard_buildid": "_A74DCPmyJShn6CPQcFM/jS4RxEEfMjf10q0IJ15X",
+    "authoringcard_compiled_buildid_changed": true,
+    "new_module_directories_checked_against_exact_qualification_root_and_existing_ordinary_cache": true,
+    "no_replacements_or_private_imports": true,
+    "reused_metadata_probe_source": {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/public-probe.go",
+      "sha256": "ac1086afd9235fd7d9fa6fac39a51c0a5aeccde5cdaee32fa46a3592630b7543",
+      "unchanged_read_only_input": true
+    },
+    "new_probe_binary_sha256": "4d07850929a045afca815b3055ede7b0b02731c297be3a7f7e2e941f4107b40c",
+    "root_module": "Local owner (devel) source at exact source-fix commit; no published self-module identity/adoption claim.",
+    "primary_state": "Post-qualification correction record/status updates remain uncommitted outside immutable tested source; parent shared-milestone delta is preserved."
+  },
+  "private_captures": [
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/regression-red.log",
+      "sha256": "7ba3e9920d9883673f33da3efbe862cd84e13bcbc6332709c69c77f0dff1100d"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/regression-green.log",
+      "sha256": "2442855c9b405d597a4c0eaa4a65138f4b7298fb3b2456ebdd1242623696ae5e"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/make-check-attempt2.log",
+      "sha256": "abbb15d628d724a6886f7a7f1adb6a5673abb280d6a2e9121df487fa7c7f4114"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/selected-modules.json",
+      "sha256": "81d5c380d3f6267ad16b989c37d5e653d7421bb130e390ecc3e1cfef4be81acc"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/compiled-packages.json",
+      "sha256": "4add0935fc5ceae663adba2004052c3b54124e4280ca4fb81e720f161e77c8e8"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/compiled-buildinfo.json",
+      "sha256": "9196a1910f3005e96a55c46061796e895e7977c496bd9eab2ac839928139e723"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-unicode/public-probe",
+      "sha256": "4d07850929a045afca815b3055ede7b0b02731c297be3a7f7e2e941f4107b40c"
+    }
+  ],
+  "coordinator_documentation_delta": {
+    "qualified_source": "e3bd5b07b1509e831be834f0e37aaba572f44975",
+    "production_schema_fixture_test_inputs_changed": false,
+    "change": "Aligned owning milestone/status progress with the locally corrected W1 and still-blocked publication W2; prior per-phase evidence remains historical.",
+    "files": [
+      {
+        "path": "tabilet/memory-bank/milestone.md",
+        "sha256": "648038e7766d192a3e0b5643d31e94ae99a7930f1b2a5ae880627121d8b42a46"
+      },
+      {
+        "path": "tabilet/memory-bank/status-P14.md",
+        "sha256": "378690cd9c621d069284a7908da153e7c10d373dc61c6fba24a1cc835a4a0f60"
+      }
+    ]
+  }
+}

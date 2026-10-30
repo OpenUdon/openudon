@@ -1,0 +1,10 @@
+{
+  "contract": {
+    "effect": "write",
+    "purpose": "list notes records"
+  },
+  "filters": {},
+  "limits": {},
+  "provider_keys": null,
+  "schema_version": "apitools.catalog-discovery/v1"
+}

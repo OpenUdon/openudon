@@ -1,0 +1,36 @@
+{
+  "command": "step.source.add",
+  "confirmed": true,
+  "kind": "request",
+  "manifest_revision": {
+    "state": "missing"
+  },
+  "sources": [
+    {
+      "references": [
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes",
+          "selector": "#/paths/~1notes/get",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        },
+        {
+          "artifact_id": "synthetic-notes-openapi",
+          "bytes": 1873,
+          "catalog_sha256": "1926f7ded01e503affabc4994234facb054b16cf35da8dcc91d653dc34724b87",
+          "kind": "openapi",
+          "provider_id": "example-notes-alias",
+          "selector": "#/paths/~1notes/get",
+          "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+          "spec_ref_id": "synthetic-notes-openapi"
+        }
+      ],
+      "source_id": "notes"
+    }
+  ],
+  "version": "openudon.step-source-catalog.v1"
+}

@@ -1,0 +1,23 @@
+{
+  "status": "fail",
+  "example": "example",
+  "max_attempts": 1,
+  "prompt_version": "intent.v3",
+  "attempts": [
+    {
+      "number": 1,
+      "action": "package_from_intent",
+      "mode": "fixed_intent",
+      "status": "fail",
+      "failure_class": "validation",
+      "failing_checks": [
+        "openapi.local",
+        "workflow.pending_steps",
+        "uws.pending_steps"
+      ],
+      "detail": "openapi.local: Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/, aws-smithy/, asyncapi/, graphql/, openrpc/, grpc-protobuf/, or odata/.; workflow.pending_steps: 1 pending step(s); approval and execution refused; uws.pending_steps: 1 pending step(s); simulation only, approval and execution refused",
+      "stop_reason": "quality gate failed; review generated artifacts"
+    }
+  ],
+  "stop_reason": "quality gate failed; review generated artifacts"
+}

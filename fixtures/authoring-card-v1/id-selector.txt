@@ -1,0 +1,17 @@
+Authoring review "openudon.authoring-card.v1"
+Authority "none; consumer approval required"
+Intent "known"
+  text "Read the chosen public item"
+Outcome "known"
+  text "The item is displayed"
+Outline 1
+Step 1 "read" "Read item"
+  operation "known"
+    id "read-item"
+    source "functions" "runtime-function" "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    selector "id" "pure.identity" "pure.identity"
+  Mappings 1
+    field "input" "value" "known"
+      literal-json "{\"count\":9007199254740993,\"ratio\":1.2300e+2,\"nested\":[null,false,\"\"]}"
+Validation "valid"
+Findings 0

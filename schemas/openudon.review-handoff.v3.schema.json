@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.review-handoff.v3.schema.json",
+  "title": "openudon.review-handoff.v3",
+  "description": "Closed structural record only; Go validation additionally enforces canonical public paths, inventories and cross-field identity. No authority is created.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "scope",
+    "inputs_sha256",
+    "manifest_sha256",
+    "assessment_sha256",
+    "artifacts",
+    "review_state",
+    "credentials"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.review-handoff.v3"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "inputs_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "assessment_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "allOf": [
+              {
+                "not": {
+                  "pattern": "(?i)\\.hcl$"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "\\.icot"
+                }
+              },
+              {
+                "not": {
+                  "pattern": "^browser[/\\-]"
+                }
+              }
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "review_state": {
+      "const": "review_required"
+    },
+    "credentials": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      }
+    }
+  }
+}

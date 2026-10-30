@@ -1,0 +1,78 @@
+{
+  "inputs_sha256": "a21eff0f354b1b7f567633996767b12892167a1ccacc95cc204a754394b0002b",
+  "operations": [
+    {
+      "step_id": "read",
+      "operation_id": "get",
+      "invocation_id": "read",
+      "method": "GET",
+      "origin": "https://service.test",
+      "constraints_sha256": "da3be54cbbc36336f4af13538bcca94de6dd6482060734afae866f63399af661",
+      "bindings": [
+        {
+          "name": "token",
+          "revision": "",
+          "kind": "bearer",
+          "in": "header",
+          "parameter": "Authorization"
+        }
+      ]
+    },
+    {
+      "step_id": "write",
+      "operation_id": "post",
+      "invocation_id": "write",
+      "method": "POST",
+      "origin": "https://service.test",
+      "constraints_sha256": "7c1eeb260efeff43efb17da29c0526589b3d1a75e92b5fcbd31b9c606da86581",
+      "bindings": [
+        {
+          "name": "token",
+          "revision": "",
+          "kind": "bearer",
+          "in": "header",
+          "parameter": "Authorization"
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "step_id": "read",
+      "source_operation_id": "get",
+      "server_url": "https://service.test",
+      "path_template": "/value",
+      "constraints": {
+        "operation": {
+          "operationId": "get",
+          "sourceDescription": "api",
+          "sourceOperationId": "get"
+        },
+        "step": {
+          "stepId": "read",
+          "operationRef": "get"
+        }
+      }
+    },
+    {
+      "step_id": "write",
+      "source_operation_id": "post",
+      "server_url": "https://service.test",
+      "path_template": "/value",
+      "constraints": {
+        "operation": {
+          "operationId": "post",
+          "sourceDescription": "api",
+          "sourceOperationId": "post"
+        },
+        "step": {
+          "stepId": "write",
+          "operationRef": "post",
+          "dependsOn": [
+            "read"
+          ]
+        }
+      }
+    }
+  ]
+}

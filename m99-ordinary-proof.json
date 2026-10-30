@@ -1,0 +1,421 @@
+{
+  "allSelectedArtifactsIncludingUnusedVerified": true,
+  "artifacts": {
+    "openudon-qualified": "a6d45935bf6ef7e6c4a4861c99736ca7ff065414ad323e46904f19f665694943",
+    "openudon-reproduced": "a6d45935bf6ef7e6c4a4861c99736ca7ff065414ad323e46904f19f665694943",
+    "runner-qualified": "0dc9fa0ddd228f7c8e1e9fc0c84757ecabf8a8e5ccbc40bdbfafbf56c3635c16"
+  },
+  "classification": "fresh ordinary configured-source SDK/closures; no bootstrap proxy/directory/workspace replacements; private fixture retains exact qualified Docker->Moby version replacement",
+  "closures": {
+    "owner": {
+      "allDependencyArchiveFilesCompared": 17478,
+      "compiledModulesIncludingMain": 48,
+      "compiledPackagesIncludingStandard": 667,
+      "dependencyModules": 90,
+      "path": "docs/m99-owner-ordinary-module-closure.json",
+      "selectedModulesIncludingMain": 91,
+      "sha256": "cc1357c5814a8bca2473ab92c331cf4236a2cb7ba362e556b4b7e6edffd6d8fc",
+      "versionReplacements": []
+    },
+    "private": {
+      "allDependencyArchiveFilesCompared": 34974,
+      "compiledModulesIncludingMain": 72,
+      "compiledPackagesIncludingStandard": 522,
+      "dependencyModules": 170,
+      "path": "docs/m99-private-ordinary-module-closure.json",
+      "selectedModulesIncludingMain": 171,
+      "sha256": "f73573fcdd809169a933e75437eb55fd9f7d55765c8ef8cac327cfce5a1e2206",
+      "versionReplacements": [
+        {
+          "path": "github.com/docker/docker",
+          "replacementPath": "github.com/moby/moby",
+          "replacementVersion": "v24.0.7+incompatible",
+          "version": "v0.0.0-00010101000000-000000000000"
+        }
+      ]
+    },
+    "public": {
+      "allDependencyArchiveFilesCompared": 18153,
+      "compiledModulesIncludingMain": 35,
+      "compiledPackagesIncludingStandard": 365,
+      "dependencyModules": 72,
+      "path": "docs/m99-public-ordinary-module-closure.json",
+      "selectedModulesIncludingMain": 73,
+      "sha256": "c048456b4d213fe2b547c7801bdc1a52f8012fa4bc5d27e4eb897ca74b9aefb8",
+      "versionReplacements": []
+    }
+  },
+  "compiledClosure": {
+    "path": "docs/m99-ordinary-compiled-closures.json",
+    "sha256": "544a4925f05793e4295be3978cf110378caede673e3e425418ee258c66177dfb"
+  },
+  "documentVerification": {
+    "command": "go run ../cmd/openudon check-doc-memory",
+    "cwd": "/home/peter/Workspace/openudon/tabilet",
+    "exit": 0,
+    "logSHA256": "4704eaa15f71c1d7abfb7196dc26fe78555c94b33bbd6423bba2f2d0df7c9f6f"
+  },
+  "fixtures": {
+    "private": {
+      "effects": 0,
+      "goModSHA256": "33e1206a7440ee90a7af2ab32493b31c17571ad464b785ffe7a45ec600067b42",
+      "goSumSHA256": "21878775af3d184177c3bdff51a87cd24feff0916622d0bc80c55f8782cda6d1",
+      "mainTestSHA256": "dadcd839812d8d3166fa3bdb012de20451ce7f5e5d36545c06e0b535a349ab25",
+      "path": "docs/m99-private-ordinary-consumer.go.txt",
+      "sha256": "dfdf2852ad51a0c2a8d84e30dc956582f3136600d28ea22cb06eeb2422625f90"
+    },
+    "public": {
+      "effects": 0,
+      "goModSHA256": "79ab54d56a28747f7201e19a9d6460bf40e1e8d80488896c285ef3ca7a77dd8d",
+      "goSumSHA256": "0cac825fc08b21ead5487dc8ec5e043ed985c8a08fbbc2745de8c74673adebfd",
+      "mainTestSHA256": "dadcd839812d8d3166fa3bdb012de20451ce7f5e5d36545c06e0b535a349ab25",
+      "path": "docs/m99-public-ordinary-consumer.go.txt",
+      "sha256": "e38a5473e51617856d6ead35f37860eeb119b7a9af6410322943e5ea2c9423cc"
+    }
+  },
+  "immutableOwnerFilesBeforeAfterEveryGate": true,
+  "initialPublicationHead": "5466ad373f883dd53d12bcb1613c3f2a5c7e5a70",
+  "initialReadOnlyModeFailure": [
+    {
+      "check": "make-check",
+      "command": [
+        "make",
+        "check",
+        "GO=/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go"
+      ],
+      "exit": 2,
+      "logSHA256": "ea122c720637319a33a7dbd8715cd43d670d999ecbd1e26124faf4de3eafa8b2",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    }
+  ],
+  "ownedCopyModeCorrection": "Module-cache modes were inherited by the first owner copy, causing fixture/transient permission failures. Restored normal owner-write modes only in the owned copy, verified all file bytes unchanged, left original downloaded module cache untouched, reran all required gates.",
+  "privateLocalEvidenceCorrection": "Prior local tidy omitted three qualification-only pin requirements; retained actual local graph selected protobuf1.5.0/pq1.11.2/sqlite1.14.34. Ordinary graph explicitly retains all four accepted qualification pins and is fully reverified; prior proof is not relabeled.",
+  "proofDirectory": "/home/peter/.cache/openudon-m99-ordinary-801b45bb",
+  "qualificationOnlyPrivatePins": {
+    "github.com/golang/protobuf": "v1.5.4",
+    "github.com/lib/pq": "v1.12.3",
+    "github.com/mattn/go-sqlite3": "v1.14.44",
+    "github.com/rogpeppe/go-internal": "v1.14.1"
+  },
+  "source": "801b45bb1aec297631b2e5d87beb1977788a1ab1",
+  "sourceProof": {
+    "classification": "fresh ordinary configured source; no bootstrap proxy",
+    "everyFilenameContentMatchesReviewedBootstrap": true,
+    "fileCount": 1611,
+    "fileManifestSHA256": "217221eb223697162fc68269ab08a9f9c86f716ce6a06d04dcb44eb92684b1fc",
+    "goModSum": "h1:jTC3EvYjtYrodtVbEm46WfkajkUY62YCgyNa1uFay4c=",
+    "goVersion": "1.26.6",
+    "module": "github.com/OpenUdon/openudon",
+    "ordinaryZIPBytes": 4777160,
+    "ordinaryZIPSHA256": "5f49dbf9a3032ca1d1b6459319a0da819123dce3372956f20b89abb2d72e356c",
+    "origin": {
+      "Hash": "801b45bb1aec297631b2e5d87beb1977788a1ab1",
+      "URL": "https://github.com/OpenUdon/openudon",
+      "VCS": "git"
+    },
+    "query": "801b45bb1aec297631b2e5d87beb1977788a1ab1",
+    "sum": "h1:KMrGfrS48uCV8aaEJ/aTqgELxgemAZFav/mjUIGyjA0=",
+    "time": "2026-10-08T11:04:33Z",
+    "version": "v0.1.1-0.20261008110433-801b45bb1aec"
+  },
+  "target": {
+    "ref": "refs/heads/main",
+    "url": "git@github.com-tabilet:OpenUdon/openudon.git"
+  },
+  "verification": [
+    {
+      "check": "make-check",
+      "command": [
+        "make",
+        "check",
+        "GO=/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go"
+      ],
+      "exit": 0,
+      "logSHA256": "e6206bcff9524e5c03abd3fd599530b181e5ff870b0770d35a6679c6fbbc929d",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "fresh-full-tests",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "97ad4bd6b5e3fcf07c6f99252079769aa0812deaed32a02ba81a12138911640e",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "full-races",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "d1bec6e88cc8e9362697c31b45d260d71651d67ecc447acaf5c92d8c8d0b0379",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "vet",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "vet",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "build",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "modverify",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "mod",
+        "verify"
+      ],
+      "exit": 0,
+      "logSHA256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "focused-checker",
+      "command": [
+        "/tmp/kinet-stage11-goal-tools/staticcheck",
+        "./wire",
+        "./packagev3",
+        "./runevidence",
+        "./internal/publicapi"
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "compiled",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-deps",
+        "-test",
+        "-json",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "0f456a7d1b42923b98b853cb76dd6393f2ee2217a160af71b99ce77da92c8df7",
+      "scope": "owner",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "fresh-full-tests",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "7a1a0aa6071b60e804f89d65ada7f81b81af50eec4e1b4f0f853567b35538f80",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "full-races",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "a4c39767cc709e040fabd755b469dd9ae5c50463689588d927e89f4de02b780e",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "vet",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "vet",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "build",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "modverify",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "mod",
+        "verify"
+      ],
+      "exit": 0,
+      "logSHA256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "actual-fixture",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "run",
+        "."
+      ],
+      "exit": 0,
+      "logSHA256": "8920da2bb1c44cca1ed98cd1de4fd27867d7734b27ead5c5abd247eb8537b0e1",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "compiled",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-deps",
+        "-test",
+        "-json",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "f54c64edc7c6e2835e25d50d80635f033818a897a3ebc9428b77e13e654fdf99",
+      "scope": "public",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "fresh-full-tests",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "c0cd109551edafbd87e0386caf9032753e5bf6eb768b297ef07eb20e0e4647c7",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "full-races",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-count=1",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "1b2bbb567d0127227bc633b8489d207d4a88af70c7cfe5da7a32473800a7c63a",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "vet",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "vet",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "build",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "modverify",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "mod",
+        "verify"
+      ],
+      "exit": 0,
+      "logSHA256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "actual-fixture",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "run",
+        "."
+      ],
+      "exit": 0,
+      "logSHA256": "f24986cc0839aad59a9beb8e1363c98c6b2c323fc290eb53f93458b561a479cb",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    },
+    {
+      "check": "compiled",
+      "command": [
+        "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "list",
+        "-deps",
+        "-test",
+        "-json",
+        "./..."
+      ],
+      "exit": 0,
+      "logSHA256": "4d56cb4bd8804cf77d651709c2dd1acbcf823e20ed59fd6dffb46e4d771565cb",
+      "scope": "private",
+      "sourceFilesBeforeAfterVerified": true
+    }
+  ],
+  "version": "openudon.m99-ordinary-proof.v1",
+  "wholeReview": {
+    "coordinatorClosure": "shared knowledge/downstream/acceptance/retirement and closure publication pending",
+    "iterations": 3,
+    "remainingP1P2": 0,
+    "source": "801b45bb1aec297631b2e5d87beb1977788a1ab1",
+    "state": "passed",
+    "taskState": "M99.1/M99.2/M99.3 complete"
+  }
+}

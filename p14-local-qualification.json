@@ -1,0 +1,870 @@
+{
+  "version": "openudon.p14-local-qualification.v1",
+  "stage": "prepublication P14.4 verification evidence; incomplete acceptance",
+  "source": {
+    "commit": "9e1a8c736ad9793aba613d26d1e8cd577c5bc267",
+    "baseline": "e71c79f98bff9eb95ce139ef6289cd7f2d3f769b",
+    "qualification_worktree": "/home/peter/Workspace/openudon.goal/p14-qualification",
+    "detached": true,
+    "clean_before_and_after": true,
+    "primary_worktree": "/home/peter/Workspace/openudon",
+    "primary_ref": "refs/heads/main",
+    "primary_state": "status/documentation dirty; retained ignored archives untouched",
+    "files": [
+      {
+        "path": "go.mod",
+        "sha256": "687fbc2745c7f93714c9b5a0fd3b2248768006660e54019a006fc6a026130694"
+      },
+      {
+        "path": "go.sum",
+        "sha256": "5c3af6342eb67127c7119d11c644cf7992efd735e2818bdf125edb58b225f40e"
+      },
+      {
+        "path": "authoringcard/card.go",
+        "sha256": "0809c7c6e138c6085f9bd14dc520152875f4962fad151d41f191cff011a24118"
+      },
+      {
+        "path": "authoringcard/validate.go",
+        "sha256": "c382f5c4d6d478102501f3bb8d44afb3daa4f5a529118713ff597a750a753433"
+      },
+      {
+        "path": "authoringcard/text.go",
+        "sha256": "1c94c4e837dcc4476e692fe9ec0785e13a2d8b870bde7d20e0ed481755302e2f"
+      },
+      {
+        "path": "docs/schemas/openudon.authoring-card.v1.schema.json",
+        "sha256": "dde6a49ba61b07e9aabe10fa0ed93beb33e1eb49ac9423eccb402e9c8d12c51d"
+      },
+      {
+        "path": "docs/fixtures/authoring-card-v1/manifest.json",
+        "sha256": "fcb89cfe3279ea681d0d51a5338bc3e75e9d7999ecba4a806f41e0f06da194a0"
+      }
+    ]
+  },
+  "policy": {
+    "toolchain": "go1.26.6 linux/amd64",
+    "toolchain_executable": "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "environment": {
+      "GOAUTH": "off",
+      "GOCACHE": "/home/peter/.cache/go-build",
+      "GOMODCACHE": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache",
+      "GOPROXY": "off",
+      "GOSUMDB": "off",
+      "GOTOOLCHAIN": "local",
+      "GOVERSION": "go1.26.6",
+      "GOWORK": "off"
+    },
+    "TMPDIR": "/tmp/k13-8f7f",
+    "GOTMPDIR": "/tmp/k13-8f7f",
+    "process_umask": "0077",
+    "network_acquisition": false,
+    "directory_replacements": false,
+    "external_mutations": false,
+    "audit_activation": false
+  },
+  "checks": [
+    {
+      "command": "make public-boundary",
+      "input": "clean tracked-source qualification worktree",
+      "hard_cap_seconds": 120,
+      "exit": 0,
+      "go_test_seconds": 0.235
+    },
+    {
+      "command": "make check",
+      "input": "same clean tracked-source worktree",
+      "attempt": 1,
+      "hard_cap_seconds": 1200,
+      "exit": 0,
+      "elapsed_seconds": 26.069,
+      "log_sha256": "434f5e83513fb548acd1fca472e49d5f12b326ca53b31043274717ce0036aacc",
+      "output": "GOWORK=off go build ./...\nGOWORK=off go test ./...\nok  \tgithub.com/OpenUdon/openudon/approval\t0.014s\nok  \tgithub.com/OpenUdon/openudon/authoringcard\t0.196s\nok  \tgithub.com/OpenUdon/openudon/authority\t0.020s\n?   \tgithub.com/OpenUdon/openudon/browsercontract\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/browsertransaction\t0.146s\nok  \tgithub.com/OpenUdon/openudon/browserverify\t0.150s\n?   \tgithub.com/OpenUdon/openudon/credentialpolicy\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/digest\t0.013s\n?   \tgithub.com/OpenUdon/openudon/docs/schemas\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/handoff\t0.008s\nok  \tgithub.com/OpenUdon/openudon/packagev3\t18.954s\nok  \tgithub.com/OpenUdon/openudon/runevidence\t0.932s\nok  \tgithub.com/OpenUdon/openudon/tests/authority\t0.032s\nok  \tgithub.com/OpenUdon/openudon/tests/credentialpolicy\t0.004s\nok  \tgithub.com/OpenUdon/openudon/tests/publicapi\t0.236s\nok  \tgithub.com/OpenUdon/openudon/tests/udonreport\t0.005s\n?   \tgithub.com/OpenUdon/openudon/tools/packagev3-fixtures\t[no test files]\nok  \tgithub.com/OpenUdon/openudon/trust\t0.016s\nok  \tgithub.com/OpenUdon/openudon/udonreport\t0.022s\nok  \tgithub.com/OpenUdon/openudon/wire\t0.119s\nGOWORK=off go vet ./...\n"
+    },
+    {
+      "command": "go list -m -json all",
+      "module_count": 91,
+      "replacements": 0
+    },
+    {
+      "command": "go list -deps -export -json /tmp/k13-8f7f/openudon-p14-qualification/public-probe.go",
+      "package_count": 375,
+      "compiled_export_count": 374,
+      "compiler_intrinsic_without_export": [
+        "unsafe"
+      ],
+      "private_imports": false,
+      "all_external_module_directories_in_declared_ordinary_cache": true
+    },
+    {
+      "command": "go build -trimpath -o /tmp/k13-8f7f/openudon-p14-qualification/public-probe /tmp/k13-8f7f/openudon-p14-qualification/public-probe.go; execute metadata probe",
+      "binary_sha256": "8283e1c02638624ec1aa407f0f5e61732b2d3bc8d26af6c8bbbb9059ed72bce5",
+      "compiled_buildinfo_module_count": 35,
+      "ordinary_external_module_count": 34,
+      "all_compiled_external_versions_and_sums_match_selected": true,
+      "root_is_local_devel_not_published_adoption": true
+    }
+  ],
+  "selected_modules": [
+    {
+      "Path": "github.com/OpenUdon/openudon",
+      "Main": true
+    },
+    {
+      "Path": "github.com/OpenUdon/apitools",
+      "Version": "v0.0.0-20261008061439-f2c5693ec39a",
+      "Sum": "h1:+UICyuitKDE3g5rnlCA6Sk+QLIEqqVn8MN0PtOX+NKk="
+    },
+    {
+      "Path": "github.com/OpenUdon/asyncapi",
+      "Version": "v0.1.0",
+      "Sum": "h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4="
+    },
+    {
+      "Path": "github.com/OpenUdon/authoring",
+      "Version": "v0.0.0-20260930234600-18056cb6b0c1",
+      "Sum": "h1:5OhMe1TTXCn1ulTMPZrJsiJLUbiA7L04qERkbVC9sZs="
+    },
+    {
+      "Path": "github.com/OpenUdon/awssmithy",
+      "Version": "v0.0.0-20260520213111-549a060a5e28",
+      "Sum": "h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y="
+    },
+    {
+      "Path": "github.com/OpenUdon/browsertools",
+      "Version": "v0.0.0-20261010115646-1859f5e34367",
+      "Sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk="
+    },
+    {
+      "Path": "github.com/OpenUdon/evidence",
+      "Version": "v0.0.0-20260815084845-0c17258b9736",
+      "Sum": "h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw="
+    },
+    {
+      "Path": "github.com/OpenUdon/googlediscovery",
+      "Version": "v0.0.0-20260520203137-c02129a009fc",
+      "Sum": "h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI="
+    },
+    {
+      "Path": "github.com/OpenUdon/oas",
+      "Version": "v0.0.0-20260507023120-7fb319711323",
+      "Sum": "h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA="
+    },
+    {
+      "Path": "github.com/OpenUdon/schema",
+      "Version": "v0.0.0-20260507023912-6ea3308bb955",
+      "Sum": "h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY="
+    },
+    {
+      "Path": "github.com/OpenUdon/uws",
+      "Version": "v0.0.0-20261009220914-f01a2542410c",
+      "Sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0="
+    },
+    {
+      "Path": "github.com/OpenUdon/uws/hcl",
+      "Version": "v0.0.0-20261008043726-b099f6803277",
+      "Sum": "h1:OJsmDK/RcFpyMAMGy84DjcX6kNalYH/E0Q/C3XwD5Uo="
+    },
+    {
+      "Path": "github.com/agext/levenshtein",
+      "Version": "v1.2.3",
+      "Sum": "h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo="
+    },
+    {
+      "Path": "github.com/antchfx/xmlquery",
+      "Version": "v1.5.1",
+      "Sum": "h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78="
+    },
+    {
+      "Path": "github.com/antchfx/xpath",
+      "Version": "v1.3.6",
+      "Sum": "h1:s0y+ElRRtTQdfHP609qFu0+c6bglDv20pqOViQjjdPI="
+    },
+    {
+      "Path": "github.com/apparentlymart/go-cidr",
+      "Version": "v1.1.0",
+      "Sum": "h1:2mAhrMoF+nhXqxTzSZMUzDHkLjmIHC+Zzn4tdgBZjnU="
+    },
+    {
+      "Path": "github.com/apparentlymart/go-textseg/v15",
+      "Version": "v15.0.0",
+      "Sum": "h1:uYvfpb3DyLSCGWnctWKGj857c6ew1u1fNQOlOtuGxQY="
+    },
+    {
+      "Path": "github.com/bmatcuk/doublestar",
+      "Version": "v1.3.4",
+      "Sum": "h1:gPypJ5xD31uhX6Tf54sDPUOBXTqKH4c9aPY66CyQrS0="
+    },
+    {
+      "Path": "github.com/coder/websocket",
+      "Version": "v1.8.12"
+    },
+    {
+      "Path": "github.com/davecgh/go-spew",
+      "Version": "v1.1.2-0.20180830191138-d8f796af33cc",
+      "Sum": "h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM="
+    },
+    {
+      "Path": "github.com/deckarep/golang-set/v2",
+      "Version": "v2.8.0",
+      "Sum": "h1:swm0rlPCmdWn9mESxKOjWk8hXSqoxOp+ZlfuyaAdFlQ="
+    },
+    {
+      "Path": "github.com/dlclark/regexp2",
+      "Version": "v1.11.0",
+      "Sum": "h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI="
+    },
+    {
+      "Path": "github.com/dustin/go-humanize",
+      "Version": "v1.0.1",
+      "Sum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY="
+    },
+    {
+      "Path": "github.com/genelet/horizon",
+      "Version": "v1.14.5",
+      "Sum": "h1:yYLlzTo+5pyVQOhgfwafIs+BF4LmOwUAX72HDaILkIU="
+    },
+    {
+      "Path": "github.com/go-jose/go-jose/v3",
+      "Version": "v3.0.5",
+      "Sum": "h1:BLLJWbC4nMZOfuPVxoZIxeYsn6Nl2r1fITaJ78UQlVQ="
+    },
+    {
+      "Path": "github.com/go-stack/stack",
+      "Version": "v1.8.1",
+      "Sum": "h1:ntEHSVwIt7PNXNpgPmVfMrNhLtgjlmnZha2kOpuRiDw="
+    },
+    {
+      "Path": "github.com/go-test/deep",
+      "Version": "v1.1.1",
+      "Sum": "h1:0r/53hagsehfO4bzD2Pgr/+RgHqhmf+k1Bpse2cTu1U="
+    },
+    {
+      "Path": "github.com/golang/groupcache",
+      "Version": "v0.0.0-20210331224755-41bb18bfe9da",
+      "Sum": "h1:oI5xCqsCo564l8iNU+DwB5epxmsaqB+rhGL0m5jtYqE="
+    },
+    {
+      "Path": "github.com/golang/protobuf",
+      "Version": "v1.5.0"
+    },
+    {
+      "Path": "github.com/google/go-cmp",
+      "Version": "v0.7.0",
+      "Sum": "h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8="
+    },
+    {
+      "Path": "github.com/google/jsonschema-go",
+      "Version": "v0.4.3",
+      "Sum": "h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+DQPd0="
+    },
+    {
+      "Path": "github.com/google/pprof",
+      "Version": "v0.0.0-20250317173921-a4b03ec1a45e",
+      "Sum": "h1:ijClszYn+mADRFY17kjQEVQ1XRhq2/JR1M3sGqeJoxs="
+    },
+    {
+      "Path": "github.com/google/uuid",
+      "Version": "v1.6.0",
+      "Sum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0="
+    },
+    {
+      "Path": "github.com/gowebpki/jcs",
+      "Version": "v1.0.2",
+      "Sum": "h1:IY0Iv76ThSvocWinl2rphYmGLhMufS3ZD1giKqkI6ps="
+    },
+    {
+      "Path": "github.com/h2non/filetype",
+      "Version": "v1.1.3"
+    },
+    {
+      "Path": "github.com/hashicorp/go-uuid",
+      "Version": "v1.0.3",
+      "Sum": "h1:2gKiV6YVmrJ1i2CKKa9obLvRieoRGviZFL26PcT/Co8="
+    },
+    {
+      "Path": "github.com/hashicorp/golang-lru/v2",
+      "Version": "v2.0.7",
+      "Sum": "h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k="
+    },
+    {
+      "Path": "github.com/hashicorp/hcl/v2",
+      "Version": "v2.24.0",
+      "Sum": "h1:2QJdZ454DSsYGoaE6QheQZjtKZSUs9Nh2izTWiwQxvE="
+    },
+    {
+      "Path": "github.com/kr/pretty",
+      "Version": "v0.3.1",
+      "Sum": "h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE="
+    },
+    {
+      "Path": "github.com/kr/text",
+      "Version": "v0.2.0",
+      "Sum": "h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY="
+    },
+    {
+      "Path": "github.com/mattn/go-isatty",
+      "Version": "v0.0.20",
+      "Sum": "h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY="
+    },
+    {
+      "Path": "github.com/mitchellh/go-homedir",
+      "Version": "v1.1.0",
+      "Sum": "h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y="
+    },
+    {
+      "Path": "github.com/mitchellh/go-wordwrap",
+      "Version": "v1.0.1",
+      "Sum": "h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0="
+    },
+    {
+      "Path": "github.com/mxschmitt/playwright-go",
+      "Version": "v0.6201.0",
+      "Sum": "h1:VfBN0/A+8hIKhbJA/GrQZ4OIywXy12n8tcY073N9STs="
+    },
+    {
+      "Path": "github.com/ncruces/go-strftime",
+      "Version": "v1.0.0",
+      "Sum": "h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w="
+    },
+    {
+      "Path": "github.com/orisano/pixelmatch",
+      "Version": "v0.0.0-20230914042517-fa304d1dc785"
+    },
+    {
+      "Path": "github.com/pmezard/go-difflib",
+      "Version": "v1.0.0"
+    },
+    {
+      "Path": "github.com/remyoudompheng/bigfft",
+      "Version": "v0.0.0-20230129092748-24d4a6f8daec",
+      "Sum": "h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE="
+    },
+    {
+      "Path": "github.com/rogpeppe/go-internal",
+      "Version": "v1.14.1",
+      "Sum": "h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ="
+    },
+    {
+      "Path": "github.com/santhosh-tekuri/jsonschema/v6",
+      "Version": "v6.0.2",
+      "Sum": "h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ="
+    },
+    {
+      "Path": "github.com/spf13/pflag",
+      "Version": "v1.0.2"
+    },
+    {
+      "Path": "github.com/stretchr/objx",
+      "Version": "v0.1.0"
+    },
+    {
+      "Path": "github.com/stretchr/testify",
+      "Version": "v1.12.1",
+      "Sum": "h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE="
+    },
+    {
+      "Path": "github.com/theory/jsonpath",
+      "Version": "v0.12.0",
+      "Sum": "h1:NQeuE0ohHHhss0DoxU9Xu2IpTTrlx9x4mv4F3pcmDME="
+    },
+    {
+      "Path": "github.com/tidwall/gjson",
+      "Version": "v1.17.0"
+    },
+    {
+      "Path": "github.com/tidwall/match",
+      "Version": "v1.1.1"
+    },
+    {
+      "Path": "github.com/tidwall/pretty",
+      "Version": "v1.2.1"
+    },
+    {
+      "Path": "github.com/vmihailenco/msgpack/v5",
+      "Version": "v5.3.5"
+    },
+    {
+      "Path": "github.com/vmihailenco/tagparser/v2",
+      "Version": "v2.0.0"
+    },
+    {
+      "Path": "github.com/yuin/goldmark",
+      "Version": "v1.4.13"
+    },
+    {
+      "Path": "github.com/zclconf/go-cty",
+      "Version": "v1.18.1",
+      "Sum": "h1:yEGE8M4iIZlyKQURZNb2SnEyZlZHUcBCnx6KF81KuwM="
+    },
+    {
+      "Path": "github.com/zclconf/go-cty-debug",
+      "Version": "v0.0.0-20240509010212-0d6042c53940",
+      "Sum": "h1:4r45xpDWB6ZMSMNJFMOjqrGHynW3DIBuR2H9j0ug+Mo="
+    },
+    {
+      "Path": "github.com/zclconf/go-cty-yaml",
+      "Version": "v1.1.0",
+      "Sum": "h1:nP+jp0qPHv2IhUVqmQSzjvqAWcObN0KBkUl2rWBdig0="
+    },
+    {
+      "Path": "go.yaml.in/yaml/v3",
+      "Version": "v3.0.5",
+      "Sum": "h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw="
+    },
+    {
+      "Path": "golang.org/x/crypto",
+      "Version": "v0.53.0",
+      "Sum": "h1:QZ4Muo8THX6CizN2vPPd5fBGHyogrdK9fG4wLPFUsto="
+    },
+    {
+      "Path": "golang.org/x/mod",
+      "Version": "v0.37.0",
+      "Sum": "h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ="
+    },
+    {
+      "Path": "golang.org/x/net",
+      "Version": "v0.56.0",
+      "Sum": "h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o="
+    },
+    {
+      "Path": "golang.org/x/sync",
+      "Version": "v0.21.0",
+      "Sum": "h1:HLII4xRRTtCRkxYp4HNFF0Js/Og6q2i++KXbg0gHCwM="
+    },
+    {
+      "Path": "golang.org/x/sys",
+      "Version": "v0.46.0",
+      "Sum": "h1:noSf2Fq6F8DBgS+LysIkx7rIExoNHJsxOAtPp4rthXw="
+    },
+    {
+      "Path": "golang.org/x/telemetry",
+      "Version": "v0.0.0-20260625142307-59b4966ccb57"
+    },
+    {
+      "Path": "golang.org/x/term",
+      "Version": "v0.44.0",
+      "Sum": "h1:0rLvDRCtNj0gZkyIXhCyOb2OAzEhLVqc4B+hrsBhrmc="
+    },
+    {
+      "Path": "golang.org/x/text",
+      "Version": "v0.39.0",
+      "Sum": "h1:UbZz4pLOvn600D6Oh6GGEI6VAmndrEBLv8/6BEXzyus="
+    },
+    {
+      "Path": "golang.org/x/tools",
+      "Version": "v0.47.0",
+      "Sum": "h1:7Kn5x/d1svx/PzryTsqeoZN4TZwqeH5pGWjefhLi/1Q="
+    },
+    {
+      "Path": "golang.org/x/xerrors",
+      "Version": "v0.0.0-20190717185122-a985d3407aa7"
+    },
+    {
+      "Path": "google.golang.org/protobuf",
+      "Version": "v1.36.11",
+      "Sum": "h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE="
+    },
+    {
+      "Path": "gopkg.in/check.v1",
+      "Version": "v1.0.0-20201130134442-10cb98267c6c",
+      "Sum": "h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk="
+    },
+    {
+      "Path": "gopkg.in/yaml.v3",
+      "Version": "v3.0.1",
+      "Sum": "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA="
+    },
+    {
+      "Path": "modernc.org/cc/v4",
+      "Version": "v4.27.3",
+      "Sum": "h1:uNCgn37E5U09mTv1XgskEVUJ8ADKpmFMPxzGJ0TSo+U="
+    },
+    {
+      "Path": "modernc.org/ccgo/v4",
+      "Version": "v4.32.4",
+      "Sum": "h1:L5OB8rpEX4ZsXEQwGozRfJyJSFHbbNVOoQ59DU9/KuU="
+    },
+    {
+      "Path": "modernc.org/fileutil",
+      "Version": "v1.4.0",
+      "Sum": "h1:j6ZzNTftVS054gi281TyLjHPp6CPHr2KCxEXjEbD6SM="
+    },
+    {
+      "Path": "modernc.org/gc/v2",
+      "Version": "v2.6.5",
+      "Sum": "h1:nyqdV8q46KvTpZlsw66kWqwXRHdjIlJOhG6kxiV/9xI="
+    },
+    {
+      "Path": "modernc.org/gc/v3",
+      "Version": "v3.1.2",
+      "Sum": "h1:ZtDCnhonXSZexk/AYsegNRV1lJGgaNZJuKjJSWKyEqo="
+    },
+    {
+      "Path": "modernc.org/goabi0",
+      "Version": "v0.2.0",
+      "Sum": "h1:HvEowk7LxcPd0eq6mVOAEMai46V+i7Jrj13t4AzuNks="
+    },
+    {
+      "Path": "modernc.org/libc",
+      "Version": "v1.72.0",
+      "Sum": "h1:IEu559v9a0XWjw0DPoVKtXpO2qt5NVLAnFaBbjq+n8c="
+    },
+    {
+      "Path": "modernc.org/mathutil",
+      "Version": "v1.7.1",
+      "Sum": "h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU="
+    },
+    {
+      "Path": "modernc.org/memory",
+      "Version": "v1.11.0",
+      "Sum": "h1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI="
+    },
+    {
+      "Path": "modernc.org/opt",
+      "Version": "v0.1.4",
+      "Sum": "h1:2kNGMRiUjrp4LcaPuLY2PzUfqM/w9N23quVwhKt5Qm8="
+    },
+    {
+      "Path": "modernc.org/sortutil",
+      "Version": "v1.2.1",
+      "Sum": "h1:+xyoGf15mM3NMlPDnFqrteY07klSFxLElE2PVuWIJ7w="
+    },
+    {
+      "Path": "modernc.org/sqlite",
+      "Version": "v1.50.0",
+      "Sum": "h1:eMowQSWLK0MeiQTdmz3lqoF5dqclujdlIKeJA11+7oM="
+    },
+    {
+      "Path": "modernc.org/strutil",
+      "Version": "v1.2.1",
+      "Sum": "h1:UneZBkQA+DX2Rp35KcM69cSsNES9ly8mQWD71HKlOA0="
+    },
+    {
+      "Path": "modernc.org/token",
+      "Version": "v1.1.0",
+      "Sum": "h1:Xl7Ap9dKaEs5kLoOQeQmPWevfnk/DM5qcLcYlA8ys6Y="
+    }
+  ],
+  "actual_compiled_buildinfo": {
+    "CardVersion": "openudon.authoring-card.v1",
+    "BuildInfo": {
+      "GoVersion": "go1.26.6",
+      "Path": "command-line-arguments",
+      "Main": {},
+      "Deps": [
+        {
+          "Path": "github.com/OpenUdon/apitools",
+          "Version": "v0.0.0-20261008061439-f2c5693ec39a",
+          "Sum": "h1:+UICyuitKDE3g5rnlCA6Sk+QLIEqqVn8MN0PtOX+NKk="
+        },
+        {
+          "Path": "github.com/OpenUdon/asyncapi",
+          "Version": "v0.1.0",
+          "Sum": "h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4="
+        },
+        {
+          "Path": "github.com/OpenUdon/awssmithy",
+          "Version": "v0.0.0-20260520213111-549a060a5e28",
+          "Sum": "h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y="
+        },
+        {
+          "Path": "github.com/OpenUdon/browsertools",
+          "Version": "v0.0.0-20261010115646-1859f5e34367",
+          "Sum": "h1:xjsFcA8O/fP/D20rxonAzWKnFvxtzYVOJQmwXEb4Nbk="
+        },
+        {
+          "Path": "github.com/OpenUdon/evidence",
+          "Version": "v0.0.0-20260815084845-0c17258b9736",
+          "Sum": "h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw="
+        },
+        {
+          "Path": "github.com/OpenUdon/googlediscovery",
+          "Version": "v0.0.0-20260520203137-c02129a009fc",
+          "Sum": "h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI="
+        },
+        {
+          "Path": "github.com/OpenUdon/oas",
+          "Version": "v0.0.0-20260507023120-7fb319711323",
+          "Sum": "h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA="
+        },
+        {
+          "Path": "github.com/OpenUdon/openudon",
+          "Version": "(devel)"
+        },
+        {
+          "Path": "github.com/OpenUdon/schema",
+          "Version": "v0.0.0-20260507023912-6ea3308bb955",
+          "Sum": "h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY="
+        },
+        {
+          "Path": "github.com/OpenUdon/uws",
+          "Version": "v0.0.0-20261009220914-f01a2542410c",
+          "Sum": "h1:TTjAn0++TdGHY0vahbXw3XsICQaavBytoqTSHu0K6o0="
+        },
+        {
+          "Path": "github.com/agext/levenshtein",
+          "Version": "v1.2.3",
+          "Sum": "h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo="
+        },
+        {
+          "Path": "github.com/antchfx/xmlquery",
+          "Version": "v1.5.1",
+          "Sum": "h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78="
+        },
+        {
+          "Path": "github.com/antchfx/xpath",
+          "Version": "v1.3.6",
+          "Sum": "h1:s0y+ElRRtTQdfHP609qFu0+c6bglDv20pqOViQjjdPI="
+        },
+        {
+          "Path": "github.com/apparentlymart/go-cidr",
+          "Version": "v1.1.0",
+          "Sum": "h1:2mAhrMoF+nhXqxTzSZMUzDHkLjmIHC+Zzn4tdgBZjnU="
+        },
+        {
+          "Path": "github.com/apparentlymart/go-textseg/v15",
+          "Version": "v15.0.0",
+          "Sum": "h1:uYvfpb3DyLSCGWnctWKGj857c6ew1u1fNQOlOtuGxQY="
+        },
+        {
+          "Path": "github.com/bmatcuk/doublestar",
+          "Version": "v1.3.4",
+          "Sum": "h1:gPypJ5xD31uhX6Tf54sDPUOBXTqKH4c9aPY66CyQrS0="
+        },
+        {
+          "Path": "github.com/genelet/horizon",
+          "Version": "v1.14.5",
+          "Sum": "h1:yYLlzTo+5pyVQOhgfwafIs+BF4LmOwUAX72HDaILkIU="
+        },
+        {
+          "Path": "github.com/golang/groupcache",
+          "Version": "v0.0.0-20210331224755-41bb18bfe9da",
+          "Sum": "h1:oI5xCqsCo564l8iNU+DwB5epxmsaqB+rhGL0m5jtYqE="
+        },
+        {
+          "Path": "github.com/google/go-cmp",
+          "Version": "v0.7.0",
+          "Sum": "h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8="
+        },
+        {
+          "Path": "github.com/google/uuid",
+          "Version": "v1.6.0",
+          "Sum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0="
+        },
+        {
+          "Path": "github.com/hashicorp/go-uuid",
+          "Version": "v1.0.3",
+          "Sum": "h1:2gKiV6YVmrJ1i2CKKa9obLvRieoRGviZFL26PcT/Co8="
+        },
+        {
+          "Path": "github.com/hashicorp/hcl/v2",
+          "Version": "v2.24.0",
+          "Sum": "h1:2QJdZ454DSsYGoaE6QheQZjtKZSUs9Nh2izTWiwQxvE="
+        },
+        {
+          "Path": "github.com/mitchellh/go-homedir",
+          "Version": "v1.1.0",
+          "Sum": "h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y="
+        },
+        {
+          "Path": "github.com/mitchellh/go-wordwrap",
+          "Version": "v1.0.1",
+          "Sum": "h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0="
+        },
+        {
+          "Path": "github.com/santhosh-tekuri/jsonschema/v6",
+          "Version": "v6.0.2",
+          "Sum": "h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ="
+        },
+        {
+          "Path": "github.com/theory/jsonpath",
+          "Version": "v0.12.0",
+          "Sum": "h1:NQeuE0ohHHhss0DoxU9Xu2IpTTrlx9x4mv4F3pcmDME="
+        },
+        {
+          "Path": "github.com/zclconf/go-cty",
+          "Version": "v1.18.1",
+          "Sum": "h1:yEGE8M4iIZlyKQURZNb2SnEyZlZHUcBCnx6KF81KuwM="
+        },
+        {
+          "Path": "github.com/zclconf/go-cty-yaml",
+          "Version": "v1.1.0",
+          "Sum": "h1:nP+jp0qPHv2IhUVqmQSzjvqAWcObN0KBkUl2rWBdig0="
+        },
+        {
+          "Path": "golang.org/x/crypto",
+          "Version": "v0.53.0",
+          "Sum": "h1:QZ4Muo8THX6CizN2vPPd5fBGHyogrdK9fG4wLPFUsto="
+        },
+        {
+          "Path": "golang.org/x/mod",
+          "Version": "v0.37.0",
+          "Sum": "h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ="
+        },
+        {
+          "Path": "golang.org/x/net",
+          "Version": "v0.56.0",
+          "Sum": "h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o="
+        },
+        {
+          "Path": "golang.org/x/sync",
+          "Version": "v0.21.0",
+          "Sum": "h1:HLII4xRRTtCRkxYp4HNFF0Js/Og6q2i++KXbg0gHCwM="
+        },
+        {
+          "Path": "golang.org/x/text",
+          "Version": "v0.39.0",
+          "Sum": "h1:UbZz4pLOvn600D6Oh6GGEI6VAmndrEBLv8/6BEXzyus="
+        },
+        {
+          "Path": "google.golang.org/protobuf",
+          "Version": "v1.36.11",
+          "Sum": "h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE="
+        },
+        {
+          "Path": "gopkg.in/yaml.v3",
+          "Version": "v3.0.1",
+          "Sum": "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA="
+        }
+      ],
+      "Settings": [
+        {
+          "Key": "-buildmode",
+          "Value": "exe"
+        },
+        {
+          "Key": "-compiler",
+          "Value": "gc"
+        },
+        {
+          "Key": "-trimpath",
+          "Value": "true"
+        },
+        {
+          "Key": "CGO_ENABLED",
+          "Value": "1"
+        },
+        {
+          "Key": "GOARCH",
+          "Value": "amd64"
+        },
+        {
+          "Key": "GOOS",
+          "Value": "linux"
+        },
+        {
+          "Key": "GOAMD64",
+          "Value": "v1"
+        }
+      ]
+    }
+  },
+  "compiled_probe_source": "package main\nimport (\n \"encoding/json\"\n \"os\"\n \"runtime/debug\"\n \"github.com/OpenUdon/openudon/authoringcard\"\n _ \"github.com/OpenUdon/openudon/approval\"\n _ \"github.com/OpenUdon/openudon/authority\"\n _ \"github.com/OpenUdon/openudon/digest\"\n _ \"github.com/OpenUdon/openudon/handoff\"\n _ \"github.com/OpenUdon/openudon/trust\"\n _ \"github.com/OpenUdon/openudon/wire\"\n _ \"github.com/OpenUdon/openudon/udonreport\"\n _ \"github.com/OpenUdon/openudon/runevidence\"\n _ \"github.com/OpenUdon/openudon/packagev3\"\n _ \"github.com/OpenUdon/openudon/credentialpolicy\"\n _ \"github.com/OpenUdon/openudon/browsercontract\"\n _ \"github.com/OpenUdon/openudon/browsertransaction\"\n _ \"github.com/OpenUdon/openudon/browserverify\"\n)\nfunc main() {\n info, ok := debug.ReadBuildInfo()\n if !ok { os.Exit(1) }\n if json.NewEncoder(os.Stdout).Encode(struct {CardVersion string; BuildInfo *debug.BuildInfo}{authoringcard.Version, info}) != nil {os.Exit(1)}\n}\n",
+  "private_captures": [
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/make-check-attempt1.log",
+      "sha256": "434f5e83513fb548acd1fca472e49d5f12b326ca53b31043274717ce0036aacc"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/go-env.json",
+      "sha256": "e7f9ace3531fca6ceebfc3179f8afa1d9eaae74d538d194f002871132684c255"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/selected-modules.json",
+      "sha256": "cfb26873d79dd34a11241e215f68408aef34acdc6938f747e820f9ae8c06214b"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/compiled-packages.json",
+      "sha256": "7ea626a224422a7ab751b94553e5ccd1406da38b0359dfcd1c7c0195ecef8af0"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/compiled-buildinfo.json",
+      "sha256": "9196a1910f3005e96a55c46061796e895e7977c496bd9eab2ac839928139e723"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/public-probe.go",
+      "sha256": "ac1086afd9235fd7d9fa6fac39a51c0a5aeccde5cdaee32fa46a3592630b7543"
+    },
+    {
+      "path": "/tmp/k13-8f7f/openudon-p14-qualification/public-probe",
+      "sha256": "8283e1c02638624ec1aa407f0f5e61732b2d3bc8d26af6c8bbbb9059ed72bce5"
+    }
+  ],
+  "retention": "Coordinator retains cited private captures and immutable qualification worktree until evidence-preserving closure/cleanup reconciliation. Source commit and inline report data remain durable; no cleanup was performed.",
+  "retained_failure": {
+    "command": "go test ./authoringcard ./tests/publicapi ./packagev3 ./approval ./handoff ./wire -count=1",
+    "input": "original primary checkout with retained archives",
+    "failed_test": "TestLegacySourceClosureRemainsRemoved",
+    "publicapi_elapsed_seconds": 0.884,
+    "reason": "Pre-existing internal directory and ignored .openudon-run/m92-command-debug/main.go, m92-fixture-gen/main.go contain retired private paths/imports.",
+    "changed_input_resolution": "Exact clean tracked-source worktree; no guard/source/archive changes.",
+    "primary_checkout_does_not_claim_passing_boundary": true
+  },
+  "proof_parser_note": "Initial metadata comparison encountered the expected unsigned local root (devel) entry without Sum. Corrected only the cheap parser to bind that entry to the exact clean owner source; reused the same compiled artifacts. No source fix, recompilation, acceptance retry or failure-count reset.",
+  "readiness_review": {
+    "scope": "P14.4 verification/input/publication evidence only; completed P14.1-.3 task reviews are referenced, not repeated as a disguised whole review.",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "xhigh",
+    "state": "passed evidence-only task review and narrow documentation/status follow-up; required publication/whole acceptance remain pending",
+    "findings": [
+      {
+        "id": "P14-E1",
+        "severity": "P3",
+        "summary": "Current summaries lag completed local qualification.",
+        "disposition": "Owning status summaries corrected and follow-up verified. Shared milestone.md pending-evidence wording remains coordinator-owned P3 reconciliation; no evidence/acceptance effect."
+      }
+    ],
+    "whole_milestone_acceptance": false,
+    "whole_review_counter": 0,
+    "followup": "No new evidence/documentation findings; both separately declared doc hashes and unchanged production/schema/corpus inputs verified read-only; qualification worktree remains clean."
+  },
+  "counts": {
+    "full_owner_checks": 1,
+    "failed_full_owner_checks": 0,
+    "failed_cheap_primary_compatibility_invocations": 1,
+    "whole_milestone_review_iterations": 0,
+    "protected_actions": 0
+  },
+  "publication": {
+    "state": "forbidden by invoking no-push request",
+    "repository": "/home/peter/Workspace/openudon",
+    "remote_name": "origin",
+    "remote_url": "git@github.com-tabilet:OpenUdon/openudon.git",
+    "destination_ref": "refs/heads/main",
+    "mode": "fast-forward",
+    "tested_source_commit": "9e1a8c736ad9793aba613d26d1e8cd577c5bc267",
+    "published_module_identity": null,
+    "independently_verified_publication": false,
+    "consumer_adoption": false
+  },
+  "remaining": [
+    "Required publication authority and independently verified exact ordinary publication",
+    "Authoritative whole-milestone review, downstream reconciliation and closure remain coordinator-owned; whole counter stays 0 until that gate starts"
+  ],
+  "documentation_only_delta": {
+    "base_tested_source": "9e1a8c736ad9793aba613d26d1e8cd577c5bc267",
+    "state": "primary-worktree documentation delta from immutable tested source9e1; retained in this qualification record, with no production/schema/test change",
+    "files": [
+      {
+        "path": "README.md",
+        "sha256": "50da243f6a6acb6c4c268561b80a7ba0a1df9a9da5b1091f31ea989eb69634c1"
+      },
+      {
+        "path": "docs/public-trust-api.md",
+        "sha256": "8230314d9c04e7554d816ea6f5bc22c714e484c793542f4578592e942dd8cd3f"
+      },
+      {
+        "path": "tabilet/memory-bank/milestone.md",
+        "sha256": "fd06841fa93ff7f56ca8d48aaefd352e878fa901ebf43b3c13ef5453f657c898"
+      },
+      {
+        "path": "tabilet/memory-bank/status-P14.md",
+        "sha256": "ca3c3cc189bd215fbe5a67633bc31ff6328bd1b5466cecad23295f12018c770e"
+      }
+    ],
+    "change": "Add authoringcard row/guide navigation and data-only boundary note; preserve historical trust/package/approval statements.",
+    "production_schema_test_inputs_changed": false,
+    "full_check_reused": true,
+    "coordinator_note": "Updated only the owning active milestone summary/verification wording to actual local readiness. Original acceptance, task identities, publication requirement, whole-review counter and push denial remain unchanged."
+  }
+}

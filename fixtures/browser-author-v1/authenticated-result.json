@@ -1,0 +1,13 @@
+{
+  "version": "openudon.browser-author.v1",
+  "kind": "result",
+  "request_id": "sample-authenticated",
+  "request_sha256": "sha256:4ab8073a92464e8bf3387bfd84d85b61f029be517b2e892ab1808796bcde2d95",
+  "plan_sha256": "sha256:a4ba35c711fac42157039c98a97ad65c308893ef3fa2cb24f9927fb0f12a7235",
+  "outcome": "build_failed",
+  "written": [
+    "project.md",
+    "workflows/intent.hcl"
+  ],
+  "quality_status": "fail"
+}

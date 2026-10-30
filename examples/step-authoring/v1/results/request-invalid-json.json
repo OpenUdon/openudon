@@ -1,0 +1,13 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.candidates",
+  "status": "failed",
+  "diagnostics": [
+    {
+      "code": "request.invalid_json",
+      "severity": "error",
+      "message": "The request is not one valid UTF-8 JSON value."
+    }
+  ]
+}

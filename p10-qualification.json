@@ -1,0 +1,778 @@
+{
+  "version": "openudon.p10-local-qualification.v3",
+  "milestone": "OpenUdon:P10",
+  "dispatch_base": "f9f48a007d721b984bd26358b300cb5748f63754",
+  "original_goal_base": "c0b0d7aae77a9e68630f9e1d8bfe2a9525a0ddb6",
+  "integration_ref": "refs/heads/main",
+  "source_candidate": "Full final source commit and manifest follow this qualified local checkpoint; no self-hash is claimed.",
+  "formal_review": {
+    "counter": 3,
+    "state": "FAIL_3P2_all_repairs_verified_review4_pending",
+    "whole_acceptance": false,
+    "coordinator_review3_report": {
+      "path": "/home/peter/Workspace/openudon.goal/P10/docs/p10-review3.json",
+      "sha256": "3a9d4a3f5b45db4d68040e2e1445d93f5c10e9bee1aa7123e37e73f167e94e48",
+      "bytes": 2921
+    }
+  },
+  "publication": {
+    "performed": false,
+    "owner": "coordinator",
+    "required_gate": true
+  },
+  "effective_protected_child_grants": {},
+  "audit_enabled": false,
+  "isolation_context": {
+    "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/context.json",
+    "sha256": "fb75e055ec31f837848e7d195bfd1ecc4d4a80cbf4ed0636a41268c4ab95e7d6",
+    "bytes": 2102
+  },
+  "resolved_request_recovery": {
+    "path": "/home/peter/Workspace/kinet.goal/stage12-coordinator/recovery-20261010/resolved-request-current.txt",
+    "sha256": "25142d68beb74e1489a9c992738792effc35fda38e96da2182a5a55f1ad7392c",
+    "bytes": 15336
+  },
+  "checks": [
+    {
+      "label": "controlled-before-complete",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "test",
+        "-overlay=/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/before-overlay.json",
+        "-run",
+        "^(TestBrowserOptionalActualAccessMatchesAcquiringLeaf|TestBrowserRefusedContinuationCannotUpgradeInflightUncertainty|TestBrowserExplicitDenialWithholdsCandidateAndDurableSave|TestBrowserStoppingAnotherLeafCannotUpgradeCurrentUncertainty)$",
+        "-count=1",
+        "./runevidence"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS_CONTROLLED_NEGATIVE",
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/controlled-before-complete.log",
+        "sha256": "9a7e7450858eceb462368fade5158254c7065afb90d16f1115d4421853f62ccc",
+        "bytes": 1088
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/controlled-before-complete-receipt.json",
+        "sha256": "8bedc225ffa93fe9cf30a8293fd806c8cfc55f1dfa7c1c6e553d410353afb8b3",
+        "bytes": 3006
+      }
+    },
+    {
+      "label": "focused-complete",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "test",
+        "-count=1",
+        "./runevidence"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/focused-complete.log",
+        "sha256": "b3b88d2e1260ca76e6a5bccc4ba14d36401c41a2f763b99a386c2a854d015819",
+        "bytes": 53
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/focused-complete-receipt.json",
+        "sha256": "54c915530f05427ab60f01a984e3ec430e56e337d1bfcbd1693ba3e727344ea1",
+        "bytes": 2490
+      }
+    },
+    {
+      "label": "build-check-cli",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "build",
+        "-o",
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/openudon-check-cli",
+        "./cmd/openudon"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/build-check-cli.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/build-check-cli-receipt.json",
+        "sha256": "d51fa4456304fea640d9f6d0417a5a396021f7193fcbe4f56f436eb67b14a7ef",
+        "bytes": 2711
+      }
+    },
+    {
+      "label": "make-check",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "make",
+        "GO=/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/go-check",
+        "check"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/make-check.log",
+        "sha256": "6815f8c7e435ab46cbbb141b01e2bda9ebfd99e6450d8ba06c2e9914616ad3df",
+        "bytes": 5547
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/make-check-receipt.json",
+        "sha256": "54a64b613d6dc3bf3f0842fa9eb792da428be144ba7d12bc2ab2bdbc0653ebb0",
+        "bytes": 2665
+      }
+    },
+    {
+      "label": "full-vet",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/full-vet.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/full-vet-receipt.json",
+        "sha256": "3c81d9535e33cca931779ffa3563981ff8e5f0e2e297dad15a4caf429bfaf0ec",
+        "bytes": 2560
+      }
+    },
+    {
+      "label": "affected-race",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "./runevidence"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/affected-race.log",
+        "sha256": "59fd33645560dec0acf2221a9f2c0ea409b5b41ec02f9186d738a70459c1bc7f",
+        "bytes": 53
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/affected-race-receipt.json",
+        "sha256": "ebd73954a2c0f218bbe7d7dd37b4695794028d6beb2d1c13888fc2186069ca79",
+        "bytes": 2607
+      }
+    },
+    {
+      "label": "author-build",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "build",
+        "-mod=mod",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/author",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/author-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/author-build-receipt.json",
+        "sha256": "f3c64e04bc62817f4e418166121ee45eed2e6f4d3e422e45fc543bee39fc9490",
+        "bytes": 2668
+      }
+    },
+    {
+      "label": "exec-build",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "build",
+        "-mod=mod",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/exec",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/exec-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/exec-build-receipt.json",
+        "sha256": "a2eef3798bca5d2f38866d8ed9ac7b95e5ea117f4b5167105652185488a40765",
+        "bytes": 2662
+      }
+    },
+    {
+      "label": "owner-public-packages",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-deps",
+        "-compiled",
+        "-export",
+        "-json",
+        "./approval",
+        "./authority",
+        "./packagev3",
+        "./runevidence",
+        "./browsercontract",
+        "./browsertransaction",
+        "./browserverify"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/owner-public-packages.log",
+        "sha256": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
+        "bytes": 1217560
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/owner-public-packages-receipt.json",
+        "sha256": "31dbc47e549db7bcd5b1e59826d285efc9747be79cda9ad2bf42120041182480",
+        "bytes": 2785
+      }
+    },
+    {
+      "label": "author-packages",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-deps",
+        "-compiled",
+        "-export",
+        "-json",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/author",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/author-packages.log",
+        "sha256": "81bc3f5cd27145967c3b49a4f32c14e25454ac12568d246011d2934fab037ead",
+        "bytes": 1353615
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/author-packages-receipt.json",
+        "sha256": "5b8ba05a7eb60d5cb15b17e1cd013f6fa7f093188f2d4249371c7f28e8eee1fc",
+        "bytes": 2716
+      }
+    },
+    {
+      "label": "exec-packages",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-deps",
+        "-compiled",
+        "-export",
+        "-json",
+        "./..."
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/exec",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/exec-packages.log",
+        "sha256": "cdd0263aa99e58fc0a90404c35d1678b06ea70301bddd8c3bf2086f1ed3bab40",
+        "bytes": 2242339
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/exec-packages-receipt.json",
+        "sha256": "f2e49eb3dfbf797ce35ac112a05f58dc8290eb9824a176b4c944c80d56190884",
+        "bytes": 2710
+      }
+    },
+    {
+      "label": "final-gofmt",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "gofmt",
+        "-l",
+        "runevidence/browser.go",
+        "runevidence/browser_test.go",
+        "runevidence/browser_review3_test.go"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/final-gofmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/final-gofmt-receipt.json",
+        "sha256": "2d05a750e020e0883c4a1592b09e42ba019c8af8d75c89ee4bffcdb3adab5cdf",
+        "bytes": 2666
+      }
+    },
+    {
+      "label": "final-diff-check",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/final-diff-check.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/final-diff-check-receipt.json",
+        "sha256": "1c0d51fa0dbb1459ee1fd8180197ab9304a27d1ad85d6ed5e13699b0befa071f",
+        "bytes": 2583
+      }
+    }
+  ],
+  "full_owner_tests": {
+    "command": [
+      "go",
+      "test",
+      "./..."
+    ],
+    "qualified_by": "Required make check target; actual invocation and effective argv recorded, strict make succeeds with all test output. Avoid a redundant second full suite.",
+    "invocations": {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/go-check-invocations.jsonl",
+      "sha256": "6a0494c569a3eb39887c6d01e82f4d14d6ff1ccb16d3ba9a1171a017c5da1f09",
+      "bytes": 1573
+    }
+  },
+  "proofs": [
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/closure-consumer-wire.json",
+      "sha256": "3f3be1822b9c07ca4b4317992f6ccd276309490e7d5733a2cf426e83f6c40e1e",
+      "bytes": 2905184
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/compiled-exports.json",
+      "sha256": "30640519b965162295ac131044d1e683bd200e29ca96451989377d60a3128467",
+      "bytes": 447618
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/verify-closures.py",
+      "sha256": "15f52ea9a294131dea645780e51a5d5d8fe81d039309568bd7df886c19525520",
+      "bytes": 5970
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/run-current.py",
+      "sha256": "da8858d3e7c4908cb60f83dec85bdb1599272e882777603ad08eab03cd825b96",
+      "bytes": 1956
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/go-check",
+      "sha256": "24d9b927cf9f7c6fed9d5dc83efb350341230dd83e1458bd6c45ea2f49f07673",
+      "bytes": 902
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/openudon-check-cli",
+      "sha256": "de342651468c18fbadfc4cc201576dfb931e8ba6ea0a13f9b5790ed0bcdc706d",
+      "bytes": 50633587
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/before-overlay.json",
+      "sha256": "3f6c213041eb612f0b8b975bf9ea28c05be2f60006e417c5cb0ddc76c0cfada2",
+      "bytes": 200
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/browser-before-review3.go",
+      "sha256": "95f90f21be65763423bcde503681a194d60589afd5b9b6b3aa7cab707f516f91",
+      "bytes": 30478
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/controlled-inputs.json",
+      "sha256": "ecb68ca34da10d10a5de1a300a87ae9f68f693a098bf4592ced68a3b4646d4a4",
+      "bytes": 911
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/unchanged-check-lineage.json",
+      "sha256": "f6ab96acdf17f54fda9f9f5df9a3391934be7541e09c6eaae923c29375f22801",
+      "bytes": 14223
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/copy-manifest.json",
+      "sha256": "bdca596c6f76a3b398f0355619d36218374c4c5ba9c8f999eefbb94fad5fe752",
+      "bytes": 23792
+    }
+  ],
+  "restored_ordinary_inputs": {
+    "path": "/home/peter/Workspace/kinet.goal/stage12-coordinator/module-restoration-20261010/restoration-proof.json",
+    "sha256": "6dbc4dc3ab0367a83e2b69bd78da5a9cd368e1ff7b56855b9e05d2e4a13205fa",
+    "bytes": 142835
+  },
+  "restored_frozen_input_manifest": {
+    "path": "/home/peter/Workspace/kinet.goal/stage12-coordinator/frozen-inputs-restored-20261010/manifest.json",
+    "sha256": "d8e83c81a0fd9ae7610e56730a39991a8178c53b360e80cd51792814a90ceab9",
+    "bytes": 1095836
+  },
+  "graph_summary": {
+    "owner": {
+      "packages": 373,
+      "modules": 91,
+      "recursive_metadata_errors": 0,
+      "retained_openudon_packages": [],
+      "private_udon_packages": [],
+      "compiled_dependency_export_files": 372,
+      "nonstandard_source_fields_verified": 1812,
+      "package_listing_sha256": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
+      "module_listing_sha256": "7ab143a657dd41136c18e00f7c2d9a7b7f35d88856d367f68d6f1ca60e9ef468"
+    },
+    "author": {
+      "packages": 390,
+      "modules": 85,
+      "recursive_metadata_errors": 0,
+      "retained_openudon_packages": [],
+      "private_udon_packages": [],
+      "compiled_dependency_export_files": 389,
+      "nonstandard_source_fields_verified": 2108,
+      "package_listing_sha256": "81bc3f5cd27145967c3b49a4f32c14e25454ac12568d246011d2934fab037ead",
+      "module_listing_sha256": "94e5a4682d0a81dbb0d382fe13148deb77f8dc582042106a067b0b90617002af"
+    },
+    "exec": {
+      "packages": 519,
+      "modules": 171,
+      "recursive_metadata_errors": 0,
+      "retained_openudon_packages": [],
+      "private_udon_packages": [
+        "github.com/genelet/udon/pkg/datafile",
+        "github.com/genelet/udon/pkg/credentials",
+        "github.com/genelet/udon/internal/executionfailure",
+        "github.com/genelet/udon/pkg/httpbroker",
+        "github.com/genelet/udon/internal/executionreport",
+        "github.com/genelet/udon/pkg/registrationinput",
+        "github.com/genelet/udon/pkg/browserdriver",
+        "github.com/genelet/udon/pkg/pathutil",
+        "github.com/genelet/udon/internal/browserprofileloader",
+        "github.com/genelet/udon/pkg/uwsprofile",
+        "github.com/genelet/udon/internal/execcache",
+        "github.com/genelet/udon/pkg/runtimeplan",
+        "github.com/genelet/udon/internal/executionreportplan",
+        "github.com/genelet/udon/internal/metaclone",
+        "github.com/genelet/udon/pkg/openapi",
+        "github.com/genelet/udon/internal/openapilowering",
+        "github.com/genelet/udon/internal/requestbinding",
+        "github.com/genelet/udon/internal/schemaconv",
+        "github.com/genelet/udon/pkg/workflow",
+        "github.com/genelet/udon/internal/programview",
+        "github.com/genelet/udon/internal/sourceloader",
+        "github.com/genelet/udon/internal/uwsbridge",
+        "github.com/genelet/udon/pkg/flowctx",
+        "github.com/genelet/udon/spider/internal/deferval",
+        "github.com/genelet/udon/spider/internal/legacyflow",
+        "github.com/genelet/udon/spider/internal/triggerhost",
+        "github.com/genelet/udon/spider",
+        "github.com/genelet/udon/pkg/execute"
+      ],
+      "compiled_dependency_export_files": 518,
+      "nonstandard_source_fields_verified": 3340,
+      "package_listing_sha256": "cdd0263aa99e58fc0a90404c35d1678b06ea70301bddd8c3bf2086f1ed3bab40",
+      "module_listing_sha256": "899cc559ccb2b70909e4f83f81fa21db56892bafb8c4d95dc70bf1681e287167"
+    }
+  },
+  "source_archive_checks": {
+    "selected_modules": 194,
+    "nonstandard_compiled_source_fields": 7260,
+    "legacy_goldens": 20,
+    "public_wire_declarations": 16,
+    "frozen_public_declarations_unchanged": true,
+    "raw_m51_vector_sha256": "219f2700e34516a7f64d48392e184ffafabce6138c336742c20a0cee6ed62b35"
+  },
+  "frozen_m51_manifest_sha256": "0c445a5c90d2c09be561e713c364747f4ab9a3698ea8ab46e7b7b774ccf16bad",
+  "frozen_consumer_revision": "09834b632c713a514b084491804745416cc02f65",
+  "fixture_wiring": {
+    "make_check": "Only exact go run ./cmd/openudon check maps to freshly built actual lease CLI from exact restored frozen sibling cwd. All other targets run in actual lease. Effective argv/time/PID/cwd logged.",
+    "consumer_overlay": "Exact frozen09834b6 consumer bytes with explicit unpublished local SDK replacement only; exec retained version-only Docker-to-Moby replacement. No ordinary SDK adoption."
+  },
+  "review2_repairs": [
+    "Actual reuse and fresh permission rights bind the exact acquisition leaf.",
+    "Every supplied actual native access witness validates full binding, identity, outcome and acquisition; absent actual access uses empty join/trace access IDs, without a mandatory fresh lease.",
+    "Actually reused state is valid at report start and each consuming leaf start under unchanged creation/expiry; narrowed fresh fallback and later teardown stay supported."
+  ],
+  "controlled_negative_scope": "Frozen pre-review3 production source with the final new regression test file and complete source/argv/exit hashes: all three exact findings plus both cross-leaf stop regressions fail their intended assertions. Raw M51 JSON and old wires are unchanged.",
+  "supersedes": {
+    "source": "b6c54b7e99cbfc0910d1f4cb7834ccd229af7788",
+    "qualification_sha256": "8ae75290184cd5157dd40f7a056557b11332864b8dafb01eff9a599cbbe1febf",
+    "meaning": "Preserved review2 repair qualification and all proof artifacts; current revision3 repair evidence replaces only affected checks."
+  },
+  "interrupted_and_failed_evidence": [
+    {
+      "state": "UNQUALIFIED_INTERRUPTED",
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/full-test.log",
+        "sha256": "8fe9653d01eafb8a4730d5e12a3e704af46bd0796a5a864fcba12c99c1234ac6",
+        "bytes": 1375
+      },
+      "reason": "Partial original output with no final exit receipt; not a pass."
+    },
+    {
+      "state": "FAILED_OFFLINE_METADATA_MISSING",
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy.log",
+        "sha256": "98f3bc228aeb4c155da9aa38e13083aee0ba117a023d999de2852c9c4ccdfd2c",
+        "bytes": 113
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy-receipt.json",
+        "sha256": "250270c95d64958dd241eec414afbb996f2d8cc2b7de63bb3135273d6fc853d0",
+        "bytes": 2448
+      },
+      "reason": "Old exact transitive .mod metadata absent after restart; resolved using existing local files from unchanged go.sum."
+    }
+  ],
+  "historical_proof_availability_inventory": {
+    "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restart-inventory.json",
+    "sha256": "3c0b9284dbb79a417b502d2e2eecd32ce4277b15c2bb970ee2114a98f3fccd64",
+    "bytes": 218792
+  },
+  "limits": [
+    "Offline library and metadata conformance only; no actual browser/native containment/process qualification.",
+    "Root-only source publication, independently verified exact Git proof, full review4 and serialized integration/closure remain required and unperformed.",
+    "Consumer SDK replacements are explicitly prepublication fixture checks; ordinary published producer adoption remains downstream.",
+    "Standard-toolchain generated intermediates are not module-owned source records in the compiled closure proof."
+  ],
+  "retained_unchanged_checks": [
+    {
+      "label": "tidy-restored",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "mod",
+        "tidy"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy-restored.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy-restored-receipt.json",
+        "sha256": "908ac98f89f95921a764ebf73730ef01445aa980ebeb96b07efce2b772ffd9f4",
+        "bytes": 2465
+      }
+    },
+    {
+      "label": "tidy-diff",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "git",
+        "diff",
+        "--exit-code",
+        "--",
+        "go.mod",
+        "go.sum"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy-diff.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/tidy-diff-receipt.json",
+        "sha256": "dee18d63ed398681d5622d6ba9edeeb2160681a092f9278b5702e6a502efb491",
+        "bytes": 2507
+      }
+    },
+    {
+      "label": "mod-verify",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "mod",
+        "verify"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/mod-verify.log",
+        "sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+        "bytes": 21
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/mod-verify-receipt.json",
+        "sha256": "3509b1c5b3106c067d33115228d24ffb1845507e54f21082230986b6cdf3ed51",
+        "bytes": 2460
+      }
+    },
+    {
+      "label": "owner-modules",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/P10",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/owner-modules.log",
+        "sha256": "7ab143a657dd41136c18e00f7c2d9a7b7f35d88856d367f68d6f1ca60e9ef468",
+        "bytes": 44113
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/owner-modules-receipt.json",
+        "sha256": "33ece892e49ca407c5b6de0001df99591bb1051c97ddee23dd9c04361a3d67ed",
+        "bytes": 2490
+      }
+    },
+    {
+      "label": "author-modules",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/author",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/author-modules.log",
+        "sha256": "94e5a4682d0a81dbb0d382fe13148deb77f8dc582042106a067b0b90617002af",
+        "bytes": 45225
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/author-modules-receipt.json",
+        "sha256": "8be008749de8a78bb3cd1d65bcb1158e2e3389a1971c0e595a03f87377811a74",
+        "bytes": 2575
+      }
+    },
+    {
+      "label": "exec-modules",
+      "command": [
+        "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/offline",
+        "go",
+        "list",
+        "-m",
+        "-json",
+        "all"
+      ],
+      "cwd": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/consumers/workers/exec",
+      "result": "PASS_RETAINED_EXACT_LINEAGE",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "evidence": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/exec-modules.log",
+        "sha256": "899cc559ccb2b70909e4f83f81fa21db56892bafb8c4d95dc70bf1681e287167",
+        "bytes": 85596
+      },
+      "receipt": {
+        "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/exec-modules-receipt.json",
+        "sha256": "520c536219fc639cfdc345f6203aa15497a010ac95b3eb0cdb70951efcea2040",
+        "bytes": 2568
+      }
+    }
+  ],
+  "unchanged_check_lineage": {
+    "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/unchanged-check-lineage.json",
+    "sha256": "f6ab96acdf17f54fda9f9f5df9a3391934be7541e09c6eaae923c29375f22801",
+    "bytes": 14223
+  },
+  "retained_unaffected_race_checks": {
+    "source_packages": [
+      "packagev3",
+      "approval",
+      "authority",
+      "browsertransaction",
+      "browserverify",
+      "udonreport"
+    ],
+    "exact_source_files": 53,
+    "receipt": {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review2/restored-run-20261010/focused-race-receipt.json",
+      "sha256": "d02ce1458e35642ca2e5e488696659dcb64d084bd43de937905dd1ba2716cc29",
+      "bytes": 2628
+    },
+    "lineage": {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/unchanged-check-lineage.json",
+      "sha256": "f6ab96acdf17f54fda9f9f5df9a3391934be7541e09c6eaae923c29375f22801",
+      "bytes": 14223
+    },
+    "scope": "Unchanged package source with no Runevidence dependency; Runevidence has a fresh affected race check."
+  },
+  "review3_repairs": [
+    "All actual access witnesses bind the exact acquiring leaf/session/source, regardless of optional presence.",
+    "Every stop latches all dispatched still-unknown leaves; late success cannot upgrade uncertainty across refused continuations or other-leaf stops.",
+    "Explicit human denial withholds candidate and durable save; earlier completed outcomes and unrelated failure save permissions remain intact."
+  ],
+  "proof_output_root": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010",
+  "prior_controlled_attempts": [
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/controlled-before-receipt.json",
+      "sha256": "5427612d41ac356edfa65d13d5acbb6130a3d25719143d8dbf1168d6c824dfec",
+      "bytes": 2815
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/cross-leaf-before-receipt.json",
+      "sha256": "777a2f824ec5f62b9e3e0e161ffe76903d2833c44f687e72bf4201901ebb97fb",
+      "bytes": 2702
+    },
+    {
+      "path": "/home/peter/Workspace/openudon.goal/verification-P10-4m_d2i4b/proof-review3/fixes-20261010/focused-after-receipt.json",
+      "sha256": "3f4def0833bf78e995a9350f1dd3c8d6e3c4e43a9037540030c51a2313c50e76",
+      "bytes": 2483
+    }
+  ],
+  "review4_summary_correction": {
+    "finding": "P3 stale owner graph summary hash",
+    "priorValue": "75858df2fd1b5ac4574951773109fa2bd115ff5048911c2a5a8486e65289ff5d",
+    "correctValue": "cefebd252d84e2f357340ec7759e6c0a57aae998c16dc40e9c7826692fb3e86b",
+    "basis": "Actual current hashed owner-public-packages log, current check receipt and compiled closure proof agree",
+    "scope": "Summary metadata only; no source, command result, module, API, schema or oracle change; frozenb75candidate preserves previous summary bytes"
+  }
+}

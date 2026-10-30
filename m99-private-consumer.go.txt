@@ -1,0 +1,38 @@
+package main
+import (
+ "context"
+ "encoding/json"
+ "fmt"
+ "strings"
+ "time"
+ "github.com/OpenUdon/openudon/approval"
+ "github.com/OpenUdon/openudon/packagev3"
+ "github.com/OpenUdon/openudon/wire"
+ "github.com/OpenUdon/uws/binding"
+ "github.com/genelet/udon/pkg/execute"
+)
+const revision="cd99ccdaa84bd7b0df16e8b9c81bd2e52abd1fd5"
+const workflow=`uws: 1.13.0
+info: {title: Adapter, version: '1'}
+operations:
+ - operationId: one
+   effect: read
+   x-uws-operation-profile: uws.runtime.1.0
+   x-uws-runtime: {type: fnct, function: identity, arguments: [literal]}
+workflows:
+ - workflowId: main
+   type: sequence
+   steps: [{stepId: one, operationRef: one}]
+`
+func main(){
+ ctx:=context.Background();catalog,err:=execute.RuntimeFunctionCatalog(ctx,revision);if err!=nil{panic("catalog")};table,err:=catalog.Table.Marshal();if err!=nil{panic("table")}
+ verifier:=func(ctx context.Context,rev string,raw []byte,table binding.ShapeTable)error{if rev!=revision{panic("unexpected revision")};return execute.VerifyRuntimeFunctionCatalog(ctx,revision,execute.FunctionCatalog{SourceJSON:raw,Table:table})}
+ p,err:=packagev3.Build(ctx,packagev3.BuildOptions{Scope:"workflows/W01-adapter",WorkflowYAML:[]byte(workflow),DataJSON:[]byte(`{}`),Sources:[]packagev3.SourceInput{{ID:packagev3.RuntimeSourceID,Kind:packagev3.RuntimeSourceKind,Path:"sources/runtime-function/catalog.json",Bytes:catalog.SourceJSON,ShapesJSON:table}},RuntimeVerifier:verifier});if err!=nil{panic("build")}
+ v,err:=packagev3.Verify(ctx,packagev3.VerifyOptions{Scope:p.Manifest.Scope,ExpectedSHA256:p.SHA256,Files:p.Files,RuntimeVerifier:verifier});if err!=nil{panic("verification")}
+ admission:=func(ctx context.Context,r packagev3.RuntimeAdmissionRequest)error{if r.RuntimeRevision!=revision{panic("wrong worker source")};doc,_,err:=packagev3.DecodeWorkflow(ctx,r.WorkflowYAML);if err!=nil{return err};var inputs map[string]any;if wire.DecodeStrictNumbers(r.DataJSON,&inputs)!=nil{panic("data")};host:=execute.Host{Inputs:inputs};plan,err:=execute.Compile(ctx,doc,host);if err!=nil{return err};return execute.CheckSupported(ctx,execute.Request{Plan:plan},host)}
+ options:=packagev3.ExecutionOptions{Worker:packagev3.WorkerIdentity{BinarySHA256:strings.Repeat("a",64),ClosureSHA256:strings.Repeat("b",64),RuntimeRevision:revision},RuntimeAdmission:admission};plan,err:=packagev3.DeriveExecutionPlan(ctx,v,options);if err!=nil{panic("derive")}
+ if packagev3.CheckExecutionPlan(ctx,v,options,plan)!=nil{panic("plan check")}
+ now:=time.Date(2026,10,7,12,0,0,0,time.UTC);a:=approval.Approval{Version:approval.Version,Scope:p.Manifest.Scope,State:approval.StateApprovedForSandbox,Reviewer:"synthetic-owner",ApprovedAt:now.Add(-time.Minute).Format(time.RFC3339),ExpiresAt:now.Add(time.Minute).Format(time.RFC3339),PackageSHA256:p.SHA256}
+ if packagev3.CheckExecutionApproval(ctx,v,packagev3.ExecutionApprovalOptions{Execution:options,ExpectedPlanSHA256:plan.PlanSHA256,Approval:a,Tier:"sandbox",Now:now})!=nil{panic("approval")}
+ encoded,_:=json.Marshal(map[string]any{"source_revision":revision,"catalog_operations":len(catalog.Table.Operations),"package_verified":true,"native_admission":true,"exact_plan_approval":true,"effects":0,"note":"local bootstrap SDK with ordinary prerequisites/runtime modules; synthetic worker identity; zero-effect admission qualification"});fmt.Println(string(encoded))
+}

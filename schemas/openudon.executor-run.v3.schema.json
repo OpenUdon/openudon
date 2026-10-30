@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.executor-run.v3.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "scope",
+    "tier",
+    "package_root",
+    "workdir",
+    "workflow_path",
+    "workflow_format",
+    "package_paths",
+    "package_sha256",
+    "handoff_sha256",
+    "approval_sha256",
+    "executor_report_version",
+    "direct_production_run",
+    "broker"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.executor-run.v3"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "tier": {
+      "type": "string"
+    },
+    "package_root": {
+      "type": "string"
+    },
+    "workdir": {
+      "type": "string"
+    },
+    "workflow_path": {
+      "type": "string"
+    },
+    "workflow_format": {
+      "type": "string"
+    },
+    "api_source_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "openapi_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "package_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "credential_bindings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "handoff_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "approval_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "data_files": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "executor_report_version": {
+      "const": "udon.execution-report.v5"
+    },
+    "browser": false,
+    "direct_production_run": {
+      "const": false
+    },
+    "broker": {
+      "$ref": "openudon.broker-authority.v1.schema.json"
+    }
+  }
+}

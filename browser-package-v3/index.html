@@ -1,0 +1,1137 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/browser-package-v3/">
+      
+      
+        <link rel="prev" href="../package-v3/">
+      
+      
+        <link rel="next" href="../broker-execution-handoff/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Browser Supplement - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#package-v3-browser-supplement" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Browser Supplement
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../public-trust-api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Public Trust APIs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../package-v3/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Package V3
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Browser Supplement
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../broker-execution-handoff/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Broker Handoff
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../per-step-run-evidence/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Run Evidence
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../legacy-cli-retirement/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CLI Retirement
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../compatibility/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compatibility
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../public-trust-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public Trust APIs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-v3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Package V3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Supplement
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Supplement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#browser-output-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser output references
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authored-authentication-timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authored authentication timing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-verification-subset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public verification subset
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browser-approval-and-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser approval and Authority
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#independent-browser-report-and-run-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Independent browser report and run evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../broker-execution-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Broker Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../per-step-run-evidence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run Evidence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../legacy-cli-retirement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Retirement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#browser-output-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser output references
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authored-authentication-timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authored authentication timing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-verification-subset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public verification subset
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browser-approval-and-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser approval and Authority
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#independent-browser-report-and-run-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Independent browser report and run evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="package-v3-browser-supplement">Package v3 browser supplement</h1>
+<p>P10 adds an explicit browser supplement to the public <code>packagev3</code> byte API.
+It consumes ordinary published Browsertools M33
+<code>v0.0.0-20261010115646-1859f5e34367</code> and UWS C10
+<code>v0.0.0-20261009220914-f01a2542410c</code>. The independent retained HCL codec stays
+at <code>v0.0.0-20261008043726-b099f6803277</code>.</p>
+<p><code>SourceInput.Kind == "browser-profile"</code> admits exact native action,
+authentication and registration profile bytes under <code>sources/browser-profile/</code>.
+Build and Verify independently reproduce the complete shape table with
+Browsertools; caller-created shapes or matching hashes alone establish no proof.
+Selected digests cover complete lossless native action/flow subtrees, while
+source digests separately cover every original byte, including shared contexts.
+Native schema validity and runtime admission are separate checks.</p>
+<p>Browser packages include <code>expected/browser.json</code> (<code>openudon.browser-supplement.v1</code>)
+in the manifest/input digest and complete handoff inventory. The manifest's
+optional <code>browser</code> reference and <code>browser_reviews</code> inventory bind that supplement
+and its separately reviewed artifacts. Non-browser packages omit both fields
+and preserve the existing package/assessment/handoff/plan bytes and digests.</p>
+<p>The supplement binds the exact ordered browser leaves in one straight-line
+workflow, source/selected hashes, per-leaf protocol pair, complete origins,
+effects, confirmation-policy digest, symbolic credential names and declared
+registration input binding. A browser call never carries credential values,
+registration snapshots, browser state, local paths or driver arguments.
+<code>BrowserBuildOptions.Permissions</code> makes explicit per-step reuse/save choices;
+zero values select fresh contexts. Unknown step choices, registration reuse/save,
+or action save permissions refuse. The host separately confirms current
+credential/session authority and supplies isolated runtime admission.</p>
+<p><code>VerifiedPackage.BrowserSupplement()</code> returns an independent copy. The existing
+execution plan adds an optional <code>browser</code> call only for browser leaves and
+requires the host's implementing runtime admission before deriving their plan.
+Old non-browser approvals never acquire browser authority by this addition.</p>
+<p>These APIs perform no browser launch, external request or private-runtime import.
+Kinet M56/M52 own actual containment/custody and later actual producer
+interoperability qualification. Frozen synthetic M51 vectors are metadata
+conformance inputs and grant no execution authority.</p>
+<h2 id="browser-output-references">Browser output references</h2>
+<p>P11 resolves <code>$response.body#/result_count</code> and
+<code>$response.body.result_count</code> against M33's body output named <code>result_count</code>.
+The first decoded path token selects the native name; any remaining tokens
+project inside that exact output declaration. Source declarations, extraction
+annotations, numeric spellings and independently reproduced shapes remain
+unchanged. Operation, step and workflow exports keep their distinct owners;
+downstream references require an explicit preceding step output and a compatible
+source-backed type. Authentication security uncertainty remains independent.</p>
+<p>Whole-body expressions have no individual named declaration and refuse,
+including when an output is literally named <code>body</code>. Missing names, malformed
+pointers and nested or array paths into scalar outputs refuse. Unproved schema
+projections remain indeterminate. HTTP body/header/status references retain
+their existing semantics; mixed browser/HTTP packages still permit review only.</p>
+<p>This correction changes generated assessments and package/handoff identities
+where P10 incorrectly rejected named outputs. Existing package bytes remain
+readable through <code>InspectHistory</code> with <code>ReadOnly=true</code> and <code>SourceProof=false</code>.
+<code>Verify</code> continues to require an exactly matching current assessment; it rejects
+stale generated proof. A corrected rebuild needs its own current package/plan
+approval, and historical approvals never transfer. No schema or wire version
+changes. The separate immutable
+<code>packagev3/testdata/browser/p11-p10-named-output-package.json</code> fixture records
+the original P10 package without rewriting the existing corpus.</p>
+<h2 id="authored-authentication-timing">Authored authentication timing</h2>
+<p>Authentication call profiles <code>uws.browser-authentication-call.1.0</code> and <code>.1.1</code>
+may carry the existing operation-level <code>timeout</code> number in seconds. A supplied
+value must be finite, greater than zero and at most 600. Both supplement and
+execution-plan construction require independently verified authentication
+provenance and preserve every other flat restriction. Action, registration,
+HTTP, function, step and workflow timing restrictions remain unchanged.</p>
+<p>Omitted timing preserves public proof/history and existing metadata behavior;
+actual native admission still refuses an untimed authentication. These APIs
+never insert timing or rewrite approved bytes. A freshly authored timed
+successor changes the existing workflow/package/constraints/plan bindings and
+needs its own exact approval and Authority. No wire or schema version changes.
+<a href="../p12-browser-auth-timeout-contract/">The authored contract</a> separates these
+public rules from <a href="../p12-compatibility/">passing joint source compatibility</a>,
+pending publication and Kinet adoption. Physical proof remains Kinet M53.4.</p>
+<h2 id="public-verification-subset">Public verification subset</h2>
+<p>Public <code>browsertransaction</code> supports the unchanged transaction receipt v1–v4
+records, canonical digests, strict decoding and closed lifecycle transitions.
+The retained CLI consumes aliases to that public implementation; no authoring
+engine, synthesis, wizard, runtime or trusted-runner package enters its closure.
+All original transaction and report regression tests remain active at their
+public owner paths, and the focused Make verification selector follows them.</p>
+<p>Public <code>browserverify.InspectBytes</code> verifies explicit value-free live/portability
+reports against one exact native profile without filesystem/browser access.
+The retained file readers preserve their earlier bounded regular-file checks.
+<code>DecodeCaptureReceipt</code> reads the unchanged <code>openudon.browser-capture-import.v1</code>
+wire with transaction versions1–4. <code>VerifyCaptureReceipt</code> requires independently
+retained original receipt/start/transaction identities and exact public
+source/review bytes; changed/missing/expired evidence refuses. Omitting <code>At</code>
+is historical byte inspection only. Current adoption requires the host's time,
+issued original capture identity and separate human confirmation.</p>
+<p>Package review artifacts remain bounded explicit reviewed inputs. Their hashes
+enter the supplement and complete package input identity; possessing those
+bytes never proves an actual capture or supplies new host authority. Kinet's
+capture adapter uses the public receipt verifier before adopting an issued
+capture. No raw private envelope, live browser state, credential or model input
+is promoted into the public verification subset.</p>
+<h2 id="browser-approval-and-authority">Browser approval and Authority</h2>
+<p>The additive <code>openudon.browser-approval.v1</code> receipt is sandbox-only, independent
+of existing approval v1/v2. It binds the complete browser plan/calls, owner,
+agent, attempt, source/package/input/supplement identities, worker/driver,
+original deadline, exact origins, symbolic credential revisions and the single
+optional durable-session permission. <code>ReviewBrowserConfig</code> constructs only
+review metadata; Kinet still renders and confirms its exact bytes.</p>
+<p>Construction is acyclic: finalize the exact human receipt without an enclosing
+Config/Authority hash, obtain independent host facts, construct Config with the
+receipt byte hash, then compute its complete lossless canonical hash and
+Authority. <code>DeriveBrowserAuthority</code> requires a verified package, native runtime
+admission, independently expected current Config, exact finalized receipt,
+separately confirmed plan hash and explicit host time. It reproduces every
+browser call and refuses changed bytes/identities, expired execution deadlines,
+future session creation and widened origins/credentials/reuse/save permissions.
+The original saved-session expiry remains immutable metadata: authority may be
+derived before, at or after that expiry under a current finalized execution
+receipt and deadline. Native acquisition and host custody/revocation checks
+decide actual saved-state eligibility; authority never renews its lifetime or
+clears approved configuration permissions. Existing
+<code>CheckExecutionApproval</code> refuses any browser leaf; old approvals never transfer.</p>
+<p>Config contains names/revisions and opaque independent host references only.
+It carries no executable paths/arguments, environment names, credentials,
+registration snapshots, private value hashes or storage state. One optional
+session binding and at most one candidate-producing authentication save
+permission are supported. Other fresh named contexts remain allowed. Current
+policy, actual closure provenance, durable claims, credentials/session
+revocation and browser interaction authority remain separate host obligations.</p>
+<h2 id="independent-browser-report-and-run-evidence">Independent browser report and run evidence</h2>
+<p><code>runevidence.ObserveBrowserReport</code> takes independently expected Config,
+complete approved report inventory and trusted host witnesses, separately from
+submitted unchanged report-v5 bytes. It checks every message claim/send and
+request/ordinal/protocol/question identity, contained launch, original deadline,
+complete current credential lease, joined transport/driver/Chromium/callbacks,
+registration context closure and bounded session candidate/save/release order.
+Typed errors, extraction failure, missing responses, cancellation and crashes
+remain unknown after any possible dispatch; all following leaves stay unstarted.
+A successful complete leaf remains known across a separate checkpoint failure.
+Unknown cannot authorize retry, continuation or fresh-session fallback.</p>
+<p>A positive non-dispatch witness must cover the complete same attempt/inventory,
+all initial and continuation messages and positively joined ownership. It can
+only establish eligibility to propose a distinct newly confirmed successor;
+old approval/claims are never transferred. Missing reports and <code>not_started</code>
+without that witness establish no successor eligibility.</p>
+<p><code>openudon.browser-run-evidence.v1</code> is a separate closed, value-free wire using the
+frozen BrowserConfig declarations and unchanged report observation. Its verifier
+requires exact expected Authority/Config/scope/dry-run mode/report bytes and
+independent trusted witnesses. No self-reported trace, booleans or hash can
+supply host authority; current state and actual containment provenance remain
+Kinet checks. Existing RunEvidence and legacy BrowserConfig/wires stay unchanged.</p>
+<p>The selected M51 executable profile is a complete flat <strong>browser-only</strong> inventory.
+Mixed HTTP/fnct/browser packages remain review inputs and refuse execution plan/
+Authority derivation before native admission or host access. Pure HTTP/fnct
+profiles remain supported under their existing contracts. No multi-kind host
+ABI is invented. Actual consumer isolation/interoperability remains M56/M52.</p>
+<p>The exact frozen M51 corpus qualifies 34 metadata report/host cases independently.
+Test adapters explicitly identify fixture-only worker/handoff/driver placeholders;
+they establish no actual process, browser, credential or containment proof.
+Credential revisions are opaque native symbolic revision IDs, not invented SHA
+fields. An optional session with no reuse/save permission can describe a fresh
+access binding; registration input binding remains optional report metadata,
+while package construction still requires its exact native declaration.</p>
+<p>Independent launch witnesses must carry the observed native containment's nonce,
+worker identity/closure and driver closure. Expected Config and opaque fact
+references cannot stand in for these actual facts. Reuse/save additionally need
+an observed exact durable access lease and binding identity/generation/timestamps.
+Missing/expired-to-fresh fallback requires both observed reuse and save
+permissions to be false; that fallback stays before launch and all dispatch,
+on the same access binding with unchanged generation and timestamps. It cannot
+produce a candidate or durable save. The approved Config retains its exact
+original permissions and hash separately from observed actual access rights.
+Fresh-only work may omit acquisition and requires no invented durable lease.
+Actual M56/M52 adapters project native observed facts; the immutable test vectors
+use explicitly labeled fixture-only projections and establish no containment.</p>
+<p>The new evidence serializer validates closed Config, observation, timestamps,
+identity and sandbox/dry/native posture before emitting bytes. In-flight denial
+latches terminal uncertainty, so a subsequent success response cannot resurrect
+the denied leaf. Existing completed leaves survive a separate checkpoint failure.</p>
+<p>Every supplied access witness is checked even when access presence is optional.
+It must match a completed acquisition before launch. Absent actual access uses
+empty join and dispatch trace access identities; optional metadata alone does
+not require a durable lease or acquisition.
+It projects actual native owner/agent/profile/authentication digests, credential
+revisions, origins and binding identity/generation/timestamps. Source identity
+comes from the unique approved same-session authentication/action sources. An
+auth-only plan with no derivable action-profile digest needs a separately
+independent expected native binding projection anchored to Config's opaque
+binding hash; unsupported or ambiguous identity refuses. The verifier never
+decodes that hash, computes a new native binding algorithm or copies expected
+facts as actual observation. Actual acquisition uses the exact leaf's name,
+source and permissions; global union rights cannot authorize another leaf.
+This exact acquiring-leaf name and source check also applies to a supplied
+fresh access witness with no reuse or save permission. Fresh registration
+metadata does not invent an authentication-bound native lease.</p>
+<p>Actually reused saved access requires creation at or before report start, start
+strictly before unchanged expiry, and each relevant named-session leaf start
+within those same bounds. Later teardown/report finalization remains allowed.
+Unused expired metadata during narrowed pre-launch fresh fallback is distinct
+from actually reused state and creates no new timestamp authority or permission.</p>
+<p>When execution stops, every dispatched leaf still in an unknown state becomes
+terminal. A refused continuation or a stop concerning another leaf cannot
+permit a late success to replace that uncertainty. Earlier completed leaves and
+undispatched leaves retain their outcomes. Explicit human denial also withholds
+subsequent session candidates and durable saving, including saving a candidate
+staged by earlier successful authentication. Unrelated machine failures do not
+cancel an otherwise valid one-use save permission.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

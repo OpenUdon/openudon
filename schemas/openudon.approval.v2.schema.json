@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.org/schemas/openudon.approval.v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "scope",
+    "state",
+    "reviewer",
+    "approved_at",
+    "expires_at",
+    "package_sha256",
+    "broker"
+  ],
+  "properties": {
+    "version": {
+      "const": "openudon.approval.v2"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "approved_for_sandbox",
+        "approved_for_production"
+      ]
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "package_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "broker": {
+      "$ref": "openudon.broker-authority.v1.schema.json"
+    }
+  }
+}

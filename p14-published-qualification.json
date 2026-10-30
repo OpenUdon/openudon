@@ -1,0 +1,830 @@
+{
+  "version": "openudon.p14-published-qualification.v1",
+  "state": "accepted/retired after fresh authoritative whole2/10; P14-W1/W2 resolved and P3 stale README wording reconciled",
+  "human_approval": "Kinet docs/stage13-scoped-approval-20261025.json; actual I approve for frozen d9be4... proposal",
+  "published_source": {
+    "version": "stage13.github-publication-verified.v1",
+    "repository": "OpenUdon/openudon",
+    "ref": "refs/heads/stage13/p14-authoring-cards-e486fee4",
+    "revision": "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+    "tree": "28e09f657c86c76a40821b01187a2695c4c55718",
+    "commit_time": "2026-10-25T10:39:23Z",
+    "source": "independent GitHub connector GET exact ref + git commit",
+    "ref_response": {
+      "ref": "refs/heads/stage13/p14-authoring-cards-e486fee4",
+      "node_id": "REF_kwDOSO0Z6doAL3JlZnMvaGVhZHMvc3RhZ2UxMy9wMTQtYXV0aG9yaW5nLWNhcmRzLWU0ODZmZWU0",
+      "url": "https://api.github.com/repos/OpenUdon/openudon/git/refs/heads/stage13/p14-authoring-cards-e486fee4",
+      "object": {
+        "sha": "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+        "type": "commit",
+        "url": "https://api.github.com/repos/OpenUdon/openudon/git/commits/e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0"
+      }
+    },
+    "commit_response": {
+      "sha": "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+      "node_id": "C_kwDOSO0Z6doAKGU0ODZmZWU0ZjhiODVkOGJkYzBjOTJlYzg3Y2Y2YzA1Yzk0NzI2YzA",
+      "url": "https://api.github.com/repos/OpenUdon/openudon/git/commits/e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+      "html_url": "https://github.com/OpenUdon/openudon/commit/e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+      "author": {
+        "name": "Peter Bi",
+        "email": "genelet@gmail.com",
+        "date": "2026-10-25T10:39:23Z"
+      },
+      "committer": {
+        "name": "Peter Bi",
+        "email": "genelet@gmail.com",
+        "date": "2026-10-25T10:39:23Z"
+      },
+      "tree": {
+        "sha": "28e09f657c86c76a40821b01187a2695c4c55718",
+        "url": "https://api.github.com/repos/OpenUdon/openudon/git/trees/28e09f657c86c76a40821b01187a2695c4c55718"
+      },
+      "message": "docs: retain P14 Unicode correction qualification",
+      "parents": [
+        {
+          "sha": "e3bd5b07b1509e831be834f0e37aaba572f44975",
+          "url": "https://api.github.com/repos/OpenUdon/openudon/git/commits/e3bd5b07b1509e831be834f0e37aaba572f44975",
+          "html_url": "https://github.com/OpenUdon/openudon/commit/e3bd5b07b1509e831be834f0e37aaba572f44975"
+        }
+      ],
+      "verification": {
+        "verified": false,
+        "reason": "unsigned",
+        "signature": null,
+        "payload": null,
+        "verified_at": null
+      }
+    }
+  },
+  "acquisition": {
+    "kind": "stage13.ordinary-acquisition.v1",
+    "module": "github.com/OpenUdon/openudon",
+    "version": "v0.1.1-0.20261025103923-e486fee4f8b8",
+    "argv": [
+      "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "mod",
+      "download",
+      "-json",
+      "github.com/OpenUdon/openudon@v0.1.1-0.20261025103923-e486fee4f8b8"
+    ],
+    "cache": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache",
+    "GOPATH_sumdb_storage": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/pkg/sumdb",
+    "wall_seconds": 14.913329,
+    "exit": 0,
+    "original_wait": true,
+    "both_eof": true,
+    "timed_out": false,
+    "signals": [],
+    "errors": [],
+    "outputs": [
+      {
+        "path": "/tmp/k13-8f7f/p14-acquisition1.stdout.log",
+        "bytes": 1160,
+        "sha256": "d6d43b01f59039156c47205d31fa59f068f210962c84095dd5752996ba4c2e8d"
+      },
+      {
+        "path": "/tmp/k13-8f7f/p14-acquisition1.stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "download": {
+      "Path": "github.com/OpenUdon/openudon",
+      "Version": "v0.1.1-0.20261025103923-e486fee4f8b8",
+      "Info": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/!open!udon/openudon/@v/v0.1.1-0.20261025103923-e486fee4f8b8.info",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/!open!udon/openudon/@v/v0.1.1-0.20261025103923-e486fee4f8b8.mod",
+      "Zip": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/!open!udon/openudon/@v/v0.1.1-0.20261025103923-e486fee4f8b8.zip",
+      "Dir": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/github.com/!open!udon/openudon@v0.1.1-0.20261025103923-e486fee4f8b8",
+      "Sum": "h1:Ol4B+LsHaZnL7ASGTgrZf5WeAuna/hYkaxUSoI1esfw=",
+      "GoModSum": "h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g=",
+      "Origin": {
+        "VCS": "git",
+        "URL": "https://github.com/OpenUdon/openudon",
+        "Hash": "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0"
+      }
+    },
+    "verified": true
+  },
+  "publication_attempt1": {
+    "kind": "stage13.producer-publication.v1",
+    "repository": "/home/peter/Workspace/openudon",
+    "revision": "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0",
+    "tree": "28e09f657c86c76a40821b01187a2695c4c55718",
+    "ref": "refs/heads/stage13/p14-authoring-cards-e486fee4",
+    "argv": [
+      "git",
+      "-c",
+      "push.followTags=false",
+      "push",
+      "--porcelain",
+      "--force-with-lease=refs/heads/stage13/p14-authoring-cards-e486fee4:",
+      "origin",
+      "e486fee4f8b85d8bdc0c92ec87cf6c05c94726c0:refs/heads/stage13/p14-authoring-cards-e486fee4"
+    ],
+    "wall_seconds": 2.022408,
+    "exit": 0,
+    "original_wait": true,
+    "both_eof": true,
+    "timed_out": false,
+    "signals": [],
+    "reader_errors": [],
+    "outputs": [
+      {
+        "path": "/tmp/k13-8f7f/p14-publication1.stdout.log",
+        "bytes": 153,
+        "sha256": "8c3aab887ffd9366f5e47c4eff58134673e4c489a32d9d037a51d5db679d8e96"
+      },
+      {
+        "path": "/tmp/k13-8f7f/p14-publication1.stderr.log",
+        "bytes": 226,
+        "sha256": "2dc00333f6d3f56dc6a2cd54c926dbc557e55cf8ac34dcc46aa67b92bacfcaa0"
+      }
+    ],
+    "push_success": true,
+    "independent_publication_verified": false
+  },
+  "readiness": {
+    "kind": "stage13.offline-ordinary-consumer.v1",
+    "work": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14",
+    "mode": "p14-readiness1",
+    "offline": true,
+    "commands": [
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "mod",
+          "tidy"
+        ],
+        "wall_seconds": 0.115133,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-readiness1.0.stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-readiness1.0.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "list",
+          "-m",
+          "-json",
+          "all"
+        ],
+        "wall_seconds": 0.008228,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-readiness1.1.stdout.log",
+            "bytes": 9084,
+            "sha256": "c963053836e32bfe5fcad489346f501f6a6a9fd3febebbcb3eccff0839d98c1b"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-readiness1.1.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      }
+    ],
+    "wall_seconds": 0.123821,
+    "passed": true,
+    "file_stdout_stderr_not_pipe_eof_claim": true,
+    "inputs": [
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/conformance_test.go",
+        "sha256": "19ac32982734c405c609c20b663418e830c7d7c115772e862e142476ccc26297"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/go.sum",
+        "sha256": "beb8a9204133d13824c25b64b3a230b83d54c68a9676b6b308e766046ad860e0"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/go.mod",
+        "sha256": "6a2b7bd95e0e07da3c238666c571bf3a95c8791d39d9e2f6f832f988618e9f11"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/main.go",
+        "sha256": "2035a08b3af21d7ae858ea0a1ed053e7c09735c071cc1ff7a1b4c61a2c8aa3fd"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/fixture-input.json",
+        "sha256": "a59cecdb6435f3eb0eae254e47691015be052b65f86e82d77a912f9692f4d15b"
+      }
+    ]
+  },
+  "consumer_qualification": {
+    "kind": "stage13.offline-ordinary-consumer.v1",
+    "work": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14",
+    "mode": "p14-qualify1",
+    "offline": true,
+    "commands": [
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "test",
+          "-json",
+          "./...",
+          "-count=1",
+          "-timeout=2m"
+        ],
+        "wall_seconds": 0.666524,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.0.stdout.log",
+            "bytes": 27376,
+            "sha256": "e5f2883a48e143423697365de7173e5fb2c1cf0854a7b03507bfe8fa5f4da82a"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.0.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "vet",
+          "./..."
+        ],
+        "wall_seconds": 0.215372,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.1.stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.1.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "build",
+          "-o",
+          "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/probe",
+          "."
+        ],
+        "wall_seconds": 0.366041,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.2.stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.2.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "argv": [
+          "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/probe",
+          "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/github.com/!open!udon/openudon@v0.1.1-0.20261025103923-e486fee4f8b8/docs/fixtures/authoring-card-v1/complete.json"
+        ],
+        "wall_seconds": 0.032836,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.3.stdout.log",
+            "bytes": 1976,
+            "sha256": "0fc26ecbee97ad14671c6f0e0ccd817a90658f5b2fa9bc77e8966fc01dce7a49"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.3.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      },
+      {
+        "argv": [
+          "/home/peter/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "version",
+          "-m",
+          "-json",
+          "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/probe"
+        ],
+        "wall_seconds": 0.008177,
+        "exit": 0,
+        "original_wait": true,
+        "timed_out": false,
+        "outputs": [
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.4.stdout.log",
+            "bytes": 1062,
+            "sha256": "fc8353a91776fefc0ee8ab5bc7ced67e1a04b5790d41db700f6b0d62566562e0"
+          },
+          {
+            "path": "/tmp/k13-8f7f/p14-qualify1.4.stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ]
+      }
+    ],
+    "wall_seconds": 1.290293,
+    "passed": true,
+    "file_stdout_stderr_not_pipe_eof_claim": true,
+    "inputs": [
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/conformance_test.go",
+        "sha256": "19ac32982734c405c609c20b663418e830c7d7c115772e862e142476ccc26297"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/go.sum",
+        "sha256": "beb8a9204133d13824c25b64b3a230b83d54c68a9676b6b308e766046ad860e0"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/go.mod",
+        "sha256": "6a2b7bd95e0e07da3c238666c571bf3a95c8791d39d9e2f6f832f988618e9f11"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/main.go",
+        "sha256": "2035a08b3af21d7ae858ea0a1ed053e7c09735c071cc1ff7a1b4c61a2c8aa3fd"
+      },
+      {
+        "path": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/fixture-input.json",
+        "sha256": "a59cecdb6435f3eb0eae254e47691015be052b65f86e82d77a912f9692f4d15b"
+      }
+    ]
+  },
+  "selected_modules": [
+    {
+      "Path": "example.invalid/stage13/p14consumer",
+      "Main": true,
+      "Dir": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stg13-producer-consumers/p14/go.mod",
+      "GoVersion": "1.26.6"
+    },
+    {
+      "Path": "github.com/OpenUdon/apitools",
+      "Version": "v0.0.0-20261008061439-f2c5693ec39a",
+      "Time": "2026-10-08T06:14:39Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/asyncapi",
+      "Version": "v0.1.0",
+      "Time": "2026-05-27T15:22:41Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/authoring",
+      "Version": "v0.0.0-20260930234600-18056cb6b0c1",
+      "Time": "2026-09-30T23:46:00Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/awssmithy",
+      "Version": "v0.0.0-20260520213111-549a060a5e28",
+      "Time": "2026-05-20T21:31:11Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/browsertools",
+      "Version": "v0.0.0-20261010115646-1859f5e34367",
+      "Time": "2026-10-10T11:56:46Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/evidence",
+      "Version": "v0.0.0-20260815084845-0c17258b9736",
+      "Time": "2026-08-15T08:48:45Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/googlediscovery",
+      "Version": "v0.0.0-20260520203137-c02129a009fc",
+      "Time": "2026-05-20T20:31:37Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/oas",
+      "Version": "v0.0.0-20260507023120-7fb319711323",
+      "Time": "2026-05-07T02:31:20Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/openudon",
+      "Version": "v0.1.1-0.20261025103923-e486fee4f8b8",
+      "Time": "2026-10-25T10:39:23Z",
+      "Dir": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/github.com/!open!udon/openudon@v0.1.1-0.20261025103923-e486fee4f8b8",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/!open!udon/openudon/@v/v0.1.1-0.20261025103923-e486fee4f8b8.mod",
+      "GoVersion": "1.26.6",
+      "Sum": "h1:Ol4B+LsHaZnL7ASGTgrZf5WeAuna/hYkaxUSoI1esfw=",
+      "GoModSum": "h1:lZmzCmDQ5hOA2C/gj/aucrl5YfJq+YxnsBzGhedKB7g="
+    },
+    {
+      "Path": "github.com/OpenUdon/schema",
+      "Version": "v0.0.0-20260507023912-6ea3308bb955",
+      "Time": "2026-05-07T02:39:12Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/uws",
+      "Version": "v0.0.0-20261009220914-f01a2542410c",
+      "Time": "2026-10-09T22:09:14Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/OpenUdon/uws/hcl",
+      "Version": "v0.0.0-20261008043726-b099f6803277",
+      "Time": "2026-10-08T04:37:26Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/agext/levenshtein",
+      "Version": "v1.2.3",
+      "Time": "2020-03-12T21:09:59Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/antchfx/xmlquery",
+      "Version": "v1.5.1",
+      "Time": "2026-03-21T05:57:45Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/antchfx/xpath",
+      "Version": "v1.3.6",
+      "Time": "2026-02-21T13:32:17Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/apparentlymart/go-cidr",
+      "Version": "v1.1.0",
+      "Time": "2020-07-07T23:17:15Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/apparentlymart/go-textseg/v15",
+      "Version": "v15.0.0",
+      "Time": "2023-08-29T15:35:34Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/bmatcuk/doublestar",
+      "Version": "v1.3.4",
+      "Time": "2020-11-19T00:35:16Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/davecgh/go-spew",
+      "Version": "v1.1.2-0.20180830191138-d8f796af33cc",
+      "Time": "2018-08-30T19:11:38Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/deckarep/golang-set/v2",
+      "Version": "v2.8.0",
+      "Time": "2025-03-14T21:27:26Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/dlclark/regexp2",
+      "Version": "v1.11.0",
+      "Time": "2024-02-24T02:28:33Z",
+      "Indirect": true,
+      "Dir": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/github.com/dlclark/regexp2@v1.11.0",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/dlclark/regexp2/@v/v1.11.0.mod",
+      "GoVersion": "1.13",
+      "Sum": "h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI=",
+      "GoModSum": "h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8="
+    },
+    {
+      "Path": "github.com/dustin/go-humanize",
+      "Version": "v1.0.1",
+      "Time": "2023-01-10T06:44:38Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/genelet/horizon",
+      "Version": "v1.14.5",
+      "Time": "2026-08-08T01:33:39Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/go-jose/go-jose/v3",
+      "Version": "v3.0.5",
+      "Time": "2026-03-31T23:52:59Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/go-stack/stack",
+      "Version": "v1.8.1",
+      "Time": "2021-08-18T18:48:21Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/go-test/deep",
+      "Version": "v1.1.1",
+      "Time": "2024-06-23T16:27:23Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/golang/groupcache",
+      "Version": "v0.0.0-20210331224755-41bb18bfe9da",
+      "Time": "2021-03-31T22:47:55Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/google/go-cmp",
+      "Version": "v0.7.0",
+      "Time": "2025-01-14T18:15:44Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/google/uuid",
+      "Version": "v1.6.0",
+      "Time": "2024-01-23T18:54:04Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/gowebpki/jcs",
+      "Version": "v1.0.2",
+      "Time": "2026-09-21T01:59:38Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/hashicorp/go-uuid",
+      "Version": "v1.0.3",
+      "Time": "2022-04-08T14:59:45Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/hashicorp/hcl/v2",
+      "Version": "v2.24.0",
+      "Time": "2025-07-07T13:00:56Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/mattn/go-isatty",
+      "Version": "v0.0.20",
+      "Time": "2023-10-17T07:28:21Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/mitchellh/go-homedir",
+      "Version": "v1.1.0",
+      "Time": "2019-01-27T04:21:35Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/mitchellh/go-wordwrap",
+      "Version": "v1.0.1",
+      "Time": "2020-09-25T18:08:01Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/mxschmitt/playwright-go",
+      "Version": "v0.6201.0",
+      "Time": "2026-08-12T21:27:10Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/ncruces/go-strftime",
+      "Version": "v1.0.0",
+      "Time": "2025-10-08T11:45:18Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/remyoudompheng/bigfft",
+      "Version": "v0.0.0-20230129092748-24d4a6f8daec",
+      "Time": "2023-01-29T09:27:48Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/rogpeppe/go-internal",
+      "Version": "v1.14.1",
+      "Time": "2025-02-25T12:37:03Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/santhosh-tekuri/jsonschema/v6",
+      "Version": "v6.0.2",
+      "Time": "2025-05-23T13:19:41Z",
+      "Dir": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/github.com/santhosh-tekuri/jsonschema/v6@v6.0.2",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/github.com/santhosh-tekuri/jsonschema/v6/@v/v6.0.2.mod",
+      "GoVersion": "1.21",
+      "Sum": "h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=",
+      "GoModSum": "h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU="
+    },
+    {
+      "Path": "github.com/theory/jsonpath",
+      "Version": "v0.12.0",
+      "Time": "2026-04-12T20:55:03Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/zclconf/go-cty",
+      "Version": "v1.18.1",
+      "Time": "2026-04-16T23:17:50Z",
+      "Indirect": true
+    },
+    {
+      "Path": "github.com/zclconf/go-cty-yaml",
+      "Version": "v1.1.0",
+      "Time": "2024-10-02T16:59:11Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/crypto",
+      "Version": "v0.53.0",
+      "Time": "2026-06-08T15:52:49Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/mod",
+      "Version": "v0.37.0",
+      "Time": "2026-06-08T15:10:58Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/net",
+      "Version": "v0.56.0",
+      "Time": "2026-06-09T16:58:42Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/sync",
+      "Version": "v0.21.0",
+      "Time": "2026-06-04T16:57:53Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/sys",
+      "Version": "v0.46.0",
+      "Time": "2026-05-27T14:14:43Z",
+      "Indirect": true
+    },
+    {
+      "Path": "golang.org/x/text",
+      "Version": "v0.39.0",
+      "Time": "2026-06-30T20:39:37Z",
+      "Indirect": true,
+      "Dir": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/golang.org/x/text@v0.39.0",
+      "GoMod": "/home/peter/Workspace/kinet.goal/stage12-coordinator/producer-module-preparation-20261010/ordinary-cache/cache/download/golang.org/x/text/@v/v0.39.0.mod",
+      "GoVersion": "1.25.0",
+      "Sum": "h1:UbZz4pLOvn600D6Oh6GGEI6VAmndrEBLv8/6BEXzyus=",
+      "GoModSum": "h1:3UwRclnC2g0TU9x8PZiyfOajCd1zaUNHF9cvqcQZ+ZM="
+    },
+    {
+      "Path": "golang.org/x/tools",
+      "Version": "v0.47.0",
+      "Time": "2026-06-25T17:02:32Z",
+      "Indirect": true
+    },
+    {
+      "Path": "google.golang.org/protobuf",
+      "Version": "v1.36.11",
+      "Time": "2025-12-12T08:48:31Z",
+      "Indirect": true
+    },
+    {
+      "Path": "gopkg.in/yaml.v3",
+      "Version": "v3.0.1",
+      "Time": "2022-05-27T08:35:30Z",
+      "Indirect": true
+    },
+    {
+      "Path": "modernc.org/libc",
+      "Version": "v1.72.0",
+      "Time": "2026-04-10T13:30:45Z",
+      "Indirect": true
+    },
+    {
+      "Path": "modernc.org/mathutil",
+      "Version": "v1.7.1",
+      "Time": "2024-12-26T12:13:25Z",
+      "Indirect": true
+    },
+    {
+      "Path": "modernc.org/memory",
+      "Version": "v1.11.0",
+      "Time": "2025-05-17T20:55:10Z",
+      "Indirect": true
+    },
+    {
+      "Path": "modernc.org/sqlite",
+      "Version": "v1.50.0",
+      "Time": "2026-04-24T19:40:02Z",
+      "Indirect": true
+    }
+  ],
+  "actual_compiled_BuildInfo": {
+    "GoVersion": "go1.26.6",
+    "Path": "example.invalid/stage13/p14consumer",
+    "Main": {
+      "Path": "example.invalid/stage13/p14consumer",
+      "Version": "(devel)"
+    },
+    "Deps": [
+      {
+        "Path": "github.com/OpenUdon/openudon",
+        "Version": "v0.1.1-0.20261025103923-e486fee4f8b8",
+        "Sum": "h1:Ol4B+LsHaZnL7ASGTgrZf5WeAuna/hYkaxUSoI1esfw="
+      },
+      {
+        "Path": "github.com/santhosh-tekuri/jsonschema/v6",
+        "Version": "v6.0.2",
+        "Sum": "h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ="
+      },
+      {
+        "Path": "golang.org/x/text",
+        "Version": "v0.39.0",
+        "Sum": "h1:UbZz4pLOvn600D6Oh6GGEI6VAmndrEBLv8/6BEXzyus="
+      }
+    ],
+    "Settings": [
+      {
+        "Key": "-buildmode",
+        "Value": "exe"
+      },
+      {
+        "Key": "-compiler",
+        "Value": "gc"
+      },
+      {
+        "Key": "CGO_ENABLED",
+        "Value": "1"
+      },
+      {
+        "Key": "CGO_CFLAGS"
+      },
+      {
+        "Key": "CGO_CPPFLAGS"
+      },
+      {
+        "Key": "CGO_CXXFLAGS"
+      },
+      {
+        "Key": "CGO_LDFLAGS"
+      },
+      {
+        "Key": "GOARCH",
+        "Value": "amd64"
+      },
+      {
+        "Key": "GOOS",
+        "Value": "linux"
+      },
+      {
+        "Key": "GOAMD64",
+        "Value": "v1"
+      }
+    ]
+  },
+  "selected_count": 57,
+  "compiled_count_including_main": 4,
+  "directory_replacements": 0,
+  "events": {
+    "RUN": 34,
+    "PASS": 34,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "conformance_cases": 33,
+  "reusable_fixture": "docs/fixtures/authoring-card-consumer",
+  "retention": "Original receipts/logs, exact cached module, two qualified owner worktrees and disposable consumer remain retained; none removed.",
+  "scope_limits": "Published producer and reusable ordinary typed/schema/text consumer only; actual Kinet W22/Ramen M136 adapters are downstream. No main/tags/deploy/live/private/browser or globally clean checker claim; publication grant ended after one exact push.",
+  "whole_review": {
+    "iteration": 2,
+    "candidate": "9241386a5b6710b846c82aefcb2250ba7a93ec4d",
+    "model": "gpt-6.1-sol",
+    "effort": "xhigh",
+    "all5coverage": true,
+    "P1": 0,
+    "P2": 0,
+    "P3": "P14-W3 stale corpus README wording resolved as historical during closure; no contract/corpus data or publication replay"
+  }
+}
