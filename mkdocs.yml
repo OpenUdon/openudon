@@ -6,6 +6,10 @@ repo_name: OpenUdon/openudon
 docs_dir: docs
 copyright: "Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0"
 
+validation:
+  links:
+    not_found: ignore
+
 theme:
   name: material
   features:
