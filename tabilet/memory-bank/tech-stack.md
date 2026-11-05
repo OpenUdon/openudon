@@ -1,5 +1,53 @@
 # Tech Stack
 
+## Verification and testing standards
+
+- **Test policy**: every test follows [test-policy.md](test-policy.md).
+  Historical qualification recipes below retain their pinned contexts and do
+  not prescribe current verification.
+- **Testing profile**: standard; no new wall-clock budget is introduced.
+- **Focused tests**: use the narrowest Go check while changing code, without
+  race or other slow variants. These preliminary runs are not row evidence.
+- **Row checks**: `GOWORK=off go build ./...`, `GOWORK=off go vet ./...`, then
+  test affected whole packages with `GOWORK=off go test` and `-timeout=10m`.
+  Resolve concrete package paths before running; include direct consumers for
+  contract changes.
+  Add affected race checks for concurrency changes. Record cached row results.
+- **Required gates / full regression**: `git diff --check`,
+  `make public-boundary`, `make check`, and
+  `GOWORK=off go test ./... -count=1 -timeout=10m`. The last command supplies
+  fresh full-suite evidence even when the Make target's tests were cached.
+  Keep compiler and dependency caches.
+- **Race/UI checks**: for changed concurrency and its direct consumers, use
+  `GOWORK=off go test -race` on the affected whole packages with
+  `-count=1 -timeout=10m`.
+  Current OpenUdon has no UI or physical-browser gate.
+- **Stage qualification**: none owned by the current OpenUdon horizon.
+  Kinet owns actual product/worker/browser adoption and its final qualification.
+  Future cross-package acceptance must retain its named owner and real pins.
+- **Timing and repetition**: run required gates immediately before whole review.
+  Reuse a passing class O gate only when all its inputs are unchanged; otherwise
+  rerun it fresh. Record full HEAD and a saved diff/hash for uncommitted inputs.
+- **Budget precedence**: existing stricter host, milestone and authorization
+  limits prevail; the 10-minute per-package test timeout retains the existing
+  CI backstop, not an allowance to increase a slow test's own deadline.
+- **Harness boundaries**: offline, credential-free public Go library tests,
+  small disposable fixtures and source/import/API guards. No current physical
+  browser, private worker or external supervising test controller.
+- **Execution cadence**: row checks before completion or task review; required
+  gates before whole review; focused fixes followed by affected checks.
+- **Replacement coverage**: retain meaningful success and failure coverage
+  through the successor when retiring an implementation.
+- **Acceptance readiness**: resolve required inputs, tools and authority early.
+  Class R checks keep named authority and the verification-attempt gate;
+  class O checks have no attempt counters apart from explicit grant budgets.
+- **REVIEW_MAX_ITERATIONS**: 10 (project cap). A lower approved request or
+  milestone limit wins. Raising this cap needs a separate explicit human
+  decision; the upgrade does not raise any effective limit.
+- **Approved other-language test tools**: none for current public-library
+  verification. Previously documented historical scripts retain their original
+  roles and do not become current test runners.
+
 ## P16 planned report qualification — 2026-10-28
 
 At baseline 3ed803c8593b06f8cb1b6d8962afc058e6da057f the strict decoder
@@ -1028,6 +1076,17 @@ evidence; trusted-public-key verification is the operator-identity claim.
 - Keep release note evidence in Markdown templates and ignored report paths; do not commit
   real-provider JSON/Markdown eval outputs.
 ## Harness Runner
+
+The separately installed runner accepts root IDs above 99, but its read-only
+snapshot at project HEAD `91f0774fc35a5198c205dbd8003545ead70e3fec` reports
+290 pre-existing history/structure problems, including unreadable legacy
+records, a reported missing M33 status record and history-index link cardinality.
+Runner/controller readiness and retirement compatibility are unresolved until
+a separate approved compatibility check/repair addresses these findings.
+Do not rewrite frozen records to make the upgrade pass. The controller remains
+serial, uses full reviews, keeps P2 blocking and its review ceiling at 10,
+and does not consume interactive goal grants or the open findings register.
+The command below is a documented entry point, not permission to launch it.
 
 ```bash
 ../skills/harness/tackle-memory-bank-api-loop --model lane-audit .

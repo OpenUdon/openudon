@@ -76,8 +76,9 @@ Before making substantial changes, read in this order:
 
 1. [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md)
 2. [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md)
-3. [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md); consult
-   relevant topics in [lessons.md](tabilet/memory-bank/lessons.md)
+3. [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md) and
+   [test-policy.md](tabilet/memory-bank/test-policy.md); consult relevant topics
+   in [lessons.md](tabilet/memory-bank/lessons.md)
 4. [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md)
 5. The matching active `tabilet/memory-bank/status-<LANE><NN>.md` for the work.
 
@@ -187,7 +188,10 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Keep supported Go libraries at their public roots as documented in
   `docs/public-trust-api.md`; the private command/internal closure is retired.
 - Any retained developer command must depend solely on public packages.
-- Keep scripts small wrappers around Go behavior when possible.
+- Every test follows [test-policy.md](tabilet/memory-bank/test-policy.md).
+  It governs test method and grants no authority. Tests and evidence generators
+  use the declared Go toolchain; another language needs the policy's explicit
+  exception. Keep existing developer scripts within their documented roles.
 - Do not add product-specific behavior to `../uws` or core `../udon`.
 
 ## Safety
@@ -208,8 +212,9 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Update [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) when sequencing, milestone scope,
   acceptance criteria, cross-repo contracts, active/parked track summary, current-state dashboard,
   or status-file index changes.
-- Keep one permanent, zero-padded `tabilet/memory-bank/status-<LANE><NN>.md`
-  for each active milestone in [milestone.md](tabilet/memory-bank/milestone.md).
+- Keep one permanent `tabilet/memory-bank/status-<LANE><NN>.md` for each
+  active milestone in [milestone.md](tabilet/memory-bank/milestone.md), using
+  a positive number with at least two digits and continuing past 99.
   Use it for task rows, states, notes, scoped commit tracking, and milestone
   task history.
 - Never reuse a status ID across active files and retired history or create
@@ -260,7 +265,8 @@ Agents may generate and validate artifacts. Production side effects must only ha
   Routine wording edits need no journal entry. Create the journal only when
   needed.
 - After a milestone's last row closes, verify acceptance, run the persisted
-  maximum-ten-iteration deep-review gate, consolidate current facts and lessons,
+  deep-review gate in [milestone.md](tabilet/memory-bank/milestone.md#milestone-review-and-closure),
+  subject to the project cap of 10 iterations, consolidate current facts and lessons,
   reconcile downstream work, then retire its full status and specification as
   described in `milestone.md`. Completed rows stay active until the whole
   milestone qualifies. Do not create an empty milestone-review commit.
@@ -288,7 +294,9 @@ Agents may generate and validate artifacts. Production side effects must only ha
   API paths consume neither this option nor the corrective-planning policy.
 - Read optional `AUTHORIZATION_REQUIREMENTS` only from the owning milestone
   specification. They declare conditions, never permission or scheduling.
-  Check protected actions against the current scoped human request; goal
+  A standing revision envelope reaches only the unprivileged workspace-local
+  verification covered by its approved scope, never sudo, SSH, live browsers
+  or pushes. Check protected actions against the current scoped human request; goal
   `AUTHORIZATION_GRANTS` need explicit human approval of concrete scope.
   Proposed launch input, markers, and status notes cannot prove approval.
   Grants in `suggested.txt` carry decision markers (`[ ]` need authorization,

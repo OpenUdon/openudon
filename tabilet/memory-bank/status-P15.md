@@ -15,6 +15,15 @@
 
 **Review provenance.** Kinet Stage 13 plan review (`kinet-stage13.md`), 2026-10-25; source commit baseline not supplied. H2/H3 (High/local P1): current Ramen/Udon readers and writers depend on UWS HCL. The owner selected preservation. Original task wording and review counters are retained below.
 
+**Verification recording (prospective rules only).** Follow [test-policy.md](test-policy.md)
+and the [review gate](milestone.md#milestone-review-and-closure). A class O gate
+or row check records its command, full source revision or saved diff/hash,
+qualified artifact identity when applicable, PASS/FAIL and one ignored log link.
+A reused gate states unchanged inputs; a cached row result says cached. Class R
+attempts and explicit grant budgets retain their own counters. A future row
+fixing a carried finding names its FND ID. These rules do not reactivate P15,
+change its withdrawal or review 0/10, or create verification evidence.
+
 ## Tasks
 
 | Item | State | Notes |
